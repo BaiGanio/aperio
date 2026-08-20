@@ -7,7 +7,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { validateFinding, validateRun, transitionFinding, SCHEMA } from "../scripts/schema.js";
+import { validateFinding, validateRun, transitionFinding, SCHEMA, DEFAULT_USAGE_SOURCE } from "../scripts/schema.js";
 
 const VALID_FINDING = {
   id: "F-001",
@@ -27,6 +27,7 @@ const VALID_FINDING = {
 };
 
 const VALID_RUN = {
+  runId: "A14-2026-08-20-01",
   baselineSha: "a".repeat(40),
   lens: "code reviewer",
   scope: "A14",
@@ -80,6 +81,41 @@ describe("audit/scripts/schema.js", () => {
 
   test("T3.1 — a complete run record validates clean", () => {
     assert.deepStrictEqual(validateRun(VALID_RUN), { valid: true, errors: [] });
+  });
+
+  test("T3.1 — usageSource is optional on a run record and enum-checked when present, " +
+    "so a canonical record composes with the T3.3 accounting layer unchanged", () => {
+    // Omitted: a run record is a record of a run that happened, so its tokens
+    // are the provider's. usage-accounting.js defaults it to DEFAULT_USAGE_SOURCE
+    // rather than rejecting the shape the plan's Step 3 lists.
+    assert.strictEqual(VALID_RUN.usageSource, undefined);
+    assert.deepStrictEqual(validateRun(VALID_RUN), { valid: true, errors: [] });
+    assert.strictEqual(DEFAULT_USAGE_SOURCE, "provider-reported");
+
+    for (const usageSource of SCHEMA.USAGE_SOURCES) {
+      assert.deepStrictEqual(validateRun({ ...VALID_RUN, usageSource }), { valid: true, errors: [] });
+    }
+
+    // Present but wrong is an error — a budget projection mislabelled here
+    // would be summed into the actual cost column and could never be undone.
+    const bad = validateRun({ ...VALID_RUN, usageSource: "guess" });
+    assert.strictEqual(bad.valid, false);
+    assert.ok(bad.errors.some((e) => e.includes("usageSource must be one of")));
+  });
+
+  test("T3.1 — runId must be a non-empty string, not merely present, because it is " +
+    "the address the T3.3 ledger de-duplicates by", () => {
+    for (const runId of [undefined, null, "", "   ", 0, 7, true, { id: "A14" }, ["A14"]]) {
+      const result = validateRun({ ...VALID_RUN, runId });
+      assert.strictEqual(result.valid, false, `runId ${JSON.stringify(runId)} was accepted`);
+      assert.ok(result.errors.some((e) => e.includes("runId")),
+        `expected an error naming runId, got: ${JSON.stringify(result.errors)}`);
+    }
+    // `runId: 0` is the sharp case: it clears the required-field check but
+    // usage-accounting.js reads it as absent, so the record would be
+    // schema-valid and unaddressable at the same time.
+    assert.ok(validateRun({ ...VALID_RUN, runId: 0 }).errors
+      .some((e) => e.includes("runId must be a non-empty string")));
   });
 
   test("T3.1 — a run missing token accounting is rejected per-field", () => {

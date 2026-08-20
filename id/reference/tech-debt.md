@@ -29,16 +29,39 @@ housekeeping go in `A2D.md`, not here.
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially
   built. T1 (repo-inventory baseline) and the Bootstrap milestone (T3.1, T4.4, T2.4,
-  T5.1) are real, checked-in, and green (`npm run test:audit`, 82 tests / 12 suites) —
+  T5.1) are real, checked-in, and green (`npm run test:audit`, 113 tests / 13 suites) —
   `audit/scripts/{inventory,schema,manifest,database-contract,config-contract,
   routes-contract,memory-contract,bootstrap-contract,provider-contract,
-  registry-contract}.js`. T2.1 (provider matrix) landed 2026-08-20 as
+  registry-contract,usage-accounting}.js`. T2.1 (provider matrix) landed 2026-08-20 as
   `provider-contract.js`; T2.3 closed the same day — its ctx half was already
   `memory-contract.js`, and the registry half landed as `registry-contract.js`
   (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-agent vs
-  standalone-MCP tool-name catalogs).
-  Still open: T3.3 (ledger persistence/usage-cost accounting) and T6–T9
-  (waves, journeys, triage, closeout).
+  standalone-MCP tool-name catalogs). T3.3 (usage accounting) landed 2026-08-20 as
+  `usage-accounting.js` — the aggregation layer over many `schema.js`-valid run
+  records, reusing `lib/pricing.js` and the real billing classifiers.
+  Still open: T3.3's *persistence* half — no audit ledger file exists yet, so
+  `checkUsageAccountingContract()` reconciles an empty record set by default and its
+  standing value comes from the source invariants it pins. T6–T9 (waves, journeys,
+  triage, closeout) are also still open.
+- 2026-08-20 **Cache-read and cache-write tokens have no published rate in
+  `lib/pricing.js`, and the two gaps have different consequences.** `getPricing()`
+  returns `{ in, out, contextWindow }` only.
+  - *Cache reads* can still be bounded: `usage-accounting.js` reports a cached run's
+    cost as an interval (cached tokens billed at 0 → `low`, at the full `in` rate →
+    `high`) and marks it `bounded`. Real cache-read rates are roughly a tenth of the
+    input rate, so the interval is wide but sound.
+  - *Cache writes* cannot be bounded at all, because they are billed **above** the
+    base input rate — pricing them at `in` would put the true cost outside the
+    interval. So a run with `tokens.cacheCreationInput > 0`, or one whose provider
+    reports cache writes and whose record omits the count, prices as `unknown`. In
+    practice that is every real Anthropic run with prompt caching on, which is a lot
+    of `unknown` rows.
+  Extending `lib/pricing.js` to carry OpenRouter's cache-read and cache-write rates
+  would collapse the interval to an exact cost and remove the `unknown`s; the
+  `price-sheet-has-no-cache-or-reasoning-rate` source invariant fails the day a rate
+  is added, which is the prompt to do it. Reasoning tokens need no rate — they are a
+  breakdown of the output count on every provider Aperio talks to, so they are already
+  billed at the output rate and are reported, never summed.
 
 ---
 

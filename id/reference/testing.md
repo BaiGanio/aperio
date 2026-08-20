@@ -74,14 +74,62 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   `REVIEWED_AUTH_EXEMPTIONS`, `REVIEWED_CAPABILITY_EXEMPTIONS`) and are honoured
   only while their stated reason still holds in the code — an exemption whose
   justification has gone stale fails the gate rather than passing quietly
-- 10 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
+- 11 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
   `config-contract`, `routes-contract`, `memory-contract`,
-  `bootstrap-contract`, `provider-contract`, `registry-contract`
-- One deliberate exception to "source-level by design": `registry-contract`
-  calls the real `mcp/tools/*.js` `register()` functions against a mock server
-  to collect tool names, because `memory.js` registers from a spec loop
-  (`server.registerTool(tool.name, …)`) that no regex can read. Its wiring and
-  catalog comparisons are still source-level
+  `bootstrap-contract`, `provider-contract`, `registry-contract`,
+  `usage-accounting`
+- Two deliberate exceptions to "source-level by design":
+  - `registry-contract` calls the real `mcp/tools/*.js` `register()` functions
+    against a mock server to collect tool names, because `memory.js` registers
+    from a spec loop (`server.registerTool(tool.name, …)`) that no regex can
+    read. Its wiring and catalog comparisons are still source-level
+  - `usage-accounting` imports the real `getPricing()` and the real
+    `isLocalProvider()`/`isSubscriptionProvider()` rather than re-deriving a
+    price table or a billing rule. It never warms the pricing cache (that is a
+    network fetch), so a cold cache reports `unknown` — never zero — and the
+    gate's verdict does not depend on cache state. Its model resolver follows
+    `getPricing()`'s alias semantics, date-suffix strip included, with one
+    deliberate difference: an alias that could name more than one model is
+    `unknown` rather than a coin flip, so it can only ever be more conservative
+    than the runtime lookup. The invariants its arithmetic rests on (cached
+    input ⊆ input, reasoning ⊆ output, no cache-read rate on the price sheet,
+    billing flags on every provider announce) are checked as source markers.
+    The billing-flag rule is scoped to each announce payload, with no trigger
+    condition: an omitted flag does not reset the UI, it keeps the previous
+    provider's billing class, so an announce that drops pricing *and* the flags
+    is the dangerous one. `lib/agent/providers/llamacpp.js`'s sparse
+    same-provider re-announce is the one reviewed exemption, re-checked against
+    `isLocalProvider()`. That exemption is scoped to that single payload, not to
+    the file: it names the announce by a marker that must match exactly one
+    announce there, so a second announce in the same file is still judged on its
+    own, a further omission in the reviewed one is still reported, and the
+    exemption goes red the day the announce it was written about disappears
+- `usage-accounting` is the aggregation layer over `schema.js`: a run record
+  `validateRun()` accepts reconciles there unchanged. The `usageSource` enum is
+  owned by `schema.js` and imported, so the two layers cannot drift; it is
+  optional on a run record (an omitted value means `provider-reported`, and the
+  reconciled row reports `usageSourceDefaulted`) because a run record is by
+  construction a record of a run that happened. `runId` runs the other way —
+  required by the schema, because the accounting layer has to address a row and
+  reject the same run arriving twice through a merge or replay
+- A rejected record never reaches a total. Any per-record error — a duplicate,
+  an unaddressable `runId`, an out-of-enum `usageSource`, broken token subsets,
+  a negative hand-entered rate — leaves the row visible and marked `excluded`
+  while its tokens and cost stay out of every bucket. The row still exists, so
+  nothing is hidden; the number nobody reads the errors beside stays right
+- Totals nest usage source first, billing class second
+  (`totals.actual.api`, `totals.estimated.local`, …). The other order let an
+  estimated local run share a bucket with a real one, so "actual non-API usage"
+  silently included a projection. Nothing is summed across the two columns, only
+  `.api` carries a cost, and the non-API buckets report `cost: null` rather than
+  `$0` — a zero total would be a claim
+- Cost is an interval, never a fabricated point. Cache **reads** have no
+  published rate, so they bound it (`low` bills them at 0, `high` at the full
+  input rate). Cache **writes** are billed *above* the input rate, so the rates
+  on the sheet cannot bound them at all: a run with cache-creation tokens — or
+  one whose provider reports them and whose record does not state the count —
+  prices as `unknown`. Which providers report cache writes is derived from the
+  real provider loops, not hardcoded
 - Runs in ~2s total via `npm run test:audit`
 - The remaining unbuilt gates from the program's own test plan are tracked in
   `id/reference/tech-debt.md`

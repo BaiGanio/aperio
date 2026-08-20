@@ -34,11 +34,32 @@ const FINDING_REQUIRED_FIELDS = [
   "status",
 ];
 
+// `runId` is the run's stable address, the counterpart of a finding's `id`.
+// The plan's Step 3 field list describes the CONTENT of one run record and does
+// not name it, because a single record needs no handle — but Step 3 also says
+// "store one immutable run record per slice", and a ledger of many records has
+// to be able to say which one it means, and to notice the same run arriving
+// twice through a merge or a replay. usage-accounting.js (T3.3) enforces that
+// uniqueness, so the address has to be required here rather than optional.
 const RUN_REQUIRED_FIELDS = [
-  "baselineSha", "lens", "scope", "filesRead", "commandsRun",
+  "runId", "baselineSha", "lens", "scope", "filesRead", "commandsRun",
   "model", "provider", "tokens", "candidates", "confirmedFindings",
   "rejectedCandidates", "residualUncertainty", "elapsedMs",
 ];
+
+// Where a record's token counts came from. OPTIONAL on a run record, because a
+// run record is by construction a record of a run that actually happened — it
+// carries a baselineSha, the commands that were run, and an elapsed time — so
+// its tokens are the ones the provider reported. usage-accounting.js (T3.3)
+// therefore defaults a missing value to DEFAULT_USAGE_SOURCE rather than
+// rejecting the canonical record shape the plan's Step 3 lists.
+//
+// The field exists so a BUDGET line — a projection from the plan's §4 envelope,
+// which is not a run and has no baselineSha — can be reconciled in the same
+// ledger without ever being added into the actual column. Setting it is how an
+// estimate declares itself; the default is only safe in the other direction.
+const USAGE_SOURCES = ["provider-reported", "estimated"];
+export const DEFAULT_USAGE_SOURCE = "provider-reported";
 
 function missingFields(record, required) {
   return required.filter((f) => record[f] === undefined || record[f] === null || record[f] === "");
@@ -82,12 +103,26 @@ export function validateRun(run) {
     (f) => `missing required field: ${f}`
   )];
 
+  // Required is not enough for an ADDRESS. `runId: 0` clears the required check
+  // and is then read as absent by usage-accounting.js's truthiness test, and
+  // `runId: {}` or `["A14"]` would make two records that name the same run
+  // distinct Set members, so a merged ledger would double-count instead of
+  // reporting a duplicate. The address has to be a real, comparable string.
+  if (run.runId !== undefined && run.runId !== null &&
+      (typeof run.runId !== "string" || run.runId.trim() === "")) {
+    errors.push(`runId must be a non-empty string (it is the run's stable address, compared ` +
+      `by value to detect duplicates), got ${JSON.stringify(run.runId)}`);
+  }
   if (run.tokens !== undefined) {
     for (const key of ["input", "cachedInput", "reasoning", "output"]) {
       if (typeof run.tokens[key] !== "number") {
         errors.push(`tokens.${key} must be a number (0 if not applicable), got ${JSON.stringify(run.tokens?.[key])}`);
       }
     }
+  }
+  if (run.usageSource !== undefined && !USAGE_SOURCES.includes(run.usageSource)) {
+    errors.push(`usageSource must be one of ${USAGE_SOURCES.join("/")} when present ` +
+      `(omit it to mean "${DEFAULT_USAGE_SOURCE}"), got ${JSON.stringify(run.usageSource)}`);
   }
   if (run.candidates !== undefined && !Array.isArray(run.candidates)) errors.push("candidates must be an array");
   if (run.confirmedFindings !== undefined && !Array.isArray(run.confirmedFindings)) {
@@ -122,4 +157,7 @@ export function transitionFinding(finding, toStatus) {
 export const SCHEMA = {
   SEVERITIES, CONFIDENCES, STATUSES, TRANSITIONS,
   FINDING_REQUIRED_FIELDS, RUN_REQUIRED_FIELDS,
+  USAGE_SOURCES, DEFAULT_USAGE_SOURCE,
 };
+
+export { USAGE_SOURCES };

@@ -11,6 +11,67 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Continuous audit: a usage-accounting gate (T3.3).** `audit/scripts/schema.js`
+  validates one run record and stops; this is the layer above it, reconciling many
+  records into a cost ledger that never invents a number. Local and subscription
+  runs are labeled and left unpriced — the invariant
+  `lib/providers/index.js` already states ("No per-token $ estimate should ever be
+  shown for these — it would be fiction, not a guide") — a model with no published
+  rate reports `unknown` rather than zero, and estimated usage is kept in its own
+  column so it can never be mistaken for an actual. Prices come from the real
+  `lib/pricing.js`; the gate never warms its OpenRouter cache, so its verdict does
+  not depend on a network fetch. Because that price sheet carries no cache-read
+  rate, a run served partly from cache reports a cost *interval* (cached tokens at
+  0 → low, at the full input rate → high) instead of a fabricated point, and
+  reasoning tokens — a breakdown of the output count, not an addition to it — are
+  reported but never billed on top. The four source facts that arithmetic rests on
+  are pinned as gate markers, including that both WebSocket provider announces
+  carry the billing flags: a mid-session switch that re-announces `costRates`
+  without them would leave a Claude Code session showing the previous provider's
+  dollar figure — and that one is checked per announce payload with no trigger
+  condition, because an omitted flag does not reset the display, it keeps the
+  previous provider's billing class. The one reviewed exemption (llama.cpp's
+  sparse same-provider re-announce) is scoped to that single payload rather than
+  to its file, so a second announce added there is still judged on its own and
+  the exemption goes red once the announce it was written about is gone. The
+  billing classes are checked by
+  membership rather than by
+  non-emptiness — dropping `claude-code` while `codex` remains would leave every
+  Claude Code run reconciled as billable API usage — and the model resolver
+  mirrors `getPricing()`'s aliases (dated suffixes included) while refusing to
+  price an alias that could name more than one model. Cache *writes* get the one
+  verdict the interval cannot cover: they are billed above the base input rate,
+  so a run carrying them prices as `unknown` rather than as a bound that does
+  not contain the true cost. A loop whose source cannot be read is assumed to
+  report cache writes and named as an error, because the absence of a marker in
+  a file nobody could open is not evidence that the marker is gone. Duplicate
+  run IDs are rejected before aggregation, so a merged or replayed ledger cannot
+  double-count a run — and so is every other rejected record: an invalid row is
+  priced, marked `excluded`, and left out of the totals rather than summed under
+  its own error message. Totals nest usage
+  source first and billing class second, so a planning estimate for a local or
+  subscription pass cannot inflate the actual non-API token totals. The
+  aggregate obeys the same rule as the rows: a bucket holding an unpriced run
+  reports `partial` and a bucket where nothing could be priced reports
+  `unknown`, never a dollar figure — the priced rows' interval stays visible
+  under `pricedSubsetCost`, which names how many rows it covers. Otherwise the
+  common case, a cold pricing cache where every model is unknown, would have
+  reported the audit's cost as `$0`.
+
+### Changed
+
+- **The audit run schema gained an address and a usage source.**
+  `audit/scripts/schema.js` now requires `runId` as a non-empty string — the
+  run's counterpart of a finding's `id`, needed so a ledger of many records can
+  say which run it means and reject the same one arriving twice, which only
+  works if the address compares by value (two equal objects would be two
+  different Set members, and `runId: 0` would be schema-valid yet unaddressable)
+  — and accepts an optional, enum-checked
+  `usageSource` so the T3.3 accounting layer can keep planning estimates out of
+  the actual cost column. `usageSource` is optional because a run record is by
+  construction a record of a run that happened: omitting it means
+  `provider-reported`.
+
 - **Continuous audit: an MCP tool-registry completeness gate (T2.3).** A file
   in `mcp/tools/` registers its tools against whatever server object it is
   handed, so a module can be complete, tested and reachable through
