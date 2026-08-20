@@ -21,6 +21,10 @@ routes:
     href: "restore"
     label: "Restore a backup"
     desc: "Bring memories back on a new computer"
+  - num: "04"
+    href: "uninstall"
+    label: "Uninstall Aperio"
+    desc: "Remove Aperio and decide what to keep"
 ---
 
 # <span class="kicker">Part 1</span> Keep something extra private {#keep-private}
@@ -88,3 +92,34 @@ Reinstalled Aperio, or set it up on a different computer? Point it at your backu
 <div class="note-box"><span class="label">Worth knowing</span>Restoring is safe to run more than once — Aperio matches memories and wiki pages by their own ID, so nothing gets duplicated.</div>
 
 You've now marked what should stay private, backed up everything Aperio remembers, and proven you can bring it back. However you use Aperio from here, your memories are yours to keep — and now, yours to protect.
+
+<div class="next-link"><span class="label">Next</span>Uninstall Aperio</div>
+
+# <span class="kicker">Part 4</span> Uninstall Aperio {#uninstall}
+
+<p class="promise">After this page, Aperio and everything it installed are gone from your computer — except the parts you choose to keep.</p>
+
+Everything Aperio installs is contained in its own folder, except Node.js. Back up your memories first (Part 2) if you plan to reinstall or move to a new computer.
+
+<ol class="steps">
+<li><strong>Windows:</strong> double-click <code>uninstall.bat</code> in the Aperio folder.</li>
+<li><strong>macOS / Linux:</strong> run <code>bash uninstall.sh</code> in the Aperio folder.</li>
+<li>The uninstaller stops the server, removes Aperio's engine, dependencies, database, and logs, and deletes the Desktop launcher. It offers to also delete the downloaded AI model.</li>
+<li>Delete the Aperio folder itself once the uninstaller finishes.</li>
+</ol>
+
+<div class="done-check"><span class="label">Done looks like</span>The Aperio folder is gone, and the Desktop launcher icon is gone. Node.js stays on your computer — the uninstaller never removes it, in case another app needs it.</div>
+
+<table class="ref-table">
+<caption>What gets installed, and what the uninstaller removes</caption>
+<thead><tr><th>Thing</th><th>Where</th><th>Removed by uninstaller?</th></tr></thead>
+<tbody>
+<tr><td>llama.cpp engine</td><td>Inside the app folder</td><td>Yes</td></tr>
+<tr><td>AI model</td><td>Shared Hugging Face cache, outside the app folder</td><td>Offered, not automatic — shared with other tools</td></tr>
+<tr><td>Dependencies</td><td>Inside the app folder</td><td>Yes</td></tr>
+<tr><td>Memory database, logs, settings</td><td>Inside the app folder</td><td>Yes</td></tr>
+<tr><td>Node.js</td><td>System-wide</td><td>No — kept in case you use it elsewhere</td></tr>
+</tbody>
+</table>
+
+<blockquote class="snag"><p><strong>I want my memories back after uninstalling.</strong> Use the backup file from Part 2 to restore them, the same way described in Part 3 — on this computer or a new one.</p></blockquote>

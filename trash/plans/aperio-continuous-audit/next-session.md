@@ -2,13 +2,14 @@
 
 ## Run 2 Status
 
-**OPEN — audit done, human triage pending.** 4 priority slices audited (A06, A17, A03, A13),
-6 findings confirmed (2 high-severity: secret redaction gap F-R2-01, GitHub webhook fully
-broken F-R2-05). Full detail: `aperio-continuous-audit-progress.md` Run 2 section (top of file),
-`audit/runs/run-002/findings.json`, `audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
+**CLOSED 2026-08-17 — all 6 findings fixed and issues closed.** 4 priority slices audited
+(A06, A17, A03, A13). F-R2-01 (#470), F-R2-02 (#473), F-R2-04 (#472), F-R2-05 (#471),
+F-R2-06 (#474), F-R2-07 (#475) — all shipped fixes with regression tests, all issues closed.
+Full detail: `aperio-continuous-audit-progress.md` Run 2 section (top of file),
+`trash/audits/continuous-audit/runs/run-002/findings.json`,
+`trash/audits/continuous-audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
 
-**Before Run 3 starts:** triage the 6 Run 2 findings (duplicate/rejected/accepted-risk/
-documentation-only/planned/issue-filed) — see the progress file's Run 2 "Next action" section.
+Run 3 can start clean — no open findings to triage first.
 
 ## Run 1 Status
 
@@ -23,18 +24,18 @@ Progress report at `trash/plans/aperio-continuous-audit/aperio-continuous-audit-
 
 ## Run 1 key artifacts
 
-- `audit/runs/run-001/baseline.json` — frozen repo snapshot
-- `audit/runs/run-001/matrix.json` — boundary matrix (7×5)
-- `audit/runs/run-001/journeys/journey-{1..12}.md` — journey reports
-- `audit/runs/run-001/journeys/contract-result.json` — contract verification (8 invariant groups, 55+ checks)
-- `audit/runs/run-001/A14/` — database parity evidence
+- `trash/audits/continuous-audit/runs/run-001/baseline.json` — frozen repo snapshot
+- `trash/audits/continuous-audit/runs/run-001/matrix.json` — boundary matrix (7×5)
+- `trash/audits/continuous-audit/runs/run-001/journeys/journey-{1..12}.md` — journey reports
+- `trash/audits/continuous-audit/runs/run-001/journeys/contract-result.json` — contract verification (8 invariant groups, 55+ checks)
+- `trash/audits/continuous-audit/runs/run-001/A14/` — database parity evidence
 
 ## What to do in Run 3
 
 ### Priority order
 
-1. **Triage the 6 Run 2 findings first** (see Run 2 Status above) — don't start new audit slices with open findings sitting untriaged.
-2. **Remaining slices** A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 of 22), same risk-based prioritization approach used for Run 2's A06/A17/A03/A13 pick.
+Pick 4–6 of the remaining slices: A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 of 22),
+same risk-based prioritization approach used for Run 2's A06/A17/A03/A13 pick.
 
 ### Run 2 priority order (done — kept for reference)
 
@@ -55,6 +56,5 @@ Progress report at `trash/plans/aperio-continuous-audit/aperio-continuous-audit-
 - `trash/plans/aperio-continuous-audit/aperio-continuous-audit.md` — full plan (22 slices, procedure, token budget)
 - `trash/plans/aperio-continuous-audit/2dev.md` — developer playbook (session-by-session instructions)
 - `trash/plans/aperio-continuous-audit/aperio-continuous-audit-progress.md` — Run 1 closeout + Run 2 template
-- `audit/README.md` — how to run things
 - `audit/scripts/inventory.js` — deterministic repo snapshot
 - `audit/scripts/schema.js` — finding record validation

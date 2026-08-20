@@ -18,6 +18,7 @@
 
 import { evaluateAnswer, parseCategoryClaims } from "../fixtures/household-gen/harness-gate.mjs";
 import { phantomWriteClaims } from "./write-claims.mjs";
+import { phantomReadClaims } from "./read-claims.mjs";
 import { computeProvenanceSuccess } from "./provenance-ladder.mjs";
 import {
   hasNarratedDecimalTotal,
@@ -254,6 +255,19 @@ export function gradePhase({
       fail(
         "T-G2.3",
         `answer claims ${v.currency} rows were written but no confirmed INSERT carried a single ${v.currency} tuple: "${v.claim}"`,
+      );
+    }
+
+    // Read side of the same coin: a db_query against a table this run can
+    // account for neither by CREATEing it nor by discovering it via db_schema.
+    // No prose involved — the SQL itself is the evidence. See read-claims.mjs
+    // for why the built-in `aperio` connection is excluded outright.
+    const phantomReads = phantomReadClaims({ toolCalls: allToolCalls });
+    checks.noPhantomReadClaims = phantomReads.length === 0;
+    for (const v of phantomReads) {
+      fail(
+        "T-G2.3",
+        `db_query on connection "${v.connection}" read from table "${v.table}", which this run never created or discovered via db_schema: ${v.sql}`,
       );
     }
 

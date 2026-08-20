@@ -21,6 +21,10 @@ routes:
     href: "recall"
     label: "Prove it recalls"
     desc: "A new conversation, same memory"
+  - num: "04"
+    href: "troubleshooting"
+    label: "Troubleshooting"
+    desc: "Fix common first-run snags"
 ---
 
 # <span class="kicker">Part 1</span> Install Aperio {#install}
@@ -93,3 +97,17 @@ Close the conversation from Part 2 completely. Start a new one. Ask a related qu
 <blockquote class="snag"><p><strong>It remembers the wrong thing.</strong> Memories can be edited or removed from the same memory list.</p></blockquote>
 
 You've now installed Aperio, talked to it, and proven recall works — all inside Aperio itself. Want that same memory available inside Claude, Codex, or another AI tool you already use? That's a separate step, covered in the *Connecting Aperio to your world* topic. The *Everyday memory* topic goes further on organizing memories and what Aperio tracks day to day.
+
+<div class="next-link"><span class="label">Next</span>Troubleshooting</div>
+
+# <span class="kicker">Part 4</span> Troubleshooting {#troubleshooting}
+
+<p class="promise">After this page, you'll know how to fix the handful of snags that catch most people during their first run.</p>
+
+Most first-run problems come down to one of a few things. Check here before asking for help.
+
+<blockquote class="snag"><p><strong>The setup page looks broken, or buttons do nothing.</strong> You likely opened <code>setup.html</code> directly as a file. Close that tab and start Aperio with <strong>START</strong> instead — the correct address is <code>http://localhost:31337</code>.</p></blockquote>
+<blockquote class="snag"><p><strong>"Port 31337 is already in use."</strong> Aperio may already be running — open <code>http://localhost:31337</code> in your browser. If not, close the old launcher window and start Aperio again.</p></blockquote>
+<blockquote class="snag"><p><strong>AI responses are very slow.</strong> The chosen local model may be large for your computer's memory. In <strong>Settings → Configuration</strong>, switch to a smaller local model.</p></blockquote>
+
+<div class="note-box"><span class="label">Still stuck?</span>Open the in-app Help page, linked from the setup finish screen, or ask in Aperio's GitHub Discussions.</div>

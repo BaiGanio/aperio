@@ -40,7 +40,8 @@ const HEADER = `# Aperio — configuration bootstrap (AUTO-GENERATED)
 # grouped by how risky it is to touch. Only the START HERE block is normally edited.
 # The same inventory, as readable markdown, is in ${REF_LINK}.
 # Copy to \`.env\`, edit the START HERE values, and run \`npm start\`.
-# .env wins when APERIO_CONFIG_PRECEDENCE=env (the active default below).
+# As shipped this runs fully local — llama.cpp + SQLite, no keys needed.
+# The Settings UI wins over .env by default; see APERIO_CONFIG_PRECEDENCE below to flip that.
 # Use \`npm run gen:env:check\` to detect drift.`;
 
 const BANNER = `# ╶───────────────────────────────────────────────────────────╴
