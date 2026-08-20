@@ -58,6 +58,29 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   (temporarily break an event name, confirm the suite goes red, revert) that
   proves the net has real teeth
 
+### Audit gates (`audit/`)
+- Structural drift gates for the continuous-audit program, kept outside
+  `tests/` because they assert about the repository itself rather than about a
+  module's behavior: each script reads real source files and reconciles the
+  places that must agree, so a change made in one place and forgotten in
+  another fails loud instead of at runtime
+- Source-level by design — importing the real subsystems would pull in SDKs and
+  side effects, and the drift being caught is textual (a branch, a registry
+  entry, or a migration mirror that was never added)
+- Every script exports a pure `check*` function taking injectable inputs, so a
+  drift fixture is driven without touching the repo, plus a `check*Contract()`
+  that reads the real tree; each has a red/green proof test (T5.1)
+- Reviewed exceptions are registries inside the script (e.g.
+  `REVIEWED_AUTH_EXEMPTIONS`, `REVIEWED_CAPABILITY_EXEMPTIONS`) and are honoured
+  only while their stated reason still holds in the code — an exemption whose
+  justification has gone stale fails the gate rather than passing quietly
+- 9 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
+  `config-contract`, `routes-contract`, `memory-contract`,
+  `bootstrap-contract`, `provider-contract`
+- Runs in ~2s total via `npm run test:audit`
+- The remaining unbuilt gates from the program's own test plan are tracked in
+  `id/reference/tech-debt.md`
+
 ## Mocking Policy
 
 All tests must mock external dependencies instead of using real
@@ -92,6 +115,9 @@ npm test                       # All tests (unit + integration + e2e + harness)
 npm run test:unit              # Unit tests only (tests/unit/)
 npm run test:integration       # Integration tests only (tests/integration/)
 npm run test:harness           # Deterministic assistant-behavior harness (tests/harness/)
+npm run test:audit             # Structural drift gates (audit/)
+npm run test:audit:inventory   # Repo-inventory baseline only
+npm run test:audit:schema      # Finding-schema gate only
 npm run test:skills            # skills integration tests
 npm run test:store             # store integration tests
 npm run test:memory            # tools memory unit tests

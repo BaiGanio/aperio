@@ -11,6 +11,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Continuous audit: a provider contract matrix gate (T2.1).** Six provider
+  loops are reached through five stages — `KNOWN_PROVIDERS`,
+  `resolveProvider()`, the dispatch ladder in `lib/agent/index.js`, the loop
+  module itself, and `AI_PROVIDER`'s options in the config registry — and a
+  provider added to one and forgotten in another is not a compile error: an
+  unknown name resolves to `not-configured`, and a resolvable name with no
+  dispatch branch throws only when a real turn runs. `npm run test:audit` now
+  reconciles all five by name and checks that every loop still implements the
+  three cross-provider contracts (usage reporting, abort, egress redaction),
+  with reviewed exemptions honoured only while their stated reason still holds
+  in the code — llama.cpp's redaction exemption is re-checked against
+  `isLocalProvider()` on every run.
+
 - **Document-intelligence: a deterministic guard against blending currencies
   in a final answer.** Rewording `SKILL.md`'s "never blend, never convert"
   rule twice was measured, live, to not be enough — a model that got every

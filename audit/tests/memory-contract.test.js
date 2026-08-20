@@ -14,7 +14,9 @@ describe("audit/scripts/memory-contract.js", () => {
     const known = knownCtxFields();
     assert.deepStrictEqual(
       [...known].sort(),
-      ["embeddingQueue", "generateEmbedding", "providerIsLocal", "store", "vectorEnabled"]
+      // selfEmbeddingQueue joined the ctx shape in 6e9c5427 (self-memory embed
+      // retry); this snapshot is the gate's own tripwire for that change.
+      ["embeddingQueue", "generateEmbedding", "providerIsLocal", "selfEmbeddingQueue", "store", "vectorEnabled"]
     );
   });
 

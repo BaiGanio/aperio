@@ -29,12 +29,13 @@ housekeeping go in `A2D.md`, not here.
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially
   built. T1 (repo-inventory baseline) and the Bootstrap milestone (T3.1, T4.4, T2.4,
-  T5.1) are real, checked-in, and green (`npm run test:audit`, 53 tests / 10 suites) —
+  T5.1) are real, checked-in, and green (`npm run test:audit`, 66 tests / 11 suites) —
   `audit/scripts/{inventory,schema,manifest,database-contract,config-contract,
-  routes-contract,memory-contract,bootstrap-contract}.js`.
-  Still open: T2.1 (provider matrix), the rest of T2.3 (general MCP tool-registry
-  completeness beyond the memory/wiki family), T3.3 (ledger persistence/usage-cost
-  accounting), T6–T9 (waves, journeys, triage, closeout).
+  routes-contract,memory-contract,bootstrap-contract,provider-contract}.js`.
+  T2.1 (provider matrix) landed 2026-08-20 as `audit/scripts/provider-contract.js`.
+  Still open: the rest of T2.3 (general MCP tool-registry completeness beyond the
+  memory/wiki family), T3.3 (ledger persistence/usage-cost accounting), T6–T9
+  (waves, journeys, triage, closeout).
 
 ---
 

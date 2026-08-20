@@ -129,7 +129,7 @@ Verify: run path tests AND manually test `..` segments, symlinks, absolute paths
 ### `mcp/index.js` — MCP Tool Context (`ctx`)
 The `ctx` object shape is shared by every tool registration. Adding/removing/renaming
 a field in `createContext()` silently breaks tools. Contains: `store`, `generateEmbedding`,
-`vectorEnabled()`, `embeddingQueue`, `providerIsLocal`.
+`vectorEnabled()`, `embeddingQueue`, `selfEmbeddingQueue`, `providerIsLocal`.
 Verify: run `npm run test:memory` + tool tests for any ctx field touched.
 
 ## Module Coupling Map
