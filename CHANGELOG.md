@@ -11,6 +11,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Continuous audit: an MCP tool-registry completeness gate (T2.3).** A file
+  in `mcp/tools/` registers its tools against whatever server object it is
+  handed, so a module can be complete, tested and reachable through
+  `TOOL_PROFILES` while `mcp/index.js` never imports it — and the existing
+  coverage test reads the tools directory itself, so it passes on a module the
+  real host never wires in. `npm run test:audit` now reconciles the directory,
+  `mcp/index.js`'s positional import/registrar/call wiring, and the two tool
+  catalogs a tool can live in: the standalone MCP host's, and the in-process
+  agent's (the same plus `lib/agent/mcp-connect.js`'s host tools). That
+  comparison also gates the two silent resolutions `registerHostTools()`
+  performs — a non-override host tool colliding with an MCP name throws
+  "Duplicate tool name" at every agent boot, and an override host tool whose
+  MCP twin disappears is dropped with a bare `continue`. `index_folder` is the
+  one internal-only tool on record, and its exemption is re-checked against the
+  real MCP catalog on every run.
+
 - **Continuous audit: a provider contract matrix gate (T2.1).** Six provider
   loops are reached through five stages — `KNOWN_PROVIDERS`,
   `resolveProvider()`, the dispatch ladder in `lib/agent/index.js`, the loop

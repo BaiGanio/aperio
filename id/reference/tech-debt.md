@@ -29,12 +29,15 @@ housekeeping go in `A2D.md`, not here.
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially
   built. T1 (repo-inventory baseline) and the Bootstrap milestone (T3.1, T4.4, T2.4,
-  T5.1) are real, checked-in, and green (`npm run test:audit`, 66 tests / 11 suites) —
+  T5.1) are real, checked-in, and green (`npm run test:audit`, 82 tests / 12 suites) —
   `audit/scripts/{inventory,schema,manifest,database-contract,config-contract,
-  routes-contract,memory-contract,bootstrap-contract,provider-contract}.js`.
-  T2.1 (provider matrix) landed 2026-08-20 as `audit/scripts/provider-contract.js`.
-  Still open: the rest of T2.3 (general MCP tool-registry completeness beyond the
-  memory/wiki family), T3.3 (ledger persistence/usage-cost accounting), T6–T9
+  routes-contract,memory-contract,bootstrap-contract,provider-contract,
+  registry-contract}.js`. T2.1 (provider matrix) landed 2026-08-20 as
+  `provider-contract.js`; T2.3 closed the same day — its ctx half was already
+  `memory-contract.js`, and the registry half landed as `registry-contract.js`
+  (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-agent vs
+  standalone-MCP tool-name catalogs).
+  Still open: T3.3 (ledger persistence/usage-cost accounting) and T6–T9
   (waves, journeys, triage, closeout).
 
 ---
@@ -176,34 +179,6 @@ these are the model, not the rig.
   survive arithmetic. The transcript was overwritten before the per-run
   archive existed, so the true shape is unrecoverable and the new rule is
   aimed at the documented duplication shapes rather than at that run.
-- 2026-08-13 **The EUR row lands as `Uncategorized`/`Travel-Other` (196.40 EUR)
-  while every BGN row is categorized.** ~~Currently ungraded~~ **Now graded, and
-  the attribution was wrong: this is not model behaviour.** Filed under this
-  heading originally; it belongs to the deterministic pipeline. `CATEGORY_RULES`
-  (`lib/docgraph/facts/contract.js:78-95`) has no Travel or Accommodation
-  category at all and its patterns are Bulgarian + English by construction (the
-  docstring says so: "a starting taxonomy, not a claim of universal coverage"),
-  so `classifyCategory()` returns `null` for June's three EUR documents — a
-  German train ticket, a German hotel bill and a French airport café — and
-  `aggregate.js`'s `UNCATEGORIZED` bucket takes them. Verified by running the
-  real classifier against all three: `{category: null, score: 0}` each. Round
-  12's answer table even labels it `**Uncategorized** (Travel/Lodging)` — the
-  model knew what the charges were and was relaying Aperio's own bucket name.
-  The oracle disagrees with that bucket: `other_currency_totals.EUR` is 196.40
-  over 3 documents and every one of them is `category: "Travel"`.
-  **Graded 2026-08-13**: `buildExpectations` now derives `otherCurrencies` from
-  the oracle, and the provenance phase gained `foreignCurrencyRowsCategorized`
-  — structural, reading the row objects a `db_query` came back with rather than
-  the answer prose, deliberately, because three of this gate's checks are
-  already substring tests over prose and two of them invalidated whole runs (see
-  the grader section above). Containment against the oracle's own category, so
-  `Travel-Other` and `Travel/Lodging` pass and `Uncategorized` does not; vacuous
-  when the run wrote no foreign-currency row or the rows carry no category
-  column. New predicates `queriedRows` (with a brace-matched salvage for a
-  `detail` string capped at 2,000 chars by `lib/agent/toolActivity.js`) and
-  `unresolvedForeignCurrencyRows` in `grading-predicates.mjs`; 6 + 4 tests.
-  Replaying the recorded round-12 run through it introduces no failure — that
-  run's only `db_query` returned zero rows, so the check is correctly silent.
 
 **What is not yet decided (the actual blocker on T-G2.3):** whether a model
 that passes 1-in-4 with four distinct failure modes clears this gate at all.
@@ -629,11 +604,10 @@ nuanced than "unvalidated" now.
 
 ## Ornith-1.0-9B-MTP — same-call repetition loop, the real blocker after the two fixes above
 
-- 2026-08-18 With both the skill-persistence fix (`DOCINT_FORCE_SKILLS=
-  document-intelligence`, confirming a genuine code gap tracked separately —
-  see "Skill matching — a workflow skill does not survive its own follow-up
-  turns" — this session used the diagnostic override rather than the
-  underlying fix) and the angle-bracket leak recovery above both in place,
+- 2026-08-18 With both the skill-persistence override (`DOCINT_FORCE_SKILLS=
+  document-intelligence` — a diagnostic shortcut; the underlying carry is
+  handled by `computeSkillPin()`, `lib/agent/turn-planner.js`, since
+  2026-08-13) and the angle-bracket leak recovery above both in place,
   three consecutive turns of a fresh provenance run each fell into the same
   shape: the model calls a tool once, gets a real result, then **re-issues
   the identical call over and over** — `doc_manifest` **188 times** in turn 1

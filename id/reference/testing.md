@@ -74,9 +74,14 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   `REVIEWED_AUTH_EXEMPTIONS`, `REVIEWED_CAPABILITY_EXEMPTIONS`) and are honoured
   only while their stated reason still holds in the code — an exemption whose
   justification has gone stale fails the gate rather than passing quietly
-- 9 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
+- 10 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
   `config-contract`, `routes-contract`, `memory-contract`,
-  `bootstrap-contract`, `provider-contract`
+  `bootstrap-contract`, `provider-contract`, `registry-contract`
+- One deliberate exception to "source-level by design": `registry-contract`
+  calls the real `mcp/tools/*.js` `register()` functions against a mock server
+  to collect tool names, because `memory.js` registers from a spec loop
+  (`server.registerTool(tool.name, …)`) that no regex can read. Its wiring and
+  catalog comparisons are still source-level
 - Runs in ~2s total via `npm run test:audit`
 - The remaining unbuilt gates from the program's own test plan are tracked in
   `id/reference/tech-debt.md`
