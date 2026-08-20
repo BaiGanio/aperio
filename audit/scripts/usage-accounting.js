@@ -58,10 +58,13 @@
 //
 // ── Decision: cached-input and reasoning tokens ──────────────────────────────
 //
-// T3.3's spec names four token classes. lib/pricing.js carries only two rates
-// (`in`, `out`, USD per million). The two missing ones are resolved as follows,
-// and the resolution is re-checked against real source by
-// checkUsageAccountingContract() so it cannot rot silently:
+// T3.3's spec names four token classes. lib/pricing.js carries four rates
+// (`in`, `out`, `cacheRead`, `cacheWrite`, USD per million), but the two cache
+// rates are per-model and nullable: OpenRouter publishes `input_cache_read` and
+// `input_cache_write` only for the providers that actually charge a separate
+// rate. So each class is resolved as follows, and the resolution is re-checked
+// against real source by checkUsageAccountingContract() so it cannot rot
+// silently:
 //
 // * REASONING tokens are a BREAKDOWN OF OUTPUT, not an addition to it.
 //   lib/streaming/llamacppHandler.js reads `thinking_tokens` out of
@@ -71,35 +74,36 @@
 //   Adding `reasoning * rateOut` on top would double-charge. It is reported,
 //   never summed. The gate rejects any record with reasoning > output.
 //
-// * CACHED INPUT (cache READS) are a SUBSET OF INPUT, and have no published
-//   rate here. lib/agent/providers/anthropic.js sets
+// * CACHED INPUT (cache READS) are a SUBSET OF INPUT, not an addition to it.
+//   lib/agent/providers/anthropic.js sets
 //   `streamUsage.input_tokens = uncachedInput + cacheRead + cacheCreated`, so
-//   `tokens.cachedInput` is part of `tokens.input`, not extra. Real cache-read
-//   rates are roughly a tenth of the full input rate, but lib/pricing.js does
-//   not carry that rate, so pricing them at `in` over-reports and pricing them
-//   at 0 under-reports. Neither is honest. Instead the cost of a record with
-//   cached input is reported as an interval:
+//   `tokens.cachedInput` is part of `tokens.input`. When the price sheet
+//   publishes a `cacheRead` rate for the model, those tokens are billed at it
+//   and the record's cost is a POINT. When it does not, pricing them at `in`
+//   over-reports and pricing them at 0 under-reports — neither is honest — so
+//   the cost falls back to an interval:
 //       low  = cached tokens billed at 0
 //       high = cached tokens billed at the full `in` rate
 //   The true cost is inside it. costStatus is "bounded" whenever low < high and
-//   "exact" only when cachedInput is 0. If lib/pricing.js ever grows a
-//   cache-read rate, the contract check fails and points here — that is the
-//   signal to collapse the interval to a point, not a bug.
+//   "exact" otherwise.
 //
-// * CACHE CREATION (cache WRITES) are the one case that interval cannot hold.
-//   A cache write is billed ABOVE the base input rate, so pricing those tokens
-//   at `rates.in` puts the true cost OUTSIDE the interval — an upper bound that
-//   is not one is worse than no bound at all. lib/pricing.js carries no
-//   cache-write rate, and inventing a multiplier is the fabrication this whole
-//   gate exists to prevent. So `tokens.cacheCreationInput` is an optional FIFTH
-//   count with three states, and it is deliberately tri-state rather than
-//   defaulted to 0:
-//       0          → no cache writes; the interval above is sound
-//       > 0        → costStatus "unknown"; no honest upper bound exists
+// * CACHE CREATION (cache WRITES) are also a subset of input, and are billed
+//   ABOVE the base input rate. That is why they can never fall back to the
+//   interval above: pricing them at `rates.in` puts the true cost OUTSIDE it,
+//   and an upper bound that is not one is worse than no bound at all. So a
+//   `cacheWrite` rate is required, never approximated — inventing a multiplier
+//   is the fabrication this whole gate exists to prevent. `tokens.
+//   cacheCreationInput` is an optional FIFTH count, deliberately tri-state
+//   rather than defaulted to 0:
+//       0          → no cache writes; the reads above settle the cost
+//       > 0        → priced at `cacheWrite` when the sheet publishes one for
+//                    this model; costStatus "unknown" when it does not
 //       undefined  → "not recorded", which is NOT "there were none". Unknown
 //                    for any provider whose loop reports cache writes (derived
 //                    from real source by parseCacheCreationProviders), sound
-//                    for one that never has any to report.
+//                    for one that never has any to report. A published rate
+//                    does not rescue this case: a rate without a count prices
+//                    nothing.
 //
 // ── Determinism ─────────────────────────────────────────────────────────────
 //
@@ -212,11 +216,27 @@ export const SOURCE_INVARIANTS = [
       "for at the output rate and must not be summed on top",
   },
   {
-    id: "price-sheet-has-no-cache-or-reasoning-rate",
+    id: "price-sheet-carries-cache-rates",
     file: PRICING_FILE,
-    marker: /return \{ in: entry\.in, out: entry\.out, contextWindow: entry\.contextWindow \};/,
-    why: "the whole reason cached input is reported as an interval instead of a point. " +
-      "If a cache-read rate is added here, collapse the interval to an exact cost",
+    marker: /cacheRead: Number\.isFinite\(entry\.cacheRead\)[\s\S]{0,200}?cacheWrite: Number\.isFinite\(entry\.cacheWrite\)/,
+    why: "cached input collapses to an exact cost when getPricing() publishes a cacheRead rate " +
+      "and falls back to an interval when it does not, and cache-creation tokens are priceable " +
+      "at all only through cacheWrite. If either stops being returned, every cached run silently " +
+      "loses its exact cost and every anthropic run goes back to unknown",
+  },
+  {
+    id: "price-sheet-has-no-reasoning-rate",
+    file: PRICING_FILE,
+    marker: /internal_reasoning/,
+    absent: true,
+    // What the forbidden change would look like. An `absent` invariant cannot be
+    // proved red by DELETING a real line, so the T5.1 proof inserts this instead.
+    sample: "    cacheReasoning: parseRate(p.internal_reasoning),",
+    why: "reasoning tokens need no rate of their own — they are a breakdown of the output count " +
+      "on every provider Aperio talks to, so they are already billed at `out`, reported and never " +
+      "summed. OpenRouter publishes an `internal_reasoning` rate for some models; the day this " +
+      "file starts reading it, reasoning is billed separately somewhere and this gate is " +
+      "under-reporting every thinking run",
   },
   {
     id: "search-key-normaliser",
@@ -231,6 +251,22 @@ export const SOURCE_INVARIANTS = [
     marker: /if \(subscription !== undefined\) _currentIsSubscription = Boolean\(subscription\)/,
     why: "the reason checkProviderAnnounces() requires the flags UNCONDITIONALLY: an omitted " +
       "flag does not reset the display, it keeps the previous provider's billing class",
+  },
+  {
+    id: "announce-carries-the-cache-rates",
+    file: "lib/emitters/handlers/wsHandler.js",
+    marker: /cacheRead: p\.cacheRead, cacheWrite: p\.cacheWrite/,
+    why: "the browser prices a turn from the announced rates alone. Drop the two cache rates " +
+      "and every cache read is billed at the full input rate again — on a long Anthropic " +
+      "conversation that is most of the prompt, and the figure on screen is several times the " +
+      "real cost",
+  },
+  {
+    id: "ui-bills-cached-input-at-the-cache-rate",
+    file: "public/index.js",
+    marker: /const uncached = Math\.max\(0, used - cacheRead - cacheWrite\)/,
+    why: "the three input classes are disjoint slices of the prompt. If the UI stops subtracting " +
+      "them it bills the cached tokens twice — once at `in` and once at the cache rate",
   },
   {
     id: "ui-gates-cost-on-billing-flags",
@@ -335,7 +371,19 @@ export function makeRepoPriceLookup({
       // process. Deliberately still "unknown" — the gate does not fetch.
       return { status: "unknown", reason: `"${model}" is on the price sheet but no rate is loaded` };
     }
-    return { status: "priced", rates: { in: rates.in, out: rates.out } };
+    // The two cache rates are carried through as-is, `null` included: a model
+    // whose provider charges no separate cache rate has none to carry, and a
+    // null is what makes the reads fall back to an interval and the writes to
+    // `unknown` instead of being priced off `in`.
+    return {
+      status: "priced",
+      rates: {
+        in: rates.in,
+        out: rates.out,
+        cacheRead: Number.isFinite(rates.cacheRead) ? rates.cacheRead : null,
+        cacheWrite: Number.isFinite(rates.cacheWrite) ? rates.cacheWrite : null,
+      },
+    };
   };
 }
 
@@ -380,8 +428,10 @@ function emptyBucket({ priced = true } = {}) {
  * model in a cold process. So `cost` is emptied and the priced rows' interval
  * stays visible under `pricedSubsetCost`, which names the subset it covers.
  *
- *   exact    every record priced, no cached input — a point
- *   bounded  every record priced, some cached input — a true interval
+ *   exact    every record priced at a published rate for each of its token
+ *            classes — a point
+ *   bounded  every record priced, but some cached input has no published
+ *            cacheRead rate — a true interval
  *   partial  some records unpriced — pricedSubsetCost is a LOWER bound on the
  *            bucket and there is no upper bound
  *   unknown  every record unpriced — nothing is known about this bucket's cost
@@ -578,6 +628,17 @@ export function reconcileUsage({
             `got ${JSON.stringify(record.unitPrices[key])}`);
         }
       }
+      // The cache rates are optional in a hand-entered price the same way they
+      // are optional on the sheet: absent means "no published rate", which the
+      // arithmetic already handles. Present but nonsense is still an error.
+      for (const key of ["cacheRead", "cacheWrite"]) {
+        const rate = record.unitPrices[key];
+        if (rate === undefined || rate === null) continue;
+        if (!Number.isFinite(rate) || rate < 0) {
+          errors.push(`${at}: unitPrices.${key} must be a non-negative USD-per-million number ` +
+            `(omit it to mean "no published rate"), got ${JSON.stringify(rate)}`);
+        }
+      }
       if (!exception) {
         errors.push(staleReason
           ? `${at}: supplies its own unitPrices for "${model}", but that model's reviewed price ` +
@@ -599,25 +660,29 @@ export function reconcileUsage({
     };
     rows.push(row);
 
-    // Cache WRITES are billed ABOVE the base input rate, and lib/pricing.js
-    // carries no cache-write rate. So a run with cache-creation tokens cannot be
-    // bounded above at all: pricing them at `rates.in` would put the true cost
-    // OUTSIDE the interval, which is worse than reporting nothing. A record that
-    // does not state the count is equally unbounded whenever its provider is one
-    // that reports cache writes — "not recorded" is not "there were none".
+    const priced = lookup?.status === "priced" &&
+      Number.isFinite(lookup.rates?.in) && Number.isFinite(lookup.rates?.out);
+    const readRate = Number.isFinite(lookup?.rates?.cacheRead) ? lookup.rates.cacheRead : null;
+    const writeRate = Number.isFinite(lookup?.rates?.cacheWrite) ? lookup.rates.cacheWrite : null;
+
+    // Cache WRITES are billed ABOVE the base input rate, so they are priceable
+    // only at a published `cacheWrite` rate — pricing them at `rates.in` would
+    // put the true cost OUTSIDE the interval, which is worse than reporting
+    // nothing. A record that does not state the count stays unbounded whatever
+    // the rate, whenever its provider is one that reports cache writes:
+    // "not recorded" is not "there were none", and a rate with no count prices
+    // nothing.
     const stated = tokens[CACHE_CREATION_KEY];
     const unbounded = stated === undefined
       ? (cacheCreationProviders.has(provider)
         ? `"${provider}" reports cache-creation tokens but this record does not state ` +
           `tokens.${CACHE_CREATION_KEY} — the upper bound is unproven`
         : null)
-      : (stated > 0
+      : (stated > 0 && writeRate === null
         ? `${stated} cache-creation token(s): cache writes are billed above the base input rate ` +
-          `and ${PRICING_FILE} carries no cache-write rate, so no honest upper bound exists`
+          `and ${PRICING_FILE} publishes no cache-write rate for "${model}", so no honest upper ` +
+          `bound exists`
         : null);
-
-    const priced = lookup?.status === "priced" &&
-      Number.isFinite(lookup.rates?.in) && Number.isFinite(lookup.rates?.out);
 
     if (!priced || unbounded) {
       row.label = unbounded ?? lookup?.reason ?? `no published rate for "${model}"`;
@@ -631,10 +696,21 @@ export function reconcileUsage({
     }
 
     row.priceSource = lookup.fromRecord ? "record" : "catalog";
-    const uncached = Math.max(0, tokens.input - tokens.cachedInput);
-    const outCost = (tokens.output / 1e6) * lookup.rates.out;
-    const low = round((uncached / 1e6) * lookup.rates.in + outCost);
-    const high = round(((uncached + tokens.cachedInput) / 1e6) * lookup.rates.in + outCost);
+    // All three input classes are disjoint subsets of `tokens.input` (the record
+    // check above rejects any record where they are not), so each is billed once
+    // at its own rate and the remainder at `in`.
+    const created = stated ?? 0;
+    const uncached = Math.max(0, tokens.input - tokens.cachedInput - created);
+    const base = (uncached / 1e6) * lookup.rates.in
+      + (tokens.output / 1e6) * lookup.rates.out
+      // Reached only when the writes are bounded, i.e. `writeRate` is published.
+      + (created / 1e6) * (writeRate ?? 0);
+    // Cache reads are a point when their rate is published and an interval when
+    // it is not — [billed at nothing, billed at the full input rate].
+    const low = round(base + (readRate === null ? 0 : (tokens.cachedInput / 1e6) * readRate));
+    const high = round(base + (readRate === null
+      ? (tokens.cachedInput / 1e6) * lookup.rates.in
+      : (tokens.cachedInput / 1e6) * readRate));
     row.cost = { low, high, currency: "USD" };
     row.costStatus = low === high ? "exact" : "bounded";
     if (row.costStatus === "bounded") {
@@ -832,8 +908,14 @@ export function checkSourceInvariants(invariants = SOURCE_INVARIANTS, read = rea
       continue;
     }
     const shown = invariant.literal ? JSON.stringify(invariant.literal) : String(invariant.marker);
-    const present = invariant.literal ? source.includes(invariant.literal) : invariant.marker.test(source);
-    if (!present) {
+    const found = invariant.literal ? source.includes(invariant.literal) : invariant.marker.test(source);
+    // Most invariants pin something that must STAY; `absent` pins something that
+    // must not APPEAR. Both are tripwires — the second is the only shape that
+    // can catch a rate being added to a file whose arithmetic assumes there
+    // isn't one.
+    if (invariant.absent && found) {
+      errors.push(`${invariant.id}: ${invariant.file} now matches ${shown} — ${invariant.why}`);
+    } else if (!invariant.absent && !found) {
       errors.push(`${invariant.id}: ${invariant.file} no longer matches ${shown} — ${invariant.why}`);
     }
   }

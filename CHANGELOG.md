@@ -11,6 +11,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **The price sheet carries cache-read and cache-write rates.** `lib/pricing.js`
+  now reads OpenRouter's `input_cache_read` and `input_cache_write` alongside the
+  prompt and completion rates, so `getPricing()` returns `cacheRead` and
+  `cacheWrite` in USD per million. Neither can be derived from the input rate —
+  a cache read is billed well below it and a cache write above it — which is why
+  the usage-accounting gate previously had to report a cached run as an interval
+  and a run with cache writes as `unknown`. Both now collapse to an exact cost
+  whenever the catalog publishes the rate: a real 120k-token Anthropic run with
+  90k cache reads and 20k cache writes prices at a point instead of not at all.
+  A rate the catalog does not publish is `null`, never 0 — a zero would claim
+  those tokens are free — and the old interval and `unknown` verdicts are still
+  what a null produces, so a provider that charges no separate cache rate and a
+  pricing cache written by an older build both keep working unchanged.
+  `input_cache_write` is the five-minute rate, which is the one Aperio buys:
+  `lib/agent/providers/anthropic.js` sets a bare `{ type: "ephemeral" }`
+  breakpoint with no `ttl`. Reasoning tokens still get no rate of their own —
+  they are a breakdown of the output count on every provider Aperio talks to —
+  and the audit gate now pins that as an *absence* invariant, going red the day
+  `lib/pricing.js` starts reading OpenRouter's `internal_reasoning` rate.
+
 - **Continuous audit: a usage-accounting gate (T3.3).** `audit/scripts/schema.js`
   validates one run record and stops; this is the layer above it, reconciling many
   records into a cost ledger that never invents a number. Local and subscription
@@ -20,9 +40,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   rate reports `unknown` rather than zero, and estimated usage is kept in its own
   column so it can never be mistaken for an actual. Prices come from the real
   `lib/pricing.js`; the gate never warms its OpenRouter cache, so its verdict does
-  not depend on a network fetch. Because that price sheet carries no cache-read
-  rate, a run served partly from cache reports a cost *interval* (cached tokens at
-  0 → low, at the full input rate → high) instead of a fabricated point, and
+  not depend on a network fetch. When that price sheet publishes no cache-read
+  rate for a model, a run served partly from cache reports a cost *interval*
+  (cached tokens at 0 → low, at the full input rate → high) instead of a
+  fabricated point, and
   reasoning tokens — a breakdown of the output count, not an addition to it — are
   reported but never billed on top. The four source facts that arithmetic rests on
   are pinned as gate markers, including that both WebSocket provider announces
@@ -39,10 +60,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   non-emptiness — dropping `claude-code` while `codex` remains would leave every
   Claude Code run reconciled as billable API usage — and the model resolver
   mirrors `getPricing()`'s aliases (dated suffixes included) while refusing to
-  price an alias that could name more than one model. Cache *writes* get the one
-  verdict the interval cannot cover: they are billed above the base input rate,
-  so a run carrying them prices as `unknown` rather than as a bound that does
-  not contain the true cost. A loop whose source cannot be read is assumed to
+  price an alias that could name more than one model. Cache *writes* are the one
+  class the interval can never cover: they are billed above the base input rate,
+  so without a published cache-write rate a run carrying them prices as
+  `unknown` rather than as a bound that does not contain the true cost. A
+  record that never stated its cache-write count stays `unknown` whatever rates
+  exist — a rate with no count prices nothing. A loop whose source cannot be read is assumed to
   report cache writes and named as an error, because the absence of a marker in
   a file nobody could open is not evidence that the marker is gone. Duplicate
   run IDs are rejected before aggregation, so a merged or replayed ledger cannot
@@ -145,6 +168,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
   receiving them going forward. See `SECURITY.md`.
 
 ### Fixed
+
+- **The cost estimate in the context bar billed cached tokens at the full input
+  rate.** Every turn re-sends the whole conversation, and on a provider with
+  prompt caching most of that prompt is a cache read billed at roughly a tenth
+  of the input rate — but the browser only ever knew `in` and `out`, so it
+  priced the whole prompt as fresh input. A real 120k-token Anthropic turn with
+  90k cache reads and 20k cache writes showed `~$0.29` against a true `$0.138`,
+  and the gap widens the longer a conversation runs. The provider announce now
+  carries `cacheRead`/`cacheWrite` alongside `in`/`out`, and the cost math
+  splits the prompt into its three disjoint classes and bills each at its own
+  rate. The token counts were already arriving — the provider loops have been
+  putting `cache_read_input_tokens` and `cache_creation_input_tokens` on every
+  `stream_end` all along; nothing read them. A provider that does no prompt
+  caching reports neither count, and a model whose catalog publishes no cache
+  rate falls back to the input rate, so both keep exactly their previous figure.
+  Two new audit-gate invariants pin the announce and the arithmetic, next to the
+  ones that already pin the billing flags.
 
 - **A local model's tool call silently died with "I tried to use one of my
   tools but couldn't issue the call correctly."** Ornith-1.0-9B-MTP leaks tool

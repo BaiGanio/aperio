@@ -192,7 +192,12 @@ let _currentModel = null;
 
 // Pricing fetched from OpenRouter catalog at boot, refreshed daily.
 // No hardcoded values — see trash/plans/honest-pricing for why.
-let _currentCostRates = null; // { in, out } from server, or null when unavailable
+// { in, out, cacheRead, cacheWrite } from server, or null when unavailable.
+// The two cache rates are per-model and may themselves be null — a provider that
+// charges no separate cache rate publishes none, and the catalog is the only
+// source (a cache read is billed well below the input rate, a write above it, so
+// neither can be derived from `in`).
+let _currentCostRates = null;
 
 // Server-sent flags (provider message `local`/`subscription`) — the single
 // source of truth for whether to show a $ estimate, replacing name matches
@@ -210,7 +215,12 @@ function setCostProvider(name, model, costRates, local, subscription) {
   if (subscription !== undefined) _currentIsSubscription = Boolean(subscription);
 }
 
-function updateContextBar(used, max, outputTok = 0, trackCost = true) {
+// `cache` carries the turn's cache-read and cache-write token counts, which the
+// provider loops already report (`usage.cache_read_input_tokens` /
+// `usage.cache_creation_input_tokens`). Both are SUBSETS of `used`, not extras.
+// A provider that does not do prompt caching reports neither, so the default
+// leaves the arithmetic exactly as it was.
+function updateContextBar(used, max, outputTok = 0, trackCost = true, cache = null) {
   const text = document.getElementById("ctxText");
   const fill = document.getElementById("ctxFill");
   const costEl = document.getElementById("costText");
@@ -229,7 +239,19 @@ function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   const isSubscription = _currentIsSubscription;
   if (trackCost && !isLocal && !isSubscription && used > 0 && costEl) {
     if (_currentCostRates) {
-      const turnCost = ((used / 1_000_000) * _currentCostRates.in) + ((outputTok / 1_000_000) * _currentCostRates.out);
+      // Cache reads and cache writes are slices of `used`, each billed at its own
+      // rate: a read well below the input rate, a write above it. Billing the
+      // whole prompt at `in` — what this did before the rates existed — overstated
+      // a long cached conversation several times over. When a rate is missing the
+      // slice falls back to `in`, which is the old behaviour and no worse than it.
+      const cacheRead = Math.max(0, cache?.read ?? 0);
+      const cacheWrite = Math.max(0, cache?.write ?? 0);
+      const uncached = Math.max(0, used - cacheRead - cacheWrite);
+      const rate = (published) => (typeof published === "number" ? published : _currentCostRates.in);
+      const turnCost = ((uncached / 1_000_000) * _currentCostRates.in)
+        + ((cacheRead / 1_000_000) * rate(_currentCostRates.cacheRead))
+        + ((cacheWrite / 1_000_000) * rate(_currentCostRates.cacheWrite))
+        + ((outputTok / 1_000_000) * _currentCostRates.out);
       _sessionCost += turnCost;
       costEl.textContent = `~$${_sessionCost.toFixed(4)}`;
       costEl.style.display = "inline";

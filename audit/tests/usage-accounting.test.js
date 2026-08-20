@@ -46,6 +46,18 @@ const RATES = { "audit-model": { in: 3, out: 15 } };
 const priceLookup = (model) =>
   RATES[model] ? { status: "priced", rates: RATES[model] } : { status: "unknown", reason: `no rate for "${model}"` };
 
+// The same model with the cache rates the OpenRouter catalog publishes for it,
+// in the real proportions: a read is billed WELL BELOW the input rate, a write
+// ABOVE it. The read-only entry is the shape of a provider that charges no
+// separate cache-write rate at all.
+const CACHE_RATES = {
+  "audit-model-cached":    { in: 3, out: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  "audit-model-read-only": { in: 3, out: 15, cacheRead: 0.3, cacheWrite: null },
+};
+const cachePriceLookup = (model) => (CACHE_RATES[model]
+  ? { status: "priced", rates: CACHE_RATES[model] }
+  : priceLookup(model));
+
 // The fifth count is stated explicitly in fixtures, because "not recorded" and
 // "there were none" have opposite consequences for the upper bound.
 const tokens = (input, cachedInput = 0, reasoning = 0, output = 0, cacheCreationInput = 0) =>
@@ -392,6 +404,80 @@ describe("audit/scripts/usage-accounting.js", () => {
     });
     assert.deepStrictEqual(none.rows[0].cost, { low: 0.09, high: 0.15, currency: "USD" });
     assert.strictEqual(none.rows[0].costStatus, "bounded");
+  });
+
+  test("a published cacheRead rate collapses the interval to a point, and the point " +
+    "lands inside the interval it replaces", () => {
+    const record = { runId: "r", provider: "anthropic", model: "audit-model-cached",
+      usageSource: "provider-reported", tokens: tokens(30_000, 20_000, 0, 4_000, 0) };
+
+    const priced = reconcileUsage({
+      records: [record], priceLookup: cachePriceLookup, isLocal, isSubscription, exceptions: {},
+    });
+    // 10_000 uncached in @ $3/M = $0.03, 20_000 cached in @ $0.30/M = $0.006,
+    // 4_000 out @ $15/M = $0.06.
+    assert.deepStrictEqual(priced.rows[0].cost, { low: 0.096, high: 0.096, currency: "USD" });
+    assert.strictEqual(priced.rows[0].costStatus, "exact");
+    assert.strictEqual(priced.rows[0].label, null);
+
+    // The same run without a published cache rate: the old interval, and the
+    // exact figure above sits inside it. A rate that moved the cost OUT of the
+    // interval would mean one of the two answers was never sound.
+    const unpriced = reconcileUsage({
+      records: [{ ...record, model: "audit-model" }],
+      priceLookup, isLocal, isSubscription, exceptions: {},
+    });
+    assert.deepStrictEqual(unpriced.rows[0].cost, { low: 0.09, high: 0.15, currency: "USD" });
+    assert.ok(priced.rows[0].cost.low >= unpriced.rows[0].cost.low
+      && priced.rows[0].cost.high <= unpriced.rows[0].cost.high,
+      "the exact cost fell outside the interval it replaced");
+  });
+
+  test("cache-creation tokens are priced at the published cacheWrite rate, above the " +
+    "base input rate — and stay unknown when only a cacheRead rate exists", () => {
+    const wrote = reconcileUsage({
+      records: [{ runId: "r", provider: "anthropic", model: "audit-model-cached",
+        usageSource: "provider-reported", tokens: tokens(30_000, 10_000, 0, 4_000, 5_000) }],
+      priceLookup: cachePriceLookup, isLocal, isSubscription, exceptions: {},
+      cacheCreationProviders: new Set(["anthropic"]),
+    });
+    assert.strictEqual(wrote.ok, true, JSON.stringify(wrote.errors));
+    // The three input classes are disjoint: 30_000 - 10_000 cached - 5_000
+    // written = 15_000 uncached @ $3/M = $0.045, plus 10_000 read @ $0.30/M =
+    // $0.003, plus 5_000 written @ $3.75/M = $0.01875, plus 4_000 out = $0.06.
+    assert.deepStrictEqual(wrote.rows[0].cost, { low: 0.12675, high: 0.12675, currency: "USD" });
+    assert.strictEqual(wrote.rows[0].costStatus, "exact");
+    assert.strictEqual(wrote.totals.unknownPrice.length, 0);
+    // The reason a cache write could never be folded into the old interval:
+    // billed above `in`, so `in` was never an upper bound for it.
+    assert.ok(0.01875 > (5_000 / 1e6) * RATES["audit-model"].in);
+
+    // A model whose catalog publishes a read rate but no write rate — the real
+    // shape for providers with no separate cache-write charge. The reads are
+    // exact, the writes have no honest upper bound, so the row is unknown.
+    const readOnly = reconcileUsage({
+      records: [{ runId: "r", provider: "anthropic", model: "audit-model-read-only",
+        usageSource: "provider-reported", tokens: tokens(30_000, 10_000, 0, 4_000, 5_000) }],
+      priceLookup: cachePriceLookup, isLocal, isSubscription, exceptions: {},
+      cacheCreationProviders: new Set(["anthropic"]),
+    });
+    assert.strictEqual(readOnly.rows[0].costStatus, "unknown");
+    assert.strictEqual(readOnly.rows[0].cost, null);
+    assert.match(readOnly.rows[0].label, /publishes no cache-write rate for "audit-model-read-only"/);
+  });
+
+  test("a published cacheWrite rate does not rescue a record that never stated its " +
+    "cache-write count — a rate with no count prices nothing", () => {
+    const result = reconcileUsage({
+      records: [{ runId: "r", provider: "anthropic", model: "audit-model-cached",
+        usageSource: "provider-reported",
+        tokens: { input: 30_000, cachedInput: 10_000, reasoning: 0, output: 4_000 } }],
+      priceLookup: cachePriceLookup, isLocal, isSubscription, exceptions: {},
+      cacheCreationProviders: new Set(["anthropic"]),
+    });
+    assert.strictEqual(result.rows[0].costStatus, "unknown");
+    assert.strictEqual(result.rows[0].cost, null);
+    assert.match(result.rows[0].label, /does not state tokens\.cacheCreationInput/);
   });
 
   test("`not recorded` is not `there were none`: an omitted cache-creation count is " +
@@ -761,7 +847,18 @@ describe("audit/scripts/usage-accounting.js", () => {
       pricingSource: readReal("lib/pricing.js"),
       getPrice: () => ({ in: 5, out: 25, contextWindow: 200_000 }),
     });
-    assert.deepStrictEqual(warm("claude-opus-4-8"), { status: "priced", rates: { in: 5, out: 25 } });
+    // A model whose catalog entry publishes no cache rate carries `null` for
+    // both, never a zero — a zero would say those tokens are free.
+    assert.deepStrictEqual(warm("claude-opus-4-8"),
+      { status: "priced", rates: { in: 5, out: 25, cacheRead: null, cacheWrite: null } });
+
+    // And when the catalog does publish them, they are carried through as-is.
+    const cached = makeRepoPriceLookup({
+      pricingSource: readReal("lib/pricing.js"),
+      getPrice: () => ({ in: 5, out: 25, cacheRead: 0.5, cacheWrite: 6.25, contextWindow: 200_000 }),
+    });
+    assert.deepStrictEqual(cached("claude-opus-4-8"),
+      { status: "priced", rates: { in: 5, out: 25, cacheRead: 0.5, cacheWrite: 6.25 } });
   });
 
   test("T5.1 red/green proof — every source invariant is checked against the REAL " +
@@ -779,6 +876,19 @@ describe("audit/scripts/usage-accounting.js", () => {
 
     for (const invariant of SOURCE_INVARIANTS) {
       const real = readReal(invariant.file);
+
+      // An `absent` invariant pins something that must NOT appear, so its proof
+      // runs the other way round: the real tree is clean, and ADDING the
+      // forbidden line is what has to turn the gate red.
+      if (invariant.absent) {
+        assert.ok(!invariant.marker.test(real),
+          `${invariant.id}: ${invariant.file} already carries what the invariant forbids`);
+        assert.match(invariant.sample, invariant.marker,
+          `${invariant.id}: its sample does not match its own marker, so the proof proves nothing`);
+        red(invariant, `${real}\n${invariant.sample}\n`);
+        continue;
+      }
+
       const hit = invariant.literal ? invariant.literal : real.match(invariant.marker)?.[0];
       assert.ok(hit, `${invariant.id}: no real match in ${invariant.file} to mutate`);
       red(invariant, real.split(hit).join("/* removed by the T5.1 proof */"));

@@ -285,3 +285,113 @@ test("A4 edge: a provider named 'llamacpp' with local:false still shows cost (fl
   context.updateContextBar(1_000_000, 128_000, 0);
   assert.equal(doc.getElementById("costText").style.display, "inline");
 });
+
+// ─── A5 — cached input is priced at the cache rates, not the input rate ─────
+//
+// Claude Sonnet 5's real published rates, in USD per million: input $2, output
+// $10, cache read $0.20, cache write $2.50. A read is a tenth of the input rate
+// and a write is above it, which is why neither can be derived from `in`.
+const SONNET_RATES = { in: 2, out: 10, cacheRead: 0.2, cacheWrite: 2.5 };
+
+// One long-conversation turn: 120k prompt of which 90k was served from cache and
+// 20k was written into it, 5k out. The everyday shape once a chat gets going.
+const CACHED_TURN = { used: 120_000, read: 90_000, write: 20_000, out: 5_000 };
+
+const anthropicBoot = (costRates) => ({
+  type: "provider", name: "anthropic", model: "claude-sonnet-5", db: "sqlite", thinks: true,
+  contextWindow: 200_000, contextCapacityPct: null, costRates,
+  imageTokens: 1600, toolEligible: true, local: false, subscription: false,
+  roundtableAvailable: false, roundtableReason: null, agents: [],
+});
+
+test("A5: cache reads and writes are each billed at their own rate", () => {
+  const { context, doc } = loadApp();
+  context.setCostProvider("anthropic", "claude-sonnet-5", SONNET_RATES, false, false);
+  context.updateContextBar(CACHED_TURN.used, 200_000, CACHED_TURN.out, true,
+    { read: CACHED_TURN.read, write: CACHED_TURN.write });
+
+  // 10k uncached @ $2/M = $0.02, 90k read @ $0.20/M = $0.018,
+  // 20k written @ $2.50/M = $0.05, 5k out @ $10/M = $0.05.
+  assert.equal(doc.getElementById("costText").textContent, "~$0.1380");
+});
+
+test("A5: with no published cache rates the estimate is exactly what it was before " +
+  "they existed — the whole prompt at the input rate", () => {
+  const { context, doc } = loadApp();
+  context.setCostProvider("anthropic", "claude-sonnet-5", { in: 2, out: 10 }, false, false);
+  context.updateContextBar(CACHED_TURN.used, 200_000, CACHED_TURN.out, true,
+    { read: CACHED_TURN.read, write: CACHED_TURN.write });
+
+  // 120k in @ $2/M = $0.24, 5k out @ $10/M = $0.05. More than twice the real
+  // cost above — the overstatement this change exists to remove.
+  assert.equal(doc.getElementById("costText").textContent, "~$0.2900");
+});
+
+test("A5: a provider that reports no cache counts is priced exactly as before", () => {
+  const withCounts = loadApp();
+  withCounts.context.setCostProvider("deepseek", "deepseek-v4-pro", SONNET_RATES, false, false);
+  withCounts.context.updateContextBar(120_000, 200_000, 5_000, true, { read: 0, write: 0 });
+
+  const withoutCounts = loadApp();
+  withoutCounts.context.setCostProvider("deepseek", "deepseek-v4-pro", SONNET_RATES, false, false);
+  withoutCounts.context.updateContextBar(120_000, 200_000, 5_000);
+
+  assert.equal(withCounts.doc.getElementById("costText").textContent, "~$0.2900");
+  assert.equal(withoutCounts.doc.getElementById("costText").textContent, "~$0.2900");
+});
+
+test("A5: a cache write costs MORE than the same tokens as fresh input, so it can " +
+  "never be folded into the input rate", () => {
+  const written = loadApp();
+  written.context.setCostProvider("anthropic", "claude-sonnet-5", SONNET_RATES, false, false);
+  written.context.updateContextBar(100_000, 200_000, 0, true, { read: 0, write: 100_000 });
+
+  const fresh = loadApp();
+  fresh.context.setCostProvider("anthropic", "claude-sonnet-5", SONNET_RATES, false, false);
+  fresh.context.updateContextBar(100_000, 200_000, 0);
+
+  // 100k written @ $2.50/M = $0.25 against 100k fresh @ $2/M = $0.20.
+  assert.equal(written.doc.getElementById("costText").textContent, "~$0.2500");
+  assert.equal(fresh.doc.getElementById("costText").textContent, "~$0.2000");
+});
+
+// The stream_end handler reaches for page-wide helpers that live in scripts
+// outside STREAMING_SCRIPTS. Only the cost path is under test here, so the rest
+// are stubbed — and only where the real source has not already defined them, so
+// a stub can never stand in for the thing being tested.
+function stubPageGlobals(context) {
+  const noop = () => {};
+  const control = () => ({ disabled: false, style: {}, value: "" });
+  const stubs = {
+    removeThinking: noop, removeToolIndicator: noop, settleTurnTimer: noop,
+    finalizeStreamingBubble: noop, addMessage: noop, scrollToBottom: noop,
+    setStatus: noop, setAmbientLevel: noop, _refineStartupBanner: noop,
+    _annotateTokenBadges: noop, _settleRoundtablePhaseChip: noop,
+    sendBtn: control(), chatInput: control(), stopBtn: control(),
+    messagesEl: new FakeElement(),
+  };
+  for (const [name, value] of Object.entries(stubs)) {
+    if (vm.runInContext(`typeof ${name}`, context) === "undefined") context[name] = value;
+  }
+}
+
+test("A5 wiring: a real stream_end message carries the counts from the provider " +
+  "loop all the way into the estimate", () => {
+  const { context, doc } = loadApp();
+  stubPageGlobals(context);
+  context.handleMessage(anthropicBoot(SONNET_RATES));
+  assert.deepEqual(peek(context, "_currentCostRates"), SONNET_RATES);
+
+  // The field names are the provider loops' own — see lib/agent/providers/
+  // anthropic.js, which sets both on streamUsage before every stream_end.
+  context.handleMessage({
+    type: "stream_end", text: "",
+    usage: {
+      input_tokens: CACHED_TURN.used, output_tokens: CACHED_TURN.out, thinking_tokens: 0,
+      cache_read_input_tokens: CACHED_TURN.read,
+      cache_creation_input_tokens: CACHED_TURN.write,
+    },
+  });
+
+  assert.equal(doc.getElementById("costText").textContent, "~$0.1380");
+});

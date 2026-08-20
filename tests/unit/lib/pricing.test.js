@@ -10,10 +10,12 @@ import { resolve } from "path";
 // call loads test data instead of fetching from OpenRouter.
 const CACHE_FILE = resolve(process.cwd(), "var", "pricing-cache.json");
 const TEST_MODELS = {
-  "deepseek-v4-pro":   { in: 0.5,   out: 1.5,   contextWindow: 200000 },
+  "deepseek-v4-pro":   { in: 0.5,   out: 1.5,   cacheRead: 0.135, cacheWrite: null, contextWindow: 200000 },
   "deepseek-v4-flash": { in: 0.075, out: 0.3,   contextWindow: 128000 },
-  "claude-opus-4-8":   { in: 15,    out: 75,    contextWindow: 200000 },
+  "claude-opus-4-8":   { in: 15,    out: 75,    cacheRead: 1.5, cacheWrite: 18.75, contextWindow: 200000 },
   "claude-sonnet-4-6": { in: 3,     out: 15,    contextWindow: 200000 },
+  // Deliberately written in the pre-cache-rate shape, the way a cache file left
+  // over from an older build still on disk would be.
   "gemini-2.5-pro":    { in: 1.25,  out: 5,     contextWindow: 1048576 },
   "gpt-5.6-luna":      { in: 10,    out: 40,    contextWindow: 128000 },
 };
@@ -135,5 +137,69 @@ describe("getPricing", () => {
     const price = getPricing("gpt-5.6-luna");
     assert.notStrictEqual(price, null);
     assert.equal(price.in, 10);
+  });
+
+  test("carries the cache-read and cache-write rates when the catalog publishes them", () => {
+    const price = getPricing("claude-opus-4-8");
+    assert.equal(price.cacheRead, 1.5);
+    assert.equal(price.cacheWrite, 18.75);
+    // A read is billed below the input rate and a write above it, so neither can
+    // ever be derived from `in`.
+    assert.ok(price.cacheRead < price.in && price.cacheWrite > price.in);
+  });
+
+  test("reports a missing cache rate as null, never 0 — a zero would say those " +
+    "tokens are free", () => {
+    // A provider that charges no separate cache-write rate.
+    const partial = getPricing("deepseek-v4-pro");
+    assert.equal(partial.cacheRead, 0.135);
+    assert.strictEqual(partial.cacheWrite, null);
+
+    // A cache file written before these rates existed carries neither, and must
+    // read as "not published" rather than as free.
+    const legacy = getPricing("gemini-2.5-pro");
+    assert.strictEqual(legacy.cacheRead, null);
+    assert.strictEqual(legacy.cacheWrite, null);
+  });
+});
+
+// =============================================================================
+// The fetch path — pins OpenRouter's own field names, the one thing here that
+// could be silently wrong: a renamed field reads as "no published rate" rather
+// than as an error. Runs LAST, because it replaces the module's loaded cache.
+// =============================================================================
+describe("fetchFromOpenRouter (through ensurePricingCache)", () => {
+  const realFetch = globalThis.fetch;
+  after(() => { globalThis.fetch = realFetch; });
+
+  test("reads input_cache_read / input_cache_write and converts per-token to per-million", async () => {
+    try { unlinkSync(CACHE_FILE); } catch { /* forces a fetch */ }
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: "anthropic/claude-opus-4.8", context_length: 200000,
+            pricing: { prompt: "0.000005", completion: "0.000025", input_cache_read: "0.0000005",
+              input_cache_write: "0.00000625", input_cache_write_1h: "0.00001" } },
+          // A provider with no separate cache-write charge at all.
+          { id: "openai/gpt-5.5", context_length: 400000,
+            pricing: { prompt: "0.000005", completion: "0.00003", input_cache_read: "0.0000005" } },
+        ],
+      }),
+    });
+    await ensurePricingCache();
+
+    const opus = getPricing("claude-opus-4-8");
+    assert.equal(opus.in, 5);
+    assert.equal(opus.out, 25);
+    assert.equal(opus.cacheRead, 0.5);
+    // The 5-minute write rate, NOT input_cache_write_1h ($10/M): Aperio's
+    // anthropic loop sets a bare `{ type: "ephemeral" }` breakpoint with no
+    // `ttl`, so it never buys the 1-hour cache.
+    assert.equal(opus.cacheWrite, 6.25);
+
+    const gpt = getPricing("gpt-5.5");
+    assert.equal(gpt.cacheRead, 0.5);
+    assert.strictEqual(gpt.cacheWrite, null);
   });
 });

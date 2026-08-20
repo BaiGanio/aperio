@@ -296,7 +296,13 @@ onStreamEvent("stream_end", (msg) => {
     // Codex CLI reports aggregate work across the agent's internal model/tool
     // steps. That is useful usage data, but it is not live context occupancy.
     if (msg.usage.input_tokens_kind !== "aggregate") {
-      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx, msg.usage.output_tokens ?? 0);
+      // The two cache counts are slices of input_tokens, priced at their own
+      // rates. Absent for a provider that does no prompt caching, which the
+      // cost math reads as zero.
+      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx, msg.usage.output_tokens ?? 0, true, {
+        read:  msg.usage.cache_read_input_tokens ?? 0,
+        write: msg.usage.cache_creation_input_tokens ?? 0,
+      });
     }
   }
 });

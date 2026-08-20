@@ -35,33 +35,20 @@ housekeeping go in `A2D.md`, not here.
   registry-contract,usage-accounting}.js`. T2.1 (provider matrix) landed 2026-08-20 as
   `provider-contract.js`; T2.3 closed the same day — its ctx half was already
   `memory-contract.js`, and the registry half landed as `registry-contract.js`
-  (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-agent vs
+  (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-ageyent vs
   standalone-MCP tool-name catalogs). T3.3 (usage accounting) landed 2026-08-20 as
   `usage-accounting.js` — the aggregation layer over many `schema.js`-valid run
   records, reusing `lib/pricing.js` and the real billing classifiers.
   Still open: T3.3's *persistence* half — no audit ledger file exists yet, so
   `checkUsageAccountingContract()` reconciles an empty record set by default and its
-  standing value comes from the source invariants it pins. T6–T9 (waves, journeys,
-  triage, closeout) are also still open.
-- 2026-08-20 **Cache-read and cache-write tokens have no published rate in
-  `lib/pricing.js`, and the two gaps have different consequences.** `getPricing()`
-  returns `{ in, out, contextWindow }` only.
-  - *Cache reads* can still be bounded: `usage-accounting.js` reports a cached run's
-    cost as an interval (cached tokens billed at 0 → `low`, at the full `in` rate →
-    `high`) and marks it `bounded`. Real cache-read rates are roughly a tenth of the
-    input rate, so the interval is wide but sound.
-  - *Cache writes* cannot be bounded at all, because they are billed **above** the
-    base input rate — pricing them at `in` would put the true cost outside the
-    interval. So a run with `tokens.cacheCreationInput > 0`, or one whose provider
-    reports cache writes and whose record omits the count, prices as `unknown`. In
-    practice that is every real Anthropic run with prompt caching on, which is a lot
-    of `unknown` rows.
-  Extending `lib/pricing.js` to carry OpenRouter's cache-read and cache-write rates
-  would collapse the interval to an exact cost and remove the `unknown`s; the
-  `price-sheet-has-no-cache-or-reasoning-rate` source invariant fails the day a rate
-  is added, which is the prompt to do it. Reasoning tokens need no rate — they are a
-  breakdown of the output count on every provider Aperio talks to, so they are already
-  billed at the output rate and are reported, never summed.
+  standing value comes from the source invariants it pins. When that ledger is
+  built it must persist the cache-WRITE count per run
+  (`streamUsage.cache_creation_input_tokens`, which
+  `lib/agent/providers/anthropic.js` already surfaces) as
+  `tokens.cacheCreationInput` — a record that omits it prices as `unknown` for any
+  provider that reports cache writes, by design, so dropping the field on the way
+  to disk would make every Anthropic run unpriceable no matter what rates the
+  sheet carries. T6–T9 (waves, journeys, triage, closeout) are also still open.
 
 ---
 
