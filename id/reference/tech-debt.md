@@ -29,26 +29,20 @@ housekeeping go in `A2D.md`, not here.
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially
   built. T1 (repo-inventory baseline) and the Bootstrap milestone (T3.1, T4.4, T2.4,
-  T5.1) are real, checked-in, and green (`npm run test:audit`, 113 tests / 13 suites) —
-  `audit/scripts/{inventory,schema,manifest,database-contract,config-contract,
+  T5.1) are real, checked-in, and green (`npm run test:audit`, 132 tests / 14 suites) —
+  `audit/scripts/{inventory,schema,ledger,manifest,database-contract,config-contract,
   routes-contract,memory-contract,bootstrap-contract,provider-contract,
   registry-contract,usage-accounting}.js`. T2.1 (provider matrix) landed 2026-08-20 as
   `provider-contract.js`; T2.3 closed the same day — its ctx half was already
   `memory-contract.js`, and the registry half landed as `registry-contract.js`
-  (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-ageyent vs
+  (mcp/tools module ⇄ mcp/index.js wiring, plus the internal-agent vs
   standalone-MCP tool-name catalogs). T3.3 (usage accounting) landed 2026-08-20 as
   `usage-accounting.js` — the aggregation layer over many `schema.js`-valid run
-  records, reusing `lib/pricing.js` and the real billing classifiers.
-  Still open: T3.3's *persistence* half — no audit ledger file exists yet, so
-  `checkUsageAccountingContract()` reconciles an empty record set by default and its
-  standing value comes from the source invariants it pins. When that ledger is
-  built it must persist the cache-WRITE count per run
-  (`streamUsage.cache_creation_input_tokens`, which
-  `lib/agent/providers/anthropic.js` already surfaces) as
-  `tokens.cacheCreationInput` — a record that omits it prices as `unknown` for any
-  provider that reports cache writes, by design, so dropping the field on the way
-  to disk would make every Anthropic run unpriceable no matter what rates the
-  sheet carries. T6–T9 (waves, journeys, triage, closeout) are also still open.
+  records, reusing `lib/pricing.js` and the real billing classifiers. Its
+  persistence half landed the same day as `ledger.js`: immutable JSONL records,
+  fail-closed reads, and direct `streamUsage` mapping that preserves
+  `cache_creation_input_tokens` as `tokens.cacheCreationInput`. T6–T9 (waves,
+  journeys, triage, closeout) are still open.
 
 ---
 

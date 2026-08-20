@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Continuous-audit runs now have a durable usage ledger.** Audit slices can
+  append immutable JSONL run records under `audit/ledger/`, and the T3.3
+  accounting gate reads that ledger by default. Persistence validates complete
+  run records, rejects duplicate IDs, and fails closed on damaged rows. The
+  stream-usage mapper preserves cache reads, reasoning, output, and especially
+  Anthropic cache-creation tokens; if a cache-writing provider drops that field,
+  recording fails instead of silently billing the run as though it wrote zero.
+
 - **The price sheet carries cache-read and cache-write rates.** `lib/pricing.js`
   now reads OpenRouter's `input_cache_read` and `input_cache_write` alongside the
   prompt and completion rates, so `getPricing()` returns `cacheRead` and

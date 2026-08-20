@@ -304,8 +304,9 @@ published alias/rate actually billed.
    buying more speculative reasoning.
 7. A finding without a file/line reference, violated invariant, and reproduction path is
    discarded before cross-review.
-8. Store per-run input, cached-input, reasoning, and output token counts in the audit
-   ledger. Optimize the next wave using actual data rather than estimates.
+8. Store per-run input, cache-read input, cache-write input, reasoning, and output token
+   counts in the audit ledger. Optimize the next wave using actual data rather than
+   estimates; never collapse an unreported cache-write count to zero.
 
 ## 5. Audit Domains and Ownership Map
 
@@ -415,7 +416,8 @@ useful parts of Steps 1–5, then returns to complete each group.
   A14 before attempting the full contract catalog. Generalize from a validated record, not
   from hypothetical fields.
 - Store one immutable run record per slice with: baseline SHA, lens, scope, files read,
-  commands/tests run, model and provider, input/cache/reasoning/output tokens, candidates,
+  commands/tests run, model and provider, input/cache-read/cache-write/reasoning/output
+  tokens, candidates,
   confirmed findings, rejected candidates, residual uncertainty, and elapsed time.
 - Finding fields: stable ID, title, severity, confidence, affected paths/lines, violated
   invariant, reproduction, expected vs actual, impact, evidence, suggested mitigation,

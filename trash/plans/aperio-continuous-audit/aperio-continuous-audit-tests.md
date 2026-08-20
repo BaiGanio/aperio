@@ -116,11 +116,12 @@ all of T2 before exercising T3/T4/T5. First prove one complete evidence path, th
 
 #### T3.3 Usage accounting reconciles
 
-- **Input/setup:** records with input, cached input, reasoning, output tokens, unit prices, and
-  one subscription/local invocation.
+- **Input/setup:** records with input, cache-read input, cache-write input, reasoning, output
+  tokens, unit prices, and one subscription/local invocation.
 - **Expected behavior:** API costs sum correctly; local/subscription entries are labeled rather
   than assigned fabricated per-token prices.
-- **Assertions:** estimated and actual costs are separate; unknown price produces `unknown`, not zero.
+- **Assertions:** estimated and actual costs are separate; unknown price produces `unknown`, not
+  zero; a cache-writing provider cannot persist an omitted write count as zero.
 
 ### T4 — Evidence packets
 

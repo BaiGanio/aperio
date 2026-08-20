@@ -4,8 +4,9 @@
 // Step 3, aperio-continuous-audit-tests.md T3). Bootstrap-milestone scope:
 // the minimum complete schema needed to record one run and one finding, per
 // the plan's own instruction to generalize from a validated record, not from
-// hypothetical fields. Full ledger persistence (T3.3 usage-cost reconciliation
-// across many records, T6-T9 aggregation) is not built here.
+// hypothetical fields. Durable run persistence and T3.3 usage-cost
+// reconciliation live in ledger.js and usage-accounting.js; T6-T9 aggregation
+// remains outside this record-level schema.
 
 const SEVERITIES = ["low", "medium", "high", "critical"];
 const CONFIDENCES = ["low", "medium", "high"];

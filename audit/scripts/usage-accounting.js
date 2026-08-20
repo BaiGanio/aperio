@@ -130,6 +130,7 @@ import { fileURLToPath } from "node:url";
 import { getPricing } from "../../lib/pricing.js";
 import { isLocalProvider, isSubscriptionProvider } from "../../lib/providers/index.js";
 import { USAGE_SOURCES, DEFAULT_USAGE_SOURCE } from "./schema.js";
+import { readRunLedger, RUN_LEDGER_FILE } from "./ledger.js";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -923,21 +924,27 @@ export function checkSourceInvariants(invariants = SOURCE_INVARIANTS, read = rea
 }
 
 /**
- * The real repo's usage accounting. Reconciles whatever records are handed in
- * (the ledger is not yet persisted, so the default is an empty set) against the
- * real billing classifiers and the real price sheet, and checks the source
- * invariants the arithmetic depends on.
+ * The real repo's usage accounting. Reconciles explicit records when supplied,
+ * otherwise reads the durable audit ledger, against the real billing
+ * classifiers and price sheet. Ledger damage is a contract error, never an
+ * empty-set fallback.
  */
 export function checkUsageAccountingContract({
-  records = [],
+  records,
+  ledgerFile = RUN_LEDGER_FILE,
   read = readIfPresent,
   billingClasses = REVIEWED_BILLING_CLASSES,
 } = {}) {
+  const persisted = records === undefined ? readRunLedger({ file: ledgerFile }) : null;
+  const usageRecords = records ?? persisted.records;
   const pricingSource = read(PRICING_FILE) ?? "";
   const providersSource = read(PROVIDERS_FILE) ?? "";
   const roster = parseWatchedModels(pricingSource);
 
-  const errors = [...checkSourceInvariants(SOURCE_INVARIANTS, read)];
+  const errors = [
+    ...(persisted?.errors ?? []),
+    ...checkSourceInvariants(SOURCE_INVARIANTS, read),
+  ];
 
   const sets = {
     local: parseSetLiteral(providersSource, "LOCAL_PROVIDERS"),
@@ -1023,7 +1030,7 @@ export function checkUsageAccountingContract({
   errors.push(...checkProviderAnnounces({ sources: announceSources }));
 
   const reconciled = reconcileUsage({
-    records,
+    records: usageRecords,
     priceLookup: makeRepoPriceLookup({ pricingSource }),
     catalogRoster: roster,
     cacheCreationProviders,
@@ -1034,6 +1041,7 @@ export function checkUsageAccountingContract({
     errors: [...errors, ...reconciled.errors],
     billing: { local, subscription },
     cacheCreationProviders: [...cacheCreationProviders],
+    ledgerFile: records === undefined ? ledgerFile : null,
     rosterSize: roster.length,
     rows: reconciled.rows,
     totals: reconciled.totals,

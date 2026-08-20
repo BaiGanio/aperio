@@ -67,14 +67,16 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - Source-level by design — importing the real subsystems would pull in SDKs and
   side effects, and the drift being caught is textual (a branch, a registry
   entry, or a migration mirror that was never added)
-- Every script exports a pure `check*` function taking injectable inputs, so a
-  drift fixture is driven without touching the repo, plus a `check*Contract()`
-  that reads the real tree; each has a red/green proof test (T5.1)
+- Every structural contract script exports a pure `check*` function taking
+  injectable inputs, so a drift fixture is driven without touching the repo,
+  plus a `check*Contract()` that reads the real tree; each has a red/green proof
+  test (T5.1). `ledger.js` is persistence infrastructure rather than a scanner;
+  its filesystem path and provider-source reader are injectable in tests
 - Reviewed exceptions are registries inside the script (e.g.
   `REVIEWED_AUTH_EXEMPTIONS`, `REVIEWED_CAPABILITY_EXEMPTIONS`) and are honoured
   only while their stated reason still holds in the code — an exemption whose
   justification has gone stale fails the gate rather than passing quietly
-- 11 scripts: `inventory`, `schema`, `manifest`, `database-contract`,
+- 12 scripts: `inventory`, `schema`, `ledger`, `manifest`, `database-contract`,
   `config-contract`, `routes-contract`, `memory-contract`,
   `bootstrap-contract`, `provider-contract`, `registry-contract`,
   `usage-accounting`
@@ -92,8 +94,9 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
     deliberate difference: an alias that could name more than one model is
     `unknown` rather than a coin flip, so it can only ever be more conservative
     than the runtime lookup. The invariants its arithmetic rests on (cached
-    input ⊆ input, reasoning ⊆ output, no cache-read rate on the price sheet,
-    billing flags on every provider announce) are checked as source markers.
+    input + cache creation ⊆ input, reasoning ⊆ output, nullable cache rates,
+    reasoning already included in output billing, and billing flags on every
+    provider announce) are checked as source markers.
     The billing-flag rule is scoped to each announce payload, with no trigger
     condition: an omitted flag does not reset the UI, it keeps the previous
     provider's billing class, so an announce that drops pricing *and* the flags
@@ -112,6 +115,13 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   construction a record of a run that happened. `runId` runs the other way —
   required by the schema, because the accounting layer has to address a row and
   reject the same run arriving twice through a merge or replay
+- `ledger` is the durable layer beneath that aggregation. It stores one
+  immutable JSON object per line in `audit/ledger/runs.jsonl`; the accounting
+  contract reads it by default. Missing files, malformed/schema-invalid lines,
+  and duplicate run IDs fail closed. `createRunRecord()` maps provider
+  `streamUsage` into stable token names and refuses to store a missing
+  `cache_creation_input_tokens` count when the real provider loop reports that
+  field, so an Anthropic cache write cannot silently become zero on disk
 - A rejected record never reaches a total. Any per-record error — a duplicate,
   an unaddressable `runId`, an out-of-enum `usageSource`, broken token subsets,
   a negative hand-entered rate — leaves the row visible and marked `excluded`
@@ -123,13 +133,13 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   silently included a projection. Nothing is summed across the two columns, only
   `.api` carries a cost, and the non-API buckets report `cost: null` rather than
   `$0` — a zero total would be a claim
-- Cost is an interval, never a fabricated point. Cache **reads** have no
-  published rate, so they bound it (`low` bills them at 0, `high` at the full
-  input rate). Cache **writes** are billed *above* the input rate, so the rates
-  on the sheet cannot bound them at all: a run with cache-creation tokens — or
-  one whose provider reports them and whose record does not state the count —
-  prices as `unknown`. Which providers report cache writes is derived from the
-  real provider loops, not hardcoded
+- Cost is exact when the catalog publishes every applicable rate. A missing
+  cache-read rate produces an interval (`low` bills reads at 0, `high` at the
+  full input rate); a missing cache-write rate produces `unknown`, because
+  writes may cost more than base input and therefore have no honest upper
+  bound. A cache-writing provider whose record omits the write count is also
+  `unknown`. Which providers report cache writes is derived from the real loops,
+  not hardcoded
 - Runs in ~2s total via `npm run test:audit`
 - The remaining unbuilt gates from the program's own test plan are tracked in
   `id/reference/tech-debt.md`

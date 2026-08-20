@@ -52,21 +52,25 @@ Refer to the two architecture diagrams in the main plan whenever a session loses
 Use this initial layout unless implementation reveals a concrete reason to change it:
 
 ```text
-scripts/audit/
+audit/scripts/
   inventory.js              deterministic repository inventory
   schema.js                 run/finding validation and transitions
+  ledger.js                 immutable run persistence
   manifest.js               evidence packet builder and hashing
-  contracts/
-    database.js             first A14 contract gate
+  database-contract.js      first A14 contract gate
+  ...                       remaining structural contracts
 
-tests/audit/
+audit/tests/
   inventory.test.js
   schema.test.js
+  ledger.test.js
   manifest.test.js
   database-contract.test.js
-  fixtures/                 disposable synthetic repository structures
 
-trash/plans/aperio-continuous-audit/runs/
+audit/ledger/
+  runs.jsonl                current immutable usage-run ledger
+
+trash/audits/continuous-audit/runs/
   run-001/
     baseline.json
     progress snapshot or links
@@ -84,11 +88,10 @@ record or explicit amendment rather than silently rewriting history.
 Do not store audit records in `var/`: it is private runtime state, may contain sensitive
 conversation data, and is separate from audit planning artifacts.
 
-`trash/` is gitignored in this repository. The layout above supports continuing Run 1 across
-local workspace sessions, but it will not travel with a normal clone or appear in a commit.
-Before Run 1 needs durable/shared history, ask the developer whether validated run records
-should move to a tracked location such as `id/audit/runs/` or to an external artifact store.
-Do not force-add `trash/` or write tracked audit documentation without that approval.
+Historical evidence under `trash/audits/` is local and gitignored; it does not travel with a
+normal clone. The current usage ledger is the tracked `audit/ledger/runs.jsonl`, validated by
+`audit/scripts/ledger.js`. Do not force-add raw historical artifacts from `trash/`; promote a
+reviewed record deliberately if it needs shared history.
 
 ## 4. Phase 0 — Bootstrap the Audit Harness
 
@@ -127,7 +130,7 @@ Tests must prove:
 - The audit does not stage, restore, delete, or rewrite user files.
 - Counts change when fixture files change; no count comes from prose constants.
 
-Only then implement `scripts/audit/inventory.js`. Give it a root argument so tests never
+Only then implement `audit/scripts/inventory.js`. Give it a root argument so tests never
 need to mutate the real worktree.
 
 ### 4.3 Implement the minimal T3 schema
@@ -487,11 +490,12 @@ single action. Do not mark progress complete without linked evidence.
 Prefer narrowly scoped commands while the audit harness is being built:
 
 ```bash
-NODE_ENV=test node --test tests/audit/inventory.test.js
-NODE_ENV=test node --test tests/audit/schema.test.js
-NODE_ENV=test node --test tests/audit/manifest.test.js
-NODE_ENV=test node --test tests/audit/database-contract.test.js
-NODE_ENV=test node --test 'tests/audit/*.test.js'
+NODE_ENV=test node --test audit/tests/inventory.test.js
+NODE_ENV=test node --test audit/tests/schema.test.js
+NODE_ENV=test node --test audit/tests/ledger.test.js
+NODE_ENV=test node --test audit/tests/manifest.test.js
+NODE_ENV=test node --test audit/tests/database-contract.test.js
+npm run test:audit
 ```
 
 Later, run the affected product tests named by the slice. The full `npm test` suite is a

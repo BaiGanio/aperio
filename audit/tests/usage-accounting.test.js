@@ -1114,9 +1114,9 @@ describe("audit/scripts/usage-accounting.js", () => {
       })], ["anthropic"]);
     // The one reviewed price exception is still absent from the real catalog.
     assert.deepStrictEqual(Object.keys(REVIEWED_PRICE_EXCEPTIONS), ["deepseek-chat"]);
-    // No ledger is persisted yet, so the real record set is empty by design —
-    // the gate is green on an empty ledger and stays useful because the source
-    // invariants above are what actually rot.
+    // The checked-in ledger starts empty. The persistence tests append real
+    // records to isolated temp ledgers and prove this default path reads them;
+    // the repository ledger gains rows only when an actual audit slice runs.
     assert.deepStrictEqual(result.rows, []);
   });
 

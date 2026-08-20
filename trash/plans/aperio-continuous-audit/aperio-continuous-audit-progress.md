@@ -4,13 +4,13 @@ _This is the reusable Run 1 template. Copy it for later runs; do not erase prior
 
 ---
 
-## Run 2 — status: OPEN (4 slices audited, human triage pending)
+## Run 2 — status: CLOSED 2026-08-17 (4 slices audited, all findings remediated)
 
 | Field | Value |
 |---|---|
 | Run number | 2 |
-| Status | 4/22 slices deep-audited (A06, A17, A03, A13); 18 remain deferred to Run 3 |
-| Started / completed | 2026-08-15 / in progress — audit passes done, triage not yet done |
+| Status | 4/22 slices deep-audited (A06, A17, A03, A13); all 6 findings fixed; 18 slices deferred |
+| Started / completed | 2026-08-15 / 2026-08-17 |
 | Baseline commit | ba1c433f3625bea591183c3a9caedeca241704b3 |
 | Branch | master (clean tree at start and at audit time) |
 | Lead auditor | Claude Sonnet 5 (Claude Code) |
@@ -20,7 +20,7 @@ _This is the reusable Run 1 template. Copy it for later runs; do not erase prior
 
 Followed Run 1's priority order exactly: A06 (providers), A17 (interrupts), A03 (HTTP trust boundary),
 A13 (memory/wiki/embeddings). Each slice already had a passing shallow "file existence" contract gate
-from Run 1 (`audit/runs/run-001/{slice}/contract-result.json`) — this run did the deep review those
+from Run 1 (`trash/audits/continuous-audit/runs/run-001/{slice}/contract-result.json`) — this run did the deep review those
 gates don't do: reading the actual logic, running existing focused tests, and hunting the "typical
 negative case" for each slice per the developer playbook's Section 6.2 table.
 
@@ -35,8 +35,8 @@ by direct file read (not just trusted from the subagent) before being promoted f
 
 ### Findings — 6 confirmed, 4 candidates not promoted
 
-Full register: `audit/runs/run-002/findings.json` (schema-validated, all 6 pass `validateFinding`).
-Slice reports: `audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
+Full register: `trash/audits/continuous-audit/runs/run-002/findings.json` (schema-validated, all 6 pass `validateFinding`).
+Slice reports: `trash/audits/continuous-audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
 
 | ID | Slice | Severity | Confidence | Title | Issue |
 |---|---|---|---|---|---|
@@ -50,7 +50,8 @@ Slice reports: `audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
 **Update 2026-08-15, same session:** all 6 findings filed as GitHub issues (linked above) at the
 developer's request, so a fresh session can pick them up. `status` in `findings.json` moved from
 `confirmed` to `planned` for all 6 — the human-triage step (duplicate/rejected/accepted-risk/
-documentation-only/planned/issue-filed) is effectively done via "issue filed." No code fixed yet.
+documentation-only/planned/issue-filed) is effectively done via "issue filed." No code was fixed at
+that checkpoint; the Run 2 closeout below records the later remediation.
 
 All 6 were confirmed by the orchestrator independently reading the affected source (not solely trusting
 the subagent's report); 3 of the 4 non-promoted candidates were left at the subagent's original
@@ -61,24 +62,21 @@ None of these findings regress an existing test — all affected test suites are
 interrupt suites, route/netGuard/authGuard suites, memory/wiki/embedding suites all pass). These are
 uncaught gaps, not regressions.
 
-### What Run 2 has NOT done yet
+### Run 2 closeout
 
-- **Human triage** — none of the 6 findings have a disposition (duplicate/rejected/accepted-risk/
-  documentation-only/planned/issue-filed) yet. That is the required next step before any remediation.
+- **All 6 findings were triaged, fixed, regression-tested, and their issues closed**: F-R2-01
+  (#470), F-R2-02 (#473), F-R2-04 (#472), F-R2-05 (#471), F-R2-06 (#474), and F-R2-07
+  (#475).
 - **18 remaining slices** (A01, A02, A04, A05, A07–A12, A15, A16, A18–A22) are still deferred, per the
   "size scope realistically" lesson from Run 1's retrospective (this run picked the 4 priority slices,
   not all 22).
-- **No production code was touched.** This run was audit-only, per the co-pilot contract.
 
-### Next action for Run 3 (or a remediation session on these 6 findings first)
+### Next audit-run scope
 
-1. Human triage of F-R2-01 through F-R2-07 (see table above) — recommend starting with F-R2-01
-   (secret redaction gap) and F-R2-05 (webhook fully broken) given severity=high and confidence=high
-   on both, with independent verification already done.
-2. If remediation is approved, each finding's report names its regression-test location — write that
-   test first (red), then fix, matching the playbook's Section 8 handoff rule.
-3. Remaining scope for Run 3: A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 slices) — same
+1. Remaining scope: A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 slices) — same
    priority-order-by-risk approach Run 1's retrospective recommended.
+2. Create a fresh baseline immediately before execution; the abandoned 2026-08-17 Run 3 baseline
+   was removed because it had no slice output and named an obsolete dirty revision.
 
 ---
 
@@ -149,7 +147,7 @@ Status values: `not-started`, `inventory`, `auditing`, `verifying`, `triage`, `c
 | A11 | Tool discovery and execution | deferred | — | — | — | — | — | Run 2 scope |
 | A12 | MCP standalone boundary | deferred | — | — | — | — | — | Run 2 scope |
 | A13 | Memory, wiki, and embeddings | deferred | — | — | — | — | — | Run 2 scope |
-| A14 | Database parity and encryption | complete | inventory.js, schema.js, manifest.js, contracts/database.js | 0 / 0 / 0 / 0 | $0 | 0 / 0 | audit/runs/run-001/A14/ | Bootstrap pilot complete. 65 tests pass. Clean result — no defects found in current tree. |
+| A14 | Database parity and encryption | complete | inventory.js, schema.js, manifest.js, contracts/database.js | 0 / 0 / 0 / 0 | $0 | 0 / 0 | trash/audits/continuous-audit/runs/run-001/A14/ | Bootstrap pilot complete. 65 tests pass. Clean result — no defects found in current tree. |
 | A15 | Filesystem, shell, artifacts | deferred | — | — | — | — | — | Run 2 scope |
 | A16 | Network, GitHub, external DB egress | deferred | — | — | — | — | — | Run 2 scope |
 | A17 | Interrupt and cancellation semantics | deferred | — | — | — | — | — | Run 2 scope |
@@ -163,22 +161,22 @@ Status values: `not-started`, `inventory`, `auditing`, `verifying`, `triage`, `c
 
 | Journey | Status | Variants covered | Failure injection | Findings | Evidence/report |
 |---:|---|---|---|---|---|
-| J01 Lite first run to first recall | complete | Fresh install, bootstrap, SQLite, local model, recall | N/A — passive trace | 0 | audit/runs/run-001/journeys/journey-1.md |
-| J02 Browser chat through confirmed tool result | complete | WS connect, init, dispatch, confirm, UI result | CONFIRMABLE_TOOLS path | 1 (fixed) | audit/runs/run-001/journeys/journey-2.md |
-| J03 External MCP host through guarded persistence | complete | MCP start, memory/files tool, path guard, wiki, DB | — | 0 | audit/runs/run-001/journeys/journey-3.md |
-| J04 Provider switch mid-session | complete | switch_model, setProvider, normalizeMessages, provider loop | Image block preservation | 1 (fixed) | audit/runs/run-001/journeys/journey-4.md |
-| J05 Cloud privacy/secret egress | complete | Redaction, tier filter, self-memory gate, egress | — | 0 | audit/runs/run-001/journeys/journey-5.md |
-| J06 Background job interrupt and resume | complete | Job creation, permission/budget, interrupt, persistence, resume | Crash recovery gap | 1 (accepted risk) | audit/runs/run-001/journeys/journey-6.md |
-| J07 Index, retrieve, delete, reindex | complete | Parser, embedding queue, storage, retrieval, watcher | — | 0 | audit/runs/run-001/journeys/journey-7.md |
-| J08 Non-loopback trust-policy parity | complete | TLS, NetGuard, auth, rate-limit, WS verifyClient | — | 0 | audit/runs/run-001/journeys/journey-8.md |
-| J09 Browser disconnect during stream/mutation | complete | WS close, turn abort, stream abort, session finalisation, resume | — | 0 | audit/runs/run-001/journeys/journey-9.md |
-| J10 Concurrent browser and MCP mutation | complete | Shared store, WAL/concurrent, approvePending, updateMemory race, path isolation, Postgres locking | Concurrent write contention | 4 (3 fixed, 1 investigated) | audit/runs/run-001/journeys/journey-10.md |
-| J11 Offload, retrieve, switch, resume, cleanup | complete | Tool offload, artifact store, retrieval, switch, resume, cleanup | — | 0 | audit/runs/run-001/journeys/journey-11.md |
-| J12 Permission/model change across job lifecycle | complete | Frozen job spec, queued changes, running changes, model change | Config propagation, crash recovery | 2 (accepted risks) | audit/runs/run-001/journeys/journey-12.md |
+| J01 Lite first run to first recall | complete | Fresh install, bootstrap, SQLite, local model, recall | N/A — passive trace | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-1.md |
+| J02 Browser chat through confirmed tool result | complete | WS connect, init, dispatch, confirm, UI result | CONFIRMABLE_TOOLS path | 1 (fixed) | trash/audits/continuous-audit/runs/run-001/journeys/journey-2.md |
+| J03 External MCP host through guarded persistence | complete | MCP start, memory/files tool, path guard, wiki, DB | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-3.md |
+| J04 Provider switch mid-session | complete | switch_model, setProvider, normalizeMessages, provider loop | Image block preservation | 1 (fixed) | trash/audits/continuous-audit/runs/run-001/journeys/journey-4.md |
+| J05 Cloud privacy/secret egress | complete | Redaction, tier filter, self-memory gate, egress | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-5.md |
+| J06 Background job interrupt and resume | complete | Job creation, permission/budget, interrupt, persistence, resume | Crash recovery gap | 1 (accepted risk) | trash/audits/continuous-audit/runs/run-001/journeys/journey-6.md |
+| J07 Index, retrieve, delete, reindex | complete | Parser, embedding queue, storage, retrieval, watcher | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-7.md |
+| J08 Non-loopback trust-policy parity | complete | TLS, NetGuard, auth, rate-limit, WS verifyClient | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-8.md |
+| J09 Browser disconnect during stream/mutation | complete | WS close, turn abort, stream abort, session finalisation, resume | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-9.md |
+| J10 Concurrent browser and MCP mutation | complete | Shared store, WAL/concurrent, approvePending, updateMemory race, path isolation, Postgres locking | Concurrent write contention | 4 (3 fixed, 1 investigated) | trash/audits/continuous-audit/runs/run-001/journeys/journey-10.md |
+| J11 Offload, retrieve, switch, resume, cleanup | complete | Tool offload, artifact store, retrieval, switch, resume, cleanup | — | 0 | trash/audits/continuous-audit/runs/run-001/journeys/journey-11.md |
+| J12 Permission/model change across job lifecycle | complete | Frozen job spec, queued changes, running changes, model change | Config propagation, crash recovery | 2 (accepted risks) | trash/audits/continuous-audit/runs/run-001/journeys/journey-12.md |
 
 ## 6. Boundary Matrix Disposition
 
-Full 7×5 matrix at `audit/runs/run-001/matrix.json`. All 35 cells populated. 7 cells initially documented as `covered_with_gaps`; after remediation:
+Full 7×5 matrix at `trash/audits/continuous-audit/runs/run-001/matrix.json`. All 35 cells populated. 7 cells initially documented as `covered_with_gaps`; after remediation:
 
 | Caller / lifecycle | Agent/context | MCP/tools | Provider/cloud | DB/artifacts | Background/interrupt |
 |---|---|---|---|---|---|
