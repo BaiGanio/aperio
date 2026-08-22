@@ -2,7 +2,9 @@ import { EventEmitter } from "node:events";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { openChokidarWatcher, startWatcher } from "../../../lib/docgraph/watcher.js";
+import path from "node:path";
+
+import { openChokidarWatcher, startWatcher, isIndexable, hasSkippedSegment } from "../../../lib/docgraph/watcher.js";
 import { walk } from "../../../lib/docgraph/indexer.js";
 
 function fakeWatcher(event, value) {
@@ -107,4 +109,26 @@ test("an unreadable or missing document root fails instead of looking like an em
     Array.fromAsync(walk("/definitely/missing/aperio-docgraph-root")),
     /Cannot read document root/,
   );
+});
+
+describe("SKIP_DIRS matching stays relative to the watched root", () => {
+  // Regression for the 2026-08-21 bug (id/reference/tech-debt.md): a watched
+  // root under macOS's default temp dir resolves to /private/var/folders/...,
+  // whose "var" ancestor segment used to false-match SKIP_DIRS and silently
+  // index nothing, forever, with no error.
+  const macTempRoot = "/private/var/folders/ab/xyz123/T/aperio-scratch";
+
+  test("a root living under a SKIP_DIRS-named ancestor is not skipped itself", () => {
+    assert.equal(hasSkippedSegment(macTempRoot, macTempRoot), false);
+  });
+
+  test("a file directly inside such a root is indexable", () => {
+    const file = path.join(macTempRoot, "notes.md");
+    assert.equal(isIndexable(macTempRoot, file), true);
+  });
+
+  test("a file inside a real skip dir *within* the root is still skipped", () => {
+    const file = path.join(macTempRoot, "node_modules", "pkg", "readme.md");
+    assert.equal(isIndexable(macTempRoot, file), false);
+  });
 });

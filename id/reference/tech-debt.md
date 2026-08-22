@@ -260,27 +260,22 @@ because the round-12 blend retired the premise of the second arm.
 
 ## Document Intelligence — cold-start template proposals (#250)
 
-- 2026-08-02 **`inferTemplateProposal()`'s `match_keywords` heuristic is crude
-  and unvalidated against real bill diversity.** (`lib/handlers/extraction/extractHandlers.js`)
-  When a document matches no known template, the proposed template's
-  `match_keywords` come from `matchHandlers.significantWords()` — the top
-  8 most-frequent Unicode-letter words (length ≥ 4) anywhere in the document
-  text. This is a deliberate, documented deviation from the WS3 plan, which
-  never specified a concrete heuristic; the design choice itself (picking
-  literal document words over the field's own English role names) is sound
-  and language-agnostic, evidenced only by the T-G4.3 synthetic-text tests in
-  `tests/integration/handlers/extraction/extractionHandlers.test.js` — never
-  against the real household-gen corpus or any real bill. Known weaknesses:
-  (1) no distinction between a distinctive issuer name and generic boilerplate
-  words ("invoice", "total", "payment") that would appear on every bill from
-  every provider, so two DIFFERENT providers' bills could plausibly propose
-  near-identical keyword sets and collide in `matchTemplates`' ranking; (2) no
-  weighting toward header/title lines, where an issuer name is most likely to
-  live, vs. the body; (3) untested on scanned/OCR'd text, which is noisier
-  than the clean synthetic snippets used here. Needs real-corpus evidence
-  (ideally household-gen bills from several distinct providers) before this
-  heuristic can be trusted for genuine cold-start learning rather than just
-  passing its own unit tests.
+- 2026-08-02 **`inferTemplateProposal()`'s `match_keywords` heuristic needs
+  real-corpus validation.** (`lib/handlers/extraction/extractHandlers.js`)
+  **2026-08-05 update: the two structural weaknesses this entry originally
+  flagged are fixed** (`c91b0865`) — `inferTemplateProposal` now calls
+  `matchHandlers.proposalKeywords()`, not `significantWords()`. It penalizes
+  a `GENERIC_PROPOSAL_WORDS` list ("invoice", "total", "payment", etc.) and
+  weights header/first-line and label-shape position, so two different
+  providers' bills no longer collide on shared boilerplate and an issuer name
+  in the header outranks generic body frequency. Covered by 5 unit tests in
+  `tests/integration/handlers/extraction/extractionHandlers.test.js`
+  (boilerplate deprioritization, header-term preference, cross-provider
+  distinguishability, and a noisy OCR-like-text case), all green as of
+  2026-08-21. Still open: those tests are synthetic, not the real
+  household-gen corpus or a real bill — genuine real-corpus evidence (ideally
+  household-gen bills from several distinct providers) is still needed before
+  this heuristic is fully trusted for real cold-start learning.
 
 ---
 
@@ -573,6 +568,31 @@ nuanced than "unvalidated" now.
   llamacpp` invocation before this fix would have failed at import time,
   before booting anything, so this was silently unusable rather than
   silently wrong.
+
+---
+
+## gemma-4-E4B tool-call leakage — pipe-delimited shape, distinct from the Ornith angle-bracket fix
+
+- 2026-08-22 `unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL` under llama.cpp
+  reproducibly (2/2 tries, same query) leaks a malformed `doc_search` call
+  instead of issuing it properly, whenever the query argument is a quoted
+  string: `<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>`.
+  `[agent] tool-call leakage from model=...` fires, the thinking-suppressed
+  retry reproduces the identical string ("tool-call leakage persisted after
+  retry"), and the turn falls back to "I tried to use one of my tools but
+  couldn't issue the call correctly" — same failure shape as the Ornith
+  angle-bracket leak below, but this is a **different leaked format** (pipe
+  characters inside the angle brackets, `call:name{...}` curly-brace syntax,
+  not `<function=name><parameter=x>val</parameter></function>`) — the
+  angle-bracket fix's `extractAngleToolCall()` does not match this pattern.
+  Found live while recording the demo video (`var/demo/record.js`) after
+  switching from `gemma-4-E2B` to `gemma-4-E4B` for richer answers; E2B does
+  not show this leak on the same query/tool. Not investigated further here —
+  out of scope for the demo-video task, and this is Fragile-Zone-adjacent
+  (`lib/tools/executor.js`). Whoever picks this up next: start from the
+  Ornith fix's `extractAngleToolCall()` as a template, add a
+  `extractPipeAngleToolCall()` (or generalize the existing one) for the
+  `<|tool_call>call:name{key:<|"|>val<|"|>}<tool_call|>` shape.
 
 ---
 
