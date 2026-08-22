@@ -1,0 +1,9 @@
+{
+  "id": "confirm-pending-index-folder",
+  "title": "A non-destructive action needing permission is labelled from its own Action line",
+  "userMessage": "Index my notes folder so you can search it.",
+  "providerScript": [
+    { "tool": "index_folder", "args": { "path": "/home/dev/notes", "target": "code" } },
+    { "text": "Indexed the folder." }
+  ]
+}

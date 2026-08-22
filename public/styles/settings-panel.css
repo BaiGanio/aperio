@@ -1,0 +1,295 @@
+/* ── Settings panel ─────────────────────────────────────────── */
+/* Slide-in drawer from the right, mirroring the wiki/sessions panels.
+   Holds the preferences that used to clutter the sidebar footer. */
+.settings-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.25);
+  z-index: 199;
+}
+.settings-panel {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 380px; max-width: 94vw;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  z-index: 200;
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  animation: slideInRight .18s ease;
+}
+.settings-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-panel-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-chrome); font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.settings-panel-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: var(--fs-ui);
+  padding: 2px 4px; border-radius: var(--radius-sm);
+  transition: color var(--transition);
+}
+.settings-panel-close:hover { color: var(--text); }
+
+.settings-panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 8px 16px;
+}
+
+/* One preference per row: label on the left, control on the right. */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+
+/* Stacked variant: label on its own line, control spanning full width below.
+   Used where the control needs the whole row (theme segments, language list). */
+.settings-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.settings-row-label {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text);
+  font-size: calc(13.5px * var(--font-scale)); font-weight: 500;
+}
+.settings-row-label i { font-size: var(--fs-reading); color: var(--text-muted); }
+
+/* Right-hand control cluster (e.g. ON/OFF badge + switch). */
+.settings-row-control { display: flex; align-items: center; gap: 10px; }
+
+/* Compact dropdown for small enumerated preferences (e.g. ambient background). */
+.settings-select {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border, var(--bg-hover));
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+/* Textual on/off state so the toggle's meaning is always explicit. */
+.settings-state {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro); font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  min-width: 26px; text-align: right;
+}
+.settings-state.is-on { color: var(--accent); }
+
+/* Text-size control — continuous --font-scale slider (0.85–1.4).
+   The end "A" glyphs are fixed-size previews of the scale extremes, so they
+   are intentionally NOT multiplied by --font-scale. */
+.fontscale-slider-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+}
+.fontscale-end {
+  flex-shrink: 0;
+  line-height: 1; font-weight: 700;
+  color: var(--text-muted);
+}
+.fontscale-slider {
+  flex: 1; min-width: 0;
+  -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 4px;
+  background: var(--bg-hover);
+  cursor: pointer;
+}
+.fontscale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.fontscale-slider::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.fontscale-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.fontscale-value {
+  flex-shrink: 0;
+  min-width: 38px; text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Toggle switch (used for on/off preferences like voice responses). */
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: absolute; inset: 0; cursor: pointer;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  transition: background var(--transition), border-color var(--transition);
+}
+.switch-track::before {
+  content: ""; position: absolute;
+  height: 16px; width: 16px; left: 3px; top: 2px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform var(--transition), background var(--transition);
+}
+.switch input:checked + .switch-track {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  border-color: var(--accent);
+}
+.switch input:checked + .switch-track::before {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+/* Model selector — expandable list grouped by provider */
+.model-current {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.model-loading {
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: .7;
+}
+.model-group { display: flex; flex-direction: column; gap: 2px; }
+.model-group-label {
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  opacity: .7;
+  padding: 2px 2px 4px;
+}
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-chrome);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.model-option:hover { border-color: var(--accent); }
+.model-option-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.model-option-check { color: var(--accent); opacity: 0; flex-shrink: 0; }
+.model-option.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.model-option.is-active .model-option-check { opacity: 1; }
+.model-select-status {
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  margin-top: 4px;
+  min-height: 16px;
+}
+.model-select-status.is-ok { color: var(--accent); }
+.model-select-status.is-err { color: var(--error, #e55); }
+
+.model-guide-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.model-guide-link:hover { color: var(--accent); }
+
+/* ── Extras: optional skill dependencies (docx Python toolchain) ─────────── */
+.extras-tier {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.extras-tier:last-of-type { border-bottom: none; }
+.extras-tier-title {
+  font-size: var(--fs-chrome);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.extras-tier[data-ready="false"] .extras-tier-title { color: var(--text-muted); }
+.extras-dep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.extras-dep.is-ok { color: var(--text); }
+.extras-cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  background: var(--bg-hover);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+.extras-install-btn { padding: 2px 10px; font-size: var(--fs-micro); }
+.extras-copy-btn, .extras-recheck { flex-shrink: 0; }
+
+/* Full-screen overlay shown while the server restarts. */
+.restart-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(3px);
+}
+.restart-overlay-card {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 32px 40px;
+  max-width: 360px; text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--panel, var(--bg));
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.restart-overlay-title { font-size: calc(15px * var(--font-scale)); font-weight: 600; color: var(--text); }
+.restart-overlay-msg   { font-size: calc(12.5px * var(--font-scale)); color: var(--text-muted, var(--text)); line-height: 1.45; }
+.restart-spinner {
+  width: 34px; height: 34px;
+  border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: restart-spin .8s linear infinite;
+}
+@keyframes restart-spin { to { transform: rotate(360deg); } }

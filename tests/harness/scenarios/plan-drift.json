@@ -1,0 +1,12 @@
+{
+  "id": "plan-drift",
+  "title": "Calling a different tool than the plan's next step is recorded as drift, not blocked",
+  "userMessage": "Pull the sales data and analyze it.",
+  "providerScript": [
+    { "plan": "APERIO_PLAN:{\"steps\":[{\"tool\":\"fetch_data\",\"purpose\":\"get raw sales data\"},{\"tool\":\"analyze_data\",\"purpose\":\"analyze it\"}]}" },
+    { "tool": "analyze_data", "args": {} },
+    { "text": "Done." }
+  ],
+  "expectedToolSequence": ["analyze_data"],
+  "requiredAnswerTerms": ["Done"]
+}

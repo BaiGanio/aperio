@@ -1,0 +1,11 @@
+{
+  "id": "repeated-call-break-success",
+  "title": "Repeating the exact same succeeding action three times also stops the assistant",
+  "userMessage": "Keep fetching the data again and again.",
+  "providerScript": [
+    { "tool": "fetch_data", "args": {} },
+    { "tool": "fetch_data", "args": {} },
+    { "tool": "fetch_data", "args": {} },
+    { "text": "I already had this data after the first call, so I stopped calling the tool again." }
+  ]
+}

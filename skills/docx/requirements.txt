@@ -1,0 +1,8 @@
+# Python dependencies for the docx skill's advanced (Python) toolchain:
+# unpack.py / pack.py / validate.py / comment.py / accept_changes.py.
+# Installed into the project venv (var/venv) by the web UI "Extras" panel
+# (POST /api/capabilities/install) or manually:
+#   python3 -m venv var/venv && var/venv/bin/pip install -r skills/docx/requirements.txt
+# Everything else those scripts use is in the Python 3 standard library.
+lxml>=5.0
+defusedxml>=0.7
