@@ -573,26 +573,46 @@ nuanced than "unvalidated" now.
 
 ## gemma-4-E4B tool-call leakage — pipe-delimited shape, distinct from the Ornith angle-bracket fix
 
-- 2026-08-22 `unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL` under llama.cpp
-  reproducibly (2/2 tries, same query) leaks a malformed `doc_search` call
-  instead of issuing it properly, whenever the query argument is a quoted
-  string: `<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>`.
-  `[agent] tool-call leakage from model=...` fires, the thinking-suppressed
-  retry reproduces the identical string ("tool-call leakage persisted after
-  retry"), and the turn falls back to "I tried to use one of my tools but
+- 2026-08-22 **Fixed.** `unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL` under
+  llama.cpp reproducibly (2/2 tries, same query) leaked a malformed
+  `doc_search` call instead of issuing it properly, whenever the query
+  argument is a quoted string:
+  `<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>`.
+  `[agent] tool-call leakage from model=...` fired, the thinking-suppressed
+  retry reproduced the identical string ("tool-call leakage persisted after
+  retry"), and the turn fell back to "I tried to use one of my tools but
   couldn't issue the call correctly" — same failure shape as the Ornith
-  angle-bracket leak below, but this is a **different leaked format** (pipe
+  angle-bracket leak below, but a **different leaked format** (pipe
   characters inside the angle brackets, `call:name{...}` curly-brace syntax,
-  not `<function=name><parameter=x>val</parameter></function>`) — the
-  angle-bracket fix's `extractAngleToolCall()` does not match this pattern.
-  Found live while recording the demo video (`var/demo/record.js`) after
-  switching from `gemma-4-E2B` to `gemma-4-E4B` for richer answers; E2B does
-  not show this leak on the same query/tool. Not investigated further here —
-  out of scope for the demo-video task, and this is Fragile-Zone-adjacent
-  (`lib/tools/executor.js`). Whoever picks this up next: start from the
-  Ornith fix's `extractAngleToolCall()` as a template, add a
-  `extractPipeAngleToolCall()` (or generalize the existing one) for the
-  `<|tool_call>call:name{key:<|"|>val<|"|>}<tool_call|>` shape.
+  not `<function=name><parameter=x>val</parameter></function>`, and every
+  quote rendered as `<|"|>` — llama.cpp's own internal template quote marker,
+  the same one already found leaking into `db_execute` args elsewhere in this
+  file). Found live while recording the demo video (`var/demo/record.js`)
+  after switching from `gemma-4-E2B` to `gemma-4-E4B`; E2B does not show this
+  leak on the same query/tool. Detection already fired correctly (the generic
+  `<\|\s*tool_call\s*\|?>` pattern); only recovery was missing. Fixed by
+  adding `extractPipeAngleToolCall()` (`lib/tools/executor.js`), wired into
+  `extractTextToolCall()` alongside the bracket/angle extractors: swaps the
+  `<|"|>` marker back to a real quote, then parses the `call:name{...}` body
+  as a JSON-object literal (bare keys allowed). 8 new tests in
+  `tests/unit/tools/executor.test.js` (exact recorded leak string, no-arg
+  call, multi-arg, prose-prefixed, known-tool gate, detect/recover
+  agreement), full unit suite (2683 tests) green. **Live-tested 2026-08-22,
+  did not reproduce this specific shape**: 12 real turns against the actual
+  model in an isolated scratch setup (own DB, own ports, cleaned up after) —
+  11 clean successes, 1 different leak (a "narrated call" shape, recovered
+  fine by the existing retry-with-thinking-suppressed path, not by this
+  fix). The exact pipe-angle shape this fix targets never recurred, so the
+  fix itself remains validated only against the recorded string plus unit
+  tests, not a live reproduction. Along the way this same session found and
+  fixed a real, unrelated bug that was silently breaking the live test
+  itself: `lib/providers/index.js` hardcoded `http://127.0.0.1:8080` as the
+  llama.cpp base URL regardless of `LLAMACPP_PORT`, so a non-default port
+  (set here to isolate the test from a real running instance) talked to
+  nothing and every turn failed with "the local llama.cpp engine is not
+  running" until fixed to derive the default from `LLAMACPP_PORT`, matching
+  `lib/helpers/llamacpp/constants.js`. 2 new tests in
+  `tests/integration/providers.test.js`.
 
 ---
 

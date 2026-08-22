@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, extractPipeAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -366,6 +366,77 @@ describe("extractAngleToolCall", () => {
       ["db_schema"],
     );
     assert.equal(result, null);
+  });
+});
+
+// =============================================================================
+// extractPipeAngleToolCall
+//
+// gemma-4-E4B leaks a THIRD shape, distinct from both Ornith leaks above:
+// mismatched pipe/angle wrapper tags, and every quote rendered as llama.cpp's
+// own internal `<|"|>` template quote marker instead of `"` — recorded
+// verbatim (id/reference/tech-debt.md, "gemma-4-E4B tool-call leakage —
+// pipe-delimited shape"):
+//   <|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>
+// =============================================================================
+
+describe("extractPipeAngleToolCall", () => {
+  test("returns null for empty or non-matching text", () => {
+    assert.equal(extractPipeAngleToolCall(""), null);
+    assert.equal(extractPipeAngleToolCall("I'll search for that."), null);
+  });
+
+  test("recovers the exact recorded leak: pipe-quoted string argument", () => {
+    const result = extractPipeAngleToolCall(
+      '<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>',
+    );
+    assert.deepEqual(result, { name: "doc_search", input: { query: "Northwind Labs" }, trailing: "" });
+  });
+
+  test("handles a no-parameter call", () => {
+    assert.deepEqual(
+      extractPipeAngleToolCall("<|tool_call>call:doc_connections{}<tool_call|>"),
+      { name: "doc_connections", input: {}, trailing: "" },
+    );
+  });
+
+  test("handles multiple arguments, mixing pipe-quoted strings and bare numbers", () => {
+    const result = extractPipeAngleToolCall(
+      '<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>,limit:5}<tool_call|>',
+    );
+    assert.deepEqual(result.input, { query: "Northwind Labs", limit: 5 });
+  });
+
+  test("recovers the call even when prose precedes it", () => {
+    const result = extractPipeAngleToolCall(
+      'Let me look that up. <|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>',
+    );
+    assert.equal(result.name, "doc_search");
+    assert.deepEqual(result.input, { query: "Northwind Labs" });
+  });
+
+  test("extractTextToolCall recovers the pipe-angle shape when the other forms don't match", () => {
+    const result = extractTextToolCall(
+      '<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>',
+      [],
+      ["doc_search"],
+    );
+    assert.deepEqual(result, { name: "doc_search", input: { query: "Northwind Labs" }, trailing: "" });
+  });
+
+  test("extractTextToolCall respects the known-tool gate for the pipe-angle shape too", () => {
+    const result = extractTextToolCall(
+      '<|tool_call>call:made_up_tool{query:<|"|>x<|"|>}<tool_call|>',
+      [],
+      ["doc_search"],
+    );
+    assert.equal(result, null);
+  });
+
+  test("detectToolCallLeak already flags the wrapper tag, confirming detection and recovery agree", () => {
+    const leak = '<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>';
+    assert.equal(detectToolCallLeak(leak, ["doc_search"]), true);
+    assert.notEqual(extractPipeAngleToolCall(leak), null);
   });
 });
 

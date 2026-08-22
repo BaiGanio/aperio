@@ -322,6 +322,40 @@ describe("resolveProvider — llamacpp", () => {
     assert.equal(p.model, "unsloth/Qwen3.5-4B-GGUF");
   });
 
+  // Regression (found live 2026-08-22, id/reference/tech-debt.md): this used
+  // to hardcode "http://127.0.0.1:8080" regardless of LLAMACPP_PORT, so a
+  // user who set only LLAMACPP_PORT (the documented, standalone knob for
+  // which port the vendored llama-server listens on — lib/config.js) got a
+  // server that started fine on the new port while every chat turn silently
+  // talked to the wrong one and failed with "the local llama.cpp engine is
+  // not running."
+  test("LLAMACPP_PORT alone (no LLAMACPP_BASE_URL) repoints the base URL", () => {
+    const saved = process.env.LLAMACPP_PORT;
+    process.env.LLAMACPP_PORT = "8099";
+    try {
+      const p = resolveProvider({ name: "llamacpp" });
+      assert.equal(p.llamacppBaseURL, "http://127.0.0.1:8099");
+      assert.equal(p.baseURL, "http://127.0.0.1:8099/v1");
+    } finally {
+      if (saved === undefined) delete process.env.LLAMACPP_PORT;
+      else process.env.LLAMACPP_PORT = saved;
+    }
+  });
+
+  test("an explicit LLAMACPP_BASE_URL still wins over LLAMACPP_PORT", () => {
+    const savedPort = process.env.LLAMACPP_PORT;
+    const savedUrl = process.env.LLAMACPP_BASE_URL;
+    process.env.LLAMACPP_PORT = "8099";
+    process.env.LLAMACPP_BASE_URL = "http://127.0.0.1:9999";
+    try {
+      const p = resolveProvider({ name: "llamacpp" });
+      assert.equal(p.llamacppBaseURL, "http://127.0.0.1:9999");
+    } finally {
+      if (savedPort === undefined) delete process.env.LLAMACPP_PORT; else process.env.LLAMACPP_PORT = savedPort;
+      if (savedUrl === undefined) delete process.env.LLAMACPP_BASE_URL; else process.env.LLAMACPP_BASE_URL = savedUrl;
+    }
+  });
+
   test("LLAMACPP_MODEL env wins over the curated default", () => {
     const saved = process.env.LLAMACPP_MODEL;
     process.env.LLAMACPP_MODEL = "explicit/pinned-GGUF:Q4_K_M";

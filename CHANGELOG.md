@@ -233,6 +233,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
   "Café du Terminal", and "CAFÉ" all resolve to Dining, same as the
   unaccented spelling always did.
 
+- **A watched document folder under macOS's default temp dir was silently
+  indexed as zero documents, forever.** `SKIP_DIRS` (`.git`, `node_modules`,
+  `trash`, `var`, `coverage`) is meant to skip those folders *within* a
+  watched project, but the check tested every segment of the full absolute
+  path — so any root resolving under `/private/var/folders/…` false-matched
+  on "var" and the whole root was ignored, with no error and no log line.
+  Both the initial-scan filter and the live chokidar watcher now check only
+  the path segments inside the watched root.
+
+- **A second local-model tool-call leak, distinct from the Ornith one above,
+  silently died the same way.** gemma-4-E4B leaks tool calls in a third shape
+  — mismatched pipe/angle wrapper tags and every quote rendered as
+  llama.cpp's own internal `<|"|>` template marker instead of `"`
+  (`<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>`).
+  Detection already fired; `extractPipeAngleToolCall()` now recovers it by
+  swapping the marker back to a real quote and parsing the `call:name{...}`
+  body as a JSON-object literal.
+
+- **Setting only `LLAMACPP_PORT` (without also setting `LLAMACPP_BASE_URL`)
+  silently broke every chat turn.** The vendored llama-server started
+  correctly on the configured port, but the provider that talks to it still
+  hardcoded `http://127.0.0.1:8080` as its default, so every request went to
+  the wrong port and failed with "the local llama.cpp engine is not
+  running." The default now derives from `LLAMACPP_PORT` the same way the
+  server-startup code already did, so the two can no longer drift apart.
+
 - **`docker/docker-compose.prod.yml` broke first boot against a fresh
   database.** It mounted `../db/migrations` into Postgres' own
   `/docker-entrypoint-initdb.d`, so a brand-new volume applied the schema
