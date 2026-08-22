@@ -165,6 +165,14 @@
         <input type="text" id="dbcUser" class="paths-text-input" placeholder="user" value="${esc(c.user || "")}" autocomplete="off" />
         <input type="password" id="dbcPassword" class="paths-text-input" autocomplete="off"
                placeholder="${c.hasPassword ? "password (leave blank to keep current)" : "password"}" />
+        <label class="db-conn-readonly" id="dbcBackslashRow">
+          Backslash escaping in string literals
+          <select id="dbcBackslashEscapes" class="paths-text-input">
+            <option value=""${c.backslashEscapes == null ? " selected" : ""}>Default for this engine</option>
+            <option value="true"${c.backslashEscapes === true ? " selected" : ""}>On (\\' escapes a quote)</option>
+            <option value="false"${c.backslashEscapes === false ? " selected" : ""}>Off (standard SQL)</option>
+          </select>
+        </label>
       </div>
       <label class="db-conn-readonly">
         <input type="checkbox" id="dbcReadOnly" ${c.readOnly === false ? "" : "checked"} />
@@ -180,6 +188,7 @@
       const eng = $("dbcEngine").value;
       $("dbcSqlite").style.display = eng === "sqlite" ? "" : "none";
       $("dbcServer").style.display = eng === "sqlite" ? "none" : "";
+      $("dbcBackslashRow").style.display = eng === "mysql" || eng === "postgres" ? "" : "none";
     };
     $("dbcEngine").addEventListener("change", toggle);
     toggle();
@@ -204,6 +213,10 @@
       conn.user = $("dbcUser").value.trim();
       const pw = $("dbcPassword").value;
       if (pw) conn.password = pw;
+      if (engine === "mysql" || engine === "postgres") {
+        const sel = $("dbcBackslashEscapes").value;
+        conn.backslashEscapes = sel === "" ? null : sel === "true";
+      }
     }
     return conn;
   }

@@ -178,6 +178,32 @@ describe("countPlaceholders (mysql/postgres/mssql)", () => {
     assert.equal(countPlaceholders("UPDATE t SET name = E'it\\'s' WHERE id = $1", "postgres"), 1);
     assert.equal(countPlaceholders("UPDATE t SET name = e'it\\'s' WHERE id = $1", "postgres"), 1);
   });
+  test("backslashEscapesOverride: unset/null/undefined leaves today's engine-guess byte-identical", () => {
+    // Regression: an existing connection (no override stored) must see no
+    // behavior change at all — explicit undefined, explicit null, and simply
+    // not passing the argument are all the same "use the engine default".
+    const mysqlSql = "UPDATE t SET name = 'it\\'s' WHERE id = ?";
+    assert.equal(countPlaceholders(mysqlSql, "mysql"), countPlaceholders(mysqlSql, "mysql", undefined));
+    assert.equal(countPlaceholders(mysqlSql, "mysql"), countPlaceholders(mysqlSql, "mysql", null));
+    const pgSql = "UPDATE t SET path = '\\' WHERE id = $1";
+    assert.equal(countPlaceholders(pgSql, "postgres"), countPlaceholders(pgSql, "postgres", undefined));
+    assert.equal(countPlaceholders(pgSql, "postgres"), countPlaceholders(pgSql, "postgres", null));
+  });
+  test("backslashEscapesOverride: mysql — false flips off a server running NO_BACKSLASH_ESCAPES", () => {
+    // With backslash escapes off, '\' doesn't hide the closing quote, so
+    // "it\" is its own (unterminated-looking-but-actually-closed) string and
+    // the real placeholder count differs from the mysql default.
+    assert.equal(countPlaceholders("UPDATE t SET name = 'it\\' WHERE id = ?", "mysql", false), 1);
+  });
+  test("backslashEscapesOverride: postgres — true flips on a server running standard_conforming_strings=off", () => {
+    // With backslash escapes forced on for a plain '...' string (legacy
+    // Postgres mode), '\'' is an escaped quote inside the literal, so the
+    // real placeholder is the one after WHERE, not one hiding mid-string.
+    assert.equal(countPlaceholders("UPDATE t SET name = 'it\\'s' WHERE id = $1", "postgres", true), 1);
+  });
+  test("backslashEscapesOverride: never overrides a postgres E'...' literal's unconditional backslash escaping", () => {
+    assert.equal(countPlaceholders("UPDATE t SET name = E'it\\'s' WHERE id = $1", "postgres", false), 1);
+  });
   test("postgres: a standalone 'E' immediately before a quote is required — not any identifier ending in E/e", () => {
     // 'E' must be its own token (preceded by non-identifier char), not the tail of a longer word.
     assert.equal(countPlaceholders("SELECT TABLE'x', $1", "postgres"), 1);

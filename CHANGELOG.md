@@ -201,6 +201,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The idle-shutdown watchdog could kill the server mid-generation on a long
+  local-model turn (#454).** The dead-man's switch only reset on the browser
+  tab's `/api/heartbeat` ping, with zero visibility into whether a turn was
+  actually running — and backgrounded tabs throttle/freeze their own
+  `setInterval`, so a legitimate 300-680+ s local-model turn could miss every
+  ping and get killed as "idle" out from under the user. `runAgentLoop()`
+  (`lib/agent/index.js`) now tracks an in-flight-turn count, exposed via
+  `agent.getActiveTurnCount()`; `createWatchdog()`'s `onIdle()`
+  (`lib/helpers/shutdownGuard.js`) checks it at fire time via a new `isBusy`
+  option and defers (rearming for another full window) instead of tearing
+  down while a turn is still active. `IDLE_SHUTDOWN`'s default stays `off`
+  (the mitigation already shipped for this issue) pending a live validation
+  run of the fix.
+
+- **A MySQL/Postgres connection running the non-default backslash-escaping
+  mode could have a valid write wrongly rejected.** `db_execute`'s
+  bind-parameter count (`maskLiteralsAndComments()`,
+  `lib/db-connect/placeholders.js`) guessed backslash-escaping from the
+  engine alone — MySQL on, Postgres off outside `E'...'` strings — which is
+  right for the common case but wrong for a server running MySQL's
+  `NO_BACKSLASH_ESCAPES` or Postgres's legacy
+  `standard_conforming_strings = off`. Connections can now set an optional
+  `backslashEscapes` (on/off/default) override in the connection form,
+  threaded through `validateBoundParams()` and `countPlaceholders()`; leaving
+  it unset keeps the existing engine-guess behavior unchanged.
+
 - **A stranded "extraction" connection reported a misleading error.** When the
   self-provisioned document-extraction database's saved file no longer
   matched the profile's current identity (most often a database connection

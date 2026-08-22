@@ -305,3 +305,68 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     assert.equal(exitCalled, true, "process.exit should still be called");
   });
 });
+
+// =============================================================================
+describe("createWatchdog — isBusy defers shutdown (issue #454)", () => {
+
+  test("a turn still active at fire time defers the kill instead of running it", async (t) => {
+    let exitCalled = false;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 1000,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+      isBusy: () => true, // a turn is generating; no heartbeat is not idleness
+    });
+
+    heartbeat(); // arm the switch
+    t.mock.timers.tick(1001);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "must not kill the server while a turn is active");
+  });
+
+  test("a deferred shutdown rearms and fires once the turn ends", async (t) => {
+    let exitCalled = false;
+    let busy = true;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 1000,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+      isBusy: () => busy,
+    });
+
+    heartbeat();
+    t.mock.timers.tick(1001); // fires while busy — deferred, rearmed
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+    assert.equal(exitCalled, false, "still deferred while busy");
+
+    busy = false; // the turn finished
+    t.mock.timers.tick(1001); // the rearmed window elapses
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+    assert.equal(exitCalled, true, "shuts down once genuinely idle");
+  });
+
+  test("a genuinely idle server (isBusy false, the default) still shuts down normally", async (t) => {
+    let exitCalled = false;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 500,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+    });
+
+    heartbeat();
+    t.mock.timers.tick(501);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, true, "default isBusy (false) must not change existing idle-shutdown behavior");
+  });
+});

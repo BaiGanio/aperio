@@ -520,23 +520,6 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
 
 ## Db-connect — placeholder validation (db_execute)
 
-- 2026-08-03 `validateBoundParams()`'s backslash-escaping assumption
-  (`lib/db-connect/classify.js`, `maskLiteralsAndComments`) is per-ENGINE,
-  not per-CONNECTION: MySQL is assumed to have backslash escapes enabled
-  (true unless the connection's session has `NO_BACKSLASH_ESCAPES` set) and
-  Postgres is assumed to have them disabled outside `E'...'` strings (true
-  unless the connection has the long-deprecated `standard_conforming_strings
-  = off`). Both are correct for the overwhelming majority of real
-  connections — matching each engine's default — but a connection actually
-  running the non-default mode would see the opposite masking behavior:
-  correct placeholders inside a `'...'` string containing a backslash could
-  be miscounted, rejecting a valid write before it's ever proposed. Aperio
-  has no way to know the connection's actual mode without adding a live
-  `SHOW VARIABLES LIKE 'sql_mode'` / `SHOW standard_conforming_strings`
-  round-trip (and caching) before every `db_execute` validation, which is
-  disproportionate machinery for this. Not attempted; would need a per-
-  connection setting (set once when the connection is configured) rather
-  than a runtime query, if ever addressed.
 - 2026-08-04 `splitStatements()` (same file) still applies ONE dialect-neutral
   comment grammar, while `maskLiteralsAndComments()` is now dialect-aware for
   both comment forms. It therefore diverges from MySQL (`--x` with no space is
