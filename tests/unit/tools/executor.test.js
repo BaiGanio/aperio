@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, extractPipeAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult, countTrailingRepeatedToolCalls, TOOL_REPEAT_LIMIT } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, extractPipeAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult, countTrailingRepeatedToolCalls, TOOL_REPEAT_LIMIT, resolveTurnStepLimit, DEFAULT_TURN_STEP_LIMIT } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -1292,5 +1292,49 @@ describe("ToolExecutor answerOnly", () => {
 
     assert.equal(callTool.mock.calls.length, 1, "normal turns are unaffected");
     assert.equal(out, null, "returning null keeps the provider loop going");
+  });
+});
+
+// The per-turn tool-step cap is the only bound that survives a model calling
+// DIFFERENT tools forever, so its resolution must never silently become 0
+// (= disabled) on a typo or a stray empty string.
+describe("resolveTurnStepLimit", () => {
+  test("defaults when the variable is unset, empty or unparseable", () => {
+    assert.equal(resolveTurnStepLimit({}), DEFAULT_TURN_STEP_LIMIT);
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: "" }), DEFAULT_TURN_STEP_LIMIT);
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: "   " }), DEFAULT_TURN_STEP_LIMIT);
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: "lots" }), DEFAULT_TURN_STEP_LIMIT);
+  });
+
+  test("honours a positive value", () => {
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: "12" }), 12);
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: " 12 " }), 12);
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: 12 }), 12);
+  });
+
+  test("only an explicit, valid 0 disables the cap", () => {
+    assert.equal(resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: "0" }), 0);
+  });
+
+  // The whole string must parse. A malformed value that merely STARTS with a
+  // digit must never disable the cap or invent a limit from its prefix —
+  // parseInt("0.5") and parseInt("0oops") are both 0, i.e. silently unbounded.
+  test("malformed values keep the default instead of disabling the cap", () => {
+    for (const raw of ["0oops", "0.5", "12abc", "-5", "-0", "1e3x", "NaN", "Infinity", "3.7", "0x", " "]) {
+      assert.equal(
+        resolveTurnStepLimit({ APERIO_TURN_MAX_TOOL_STEPS: raw }),
+        DEFAULT_TURN_STEP_LIMIT,
+        `${JSON.stringify(raw)} must fall back to the default`,
+      );
+    }
+  });
+
+  // Both ends matter. It must stay clear of the repeated-call breaker (3) so the
+  // two guards do not collide on an ordinary retry, and it must stay low enough
+  // to actually fire while a user is still watching — at the ~42 s/pass measured
+  // on the Ornith loop, 64 would have taken ~45 minutes to trigger.
+  test("the shipped default clears the repeat breaker and still fires within minutes", () => {
+    assert.ok(DEFAULT_TURN_STEP_LIMIT > TOOL_REPEAT_LIMIT, "the step cap must not pre-empt the repeated-call breaker");
+    assert.ok(DEFAULT_TURN_STEP_LIMIT <= 8, "a cap that only fires after tens of minutes bounds nothing a user would wait for");
   });
 });

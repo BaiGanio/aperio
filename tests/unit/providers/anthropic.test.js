@@ -806,3 +806,99 @@ describe("runAnthropicLoop — prompt caching (#290)", () => {
     assert.equal(infoCalls.some(a => String(a[0]).includes("[anthropic] cache:")), false);
   });
 });
+
+// =============================================================================
+// Per-turn tool-step cap (APERIO_TURN_MAX_TOOL_STEPS)
+//
+// The repeated-call guards only see a call issued IDENTICALLY over and over. A
+// model that walks a different tool each pass resets every one of those
+// counters, and this loop is `while (true)`, so before the step cap the only
+// bound was the turn's wall clock. The cap withdraws the tools for one pass;
+// with no `tools` in the request the API cannot answer with tool_use, so the
+// turn is guaranteed to end on that pass.
+// =============================================================================
+describe("runAnthropicLoop — per-turn tool-step cap", () => {
+  afterEach(() => { reset(); delete process.env.APERIO_TURN_MAX_TOOL_STEPS; });
+
+  // A different tool name and argument every pass — real progress as far as
+  // every repeat detector is concerned, forever.
+  const walkingToolStream = n => (async function*() {
+    yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+    yield { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: `tu-${n}`, name: `probe_${n}`, input: {} } };
+    yield { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: `{"n":${n}}` } };
+    yield { type: "content_block_stop", index: 0 };
+    yield { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 15 } };
+  })();
+
+  const answerStream = (async function*() {
+    yield { type: "message_start", message: { usage: { input_tokens: 12, output_tokens: 0 } } };
+    yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+    yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Done." } };
+    yield { type: "content_block_stop", index: 0 };
+    yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 3 } };
+  });
+
+  test("alternating tool calls hit the cap, lose the tools and must answer", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const params = [];
+    let calls = 0;
+    const ctx = baseCtx({
+      getAnthropicTools: () => [{ name: "probe_1", description: "", inputSchema: { type: "object", properties: {} } }],
+      provider: testProvider((p) => {
+        params.push(p);
+        calls++;
+        // Guard rail on the test itself: without the cap this model never stops.
+        assert.ok(calls <= 6, "the loop did not break — the model was still offered tools");
+        return p.tools ? walkingToolStream(calls) : answerStream();
+      }),
+    });
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(result, "Done.", "the turn ends with a real answer, not a timeout");
+    assert.equal(calls, 4, "three tool passes, then exactly one tool-free pass");
+    assert.ok(params.slice(0, 3).every(p => Array.isArray(p.tools)), "tools stay available up to the cap");
+    assert.equal(params[3].tools, undefined, "the forced pass carries no tool schemas at all");
+    assert.match(params[3].system[0].text, /No tools are available for this reply/);
+    assert.equal(ctx.callTool.mock.calls.length, 3, "every distinct call really ran");
+    const capped = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "tool_step_limit");
+    assert.ok(capped, "the cap is observable to the UI");
+    assert.equal(capped.steps, 3);
+    assert.equal(capped.limit, 3);
+  });
+
+  test("a turn that finishes under the cap keeps its tools and emits nothing", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const params = [];
+    let calls = 0;
+    const ctx = baseCtx({
+      getAnthropicTools: () => [{ name: "probe_1", description: "", inputSchema: { type: "object", properties: {} } }],
+      provider: testProvider((p) => { params.push(p); calls++; return calls <= 2 ? walkingToolStream(calls) : answerStream(); }),
+    });
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(result, "Done.");
+    assert.ok(params.every(p => Array.isArray(p.tools)), "the cap must not fire on legitimate work");
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(e => e.type === "tool_step_limit").length, 0);
+  });
+
+  test("APERIO_TURN_MAX_TOOL_STEPS=0 disables the cap entirely", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "0";
+    let calls = 0;
+    const ctx = baseCtx({
+      getAnthropicTools: () => [{ name: "probe_1", description: "", inputSchema: { type: "object", properties: {} } }],
+      // Would be cut off at 3 with the cap on; runs all 5 tool passes with it off.
+      provider: testProvider((p) => { calls++; return calls <= 5 ? walkingToolStream(calls) : answerStream(); }),
+    });
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(result, "Done.");
+    assert.equal(ctx.callTool.mock.calls.length, 5);
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(e => e.type === "tool_step_limit").length, 0);
+  });
+});

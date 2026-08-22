@@ -53,3 +53,7 @@ onStreamEvent("slow_local_turn_detected", (msg) => {
 onStreamEvent("tool_repeat_break", (msg) => {
   _renderToolRepeatBreakWarning(msg.model, msg.repeats);
 });
+
+onStreamEvent("tool_step_limit", (msg) => {
+  _renderToolStepLimitWarning(msg.model, msg.steps, msg.limit);
+});

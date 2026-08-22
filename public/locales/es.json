@@ -195,6 +195,7 @@
   "skills_load_error":        "No se pudo cargar la habilidad.",
   "images_dropped_notice":  "{provider} no puede ver imágenes — este turno se ejecutará solo con texto.",
   "tool_repeat_break_notice": "{model} repitió la misma llamada a herramienta {repeats}× seguidas, así que las herramientas se desactivaron para esta respuesta.",
+  "tool_step_limit_notice": "{model} usó {steps} pasadas de llamadas a herramientas en esta respuesta (límite {limit}), así que se desactivaron las herramientas y tuvo que responder.",
   "skills_panel_nav_title": "Habilidades — ver, editar, crear y activar las habilidades de tu agente",
   "skills_panel_label": "Habilidades",
   "skills_panel_search_ph": "Buscar habilidades…",

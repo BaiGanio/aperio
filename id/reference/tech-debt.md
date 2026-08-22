@@ -46,6 +46,20 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Docs i18n gate — `npm run i18n:check` is red on `nav_guide`
+
+- 2026-08-22 `scripts/check-docs-i18n.js` fails with "Stale English value for
+  docs i18n key: nav_guide". `docs/index.html:78` renders the link text
+  **"Guides"** (it points at `guides.html`), while `docs/locales/en.json:10`
+  holds **"Guide"**, and the checker requires the two to match character for
+  character. `node scripts/diff-locales.js`, the other half of the same npm
+  script, is green — all 26 app locales are complete. Found while adding an
+  unrelated locale key; **not fixed here** because writing to `docs/` needs the
+  developer's go-ahead, and only they can say which of the two words is the
+  intended label. One-word fix in whichever file is wrong.
+
+---
+
 ## Docgraph — document facts (#250)
 
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
@@ -482,7 +496,9 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   branch on the block type, not the role, so the intercepted path's
   `{role:"user"}` results convert correctly too. The result WAS in context. The
   gap is that **nothing bounded the loop**: every provider loop is `while (true)`
-  with no step cap (only `codex-turn-meter.js` has one, `maxSteps: 128`), and the
+  with no step cap (at the time only `codex-turn-meter.js` had one,
+  `maxSteps: 128` — since 2026-08-22 all four native loops carry
+  `APERIO_TURN_MAX_TOOL_STEPS`, see the closing note below), and the
   existing repeated-call guard in `tool-safety-middleware.js` counts repeated
   *failures* only — a call that keeps SUCCEEDING is invisible to it. The dedup
   cache made each repeat cheap to execute but did nothing about the full
@@ -523,6 +539,24 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   this since it only drives the mock provider, never `anthropic.js`/`gemini.js`
   directly (`tests/harness/README.md`, "What this harness deliberately does
   not cover").
+  **2026-08-22 — the last unbounded shape closed: a per-turn tool-step cap.**
+  Everything above counts a call issued IDENTICALLY over and over, so a model
+  alternating between different tools (`doc_manifest` → `db_schema` →
+  `doc_manifest` → …) resets every one of those counters and still runs until
+  the wall clock. `resolveTurnStepLimit()`/`TURN_STEP_NUDGE`
+  (`lib/tools/executor.js`) + `APERIO_TURN_MAX_TOOL_STEPS` (default 6, 0
+  disables) count tool-calling passes per turn in all four native loops; at the
+  limit the tools are withdrawn for one pass and the nudge explains why, so the
+  request carries no tool schemas and the turn must end there. Surfaced as
+  `tool_step_limit` (amber chip + CLI line + 26 locales), same shape as
+  `tool_repeat_break`. 11 tests across all four provider loops plus 4 on the
+  limit resolution; full unit (2731) + integration (2603) + harness (33) green.
+  Fixed a pre-existing failure while there: `streaming-router.test.js`'s
+  `EXPECTED_TYPES` contract was already red on master because `tool_repeat_break`
+  (commit `c61f970c`) was never added to it.
+  **Still open, unchanged:** the cap bounds the damage, it still does not
+  explain the Ornith behaviour, and it is proven against scripted loops only —
+  never yet against a real Ornith turn.
 
 ---
 

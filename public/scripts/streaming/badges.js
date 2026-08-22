@@ -487,6 +487,23 @@ function _renderToolRepeatBreakWarning(model, repeats) {
   scrollToBottom();
 }
 
+// Same chip again, for the per-turn tool-step cap (APERIO_TURN_MAX_TOOL_STEPS,
+// applied by every native provider loop): the reply used up its allowance of
+// tool-calling passes, so tools were withdrawn and the model had to answer.
+// Distinct from the repeat breaker above — this one fires on volume, not on the
+// same call being repeated.
+function _renderToolStepLimitWarning(model, steps, limit) {
+  const chip = document.createElement("div");
+  chip.className = "no-tool-warning";
+  chip.innerHTML =
+    `<span class="no-tool-warning-icon">⚠</span>` +
+    `<span class="no-tool-warning-text">${escapeHtml(t("tool_step_limit_notice", { model, steps, limit }))}</span>` +
+    `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
+  chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
+
 // llamacpp.md Phase 5: reuses the no-tool-use chip's styling (generic amber
 // warning, not tool-specific) rather than inventing a new UI mechanism.
 function _renderSlowTurnWarning(model, genTps, hint) {

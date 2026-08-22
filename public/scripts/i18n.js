@@ -253,6 +253,7 @@ const TRANSLATIONS = {
     skills_load_error:        "Could not load skill.",
     images_dropped_notice:    "{provider} can't see images — this turn will run text-only.",
     tool_repeat_break_notice: "{model} repeated the same tool call {repeats}× in a row, so tools were turned off for this reply.",
+    tool_step_limit_notice:   "{model} used {steps} tool-calling passes in this reply (limit {limit}), so tools were turned off and it had to answer.",
     skills_panel_one_shot_label: "use on next prompt",
     skills_panel_one_shot_title: "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
     skills_panel_nav_title:    "Skills — view, edit, create and toggle your agent's skills",

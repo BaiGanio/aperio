@@ -30,6 +30,8 @@ const EXPECTED_TYPES = [
   // knowledge
   "memories", "deleted", "ttl_chip", "skills_matched", "capability_notice",
   "generated_file", "answer_artifacts", "no_tool_use_detected", "slow_local_turn_detected",
+  // loop guards — the model lost its tools for one pass and had to answer
+  "tool_repeat_break", "tool_step_limit",
   // tools + confirmations
   "tool_start", "tool_result", "delete_confirm_pending", "action_confirm_pending",
   "interrupts", "interrupt_decided",

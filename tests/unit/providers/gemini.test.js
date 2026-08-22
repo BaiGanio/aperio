@@ -940,3 +940,84 @@ describe("runGeminiLoop — reasoning parity (group D)", () => {
     assert.equal(end.usage.thinking_tokens, 34);
   });
 });
+
+// =============================================================================
+// Per-turn tool-step cap (APERIO_TURN_MAX_TOOL_STEPS)
+//
+// Mirrors the anthropic.js test of the same name. The repeated-call guards only
+// see a call issued IDENTICALLY over and over; a model walking a different tool
+// each pass resets them all, and this loop is `while (true)`. The cap withdraws
+// the tools for one pass — with no `tools` on the model the API cannot return a
+// functionCall, so the turn is guaranteed to end there.
+// =============================================================================
+describe("runGeminiLoop — per-turn tool-step cap", () => {
+  afterEach(() => { reset(); delete process.env.APERIO_TURN_MAX_TOOL_STEPS; });
+
+  // Records what each getGenerativeModel() call was configured with, and walks a
+  // different tool name/argument every pass so no repeat detector can fire.
+  function cappedCtx(toolPasses) {
+    const configs = [];
+    let calls = 0;
+    return {
+      configs,
+      passes: () => calls,
+      ctx: baseCtx({
+        getGeminiTools: () => [{ functionDeclarations: [{ name: "probe", description: "", parameters: { type: "object", properties: {} } }] }],
+        callTool: mock.fn(async () => "probe result"),
+        provider: {
+          name: "gemini", model: "gemini-2.0-flash", contextWindow: 8192,
+          client: {
+            getGenerativeModel: (cfg) => {
+              configs.push(cfg);
+              calls++;
+              // Guard rail on the test itself: without the cap this never stops.
+              assert.ok(calls <= toolPasses + 3, "the loop did not break — the model was still offered tools");
+              const n = calls;
+              const useTool = cfg.tools !== undefined && n <= toolPasses;
+              return {
+                generateContentStream: async () => ({
+                  stream: makeStream(useTool ? [] : [textChunk("Done.")]),
+                  response: {
+                    usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, thoughtsTokenCount: 0 },
+                    functionCalls: () => (useTool ? [{ name: `probe_${n}`, args: { n } }] : []),
+                  },
+                }),
+              };
+            },
+          },
+        },
+      }),
+    };
+  }
+
+  test("alternating tool calls hit the cap, lose the tools and must answer", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const { ctx, configs, passes } = cappedCtx(Infinity);
+    const emitter = { send: mock.fn() };
+
+    const result = await runGeminiLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(result, "Done.", "the turn ends with a real answer, not a timeout");
+    assert.equal(passes(), 4, "three tool passes, then exactly one tool-free pass");
+    assert.ok(configs.slice(0, 3).every(c => c.tools !== undefined), "tools stay available up to the cap");
+    assert.equal(configs[3].tools, undefined, "the forced pass carries no tool declarations at all");
+    assert.match(configs[3].systemInstruction, /No tools are available for this reply/);
+    assert.equal(ctx.callTool.mock.calls.length, 3, "every distinct call really ran");
+    const capped = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "tool_step_limit");
+    assert.ok(capped, "the cap is observable to the UI");
+    assert.equal(capped.steps, 3);
+    assert.equal(capped.limit, 3);
+  });
+
+  test("a turn that finishes under the cap keeps its tools and emits nothing", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const { ctx, configs } = cappedCtx(2);
+    const emitter = { send: mock.fn() };
+
+    const result = await runGeminiLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(result, "Done.");
+    assert.ok(configs.every(c => c.tools !== undefined), "the cap must not fire on legitimate work");
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(e => e.type === "tool_step_limit").length, 0);
+  });
+});

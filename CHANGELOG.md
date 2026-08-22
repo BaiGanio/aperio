@@ -11,6 +11,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Every built-in provider loop now has a per-turn tool-step cap.** New
+  `APERIO_TURN_MAX_TOOL_STEPS` (default 6, 0 disables) bounds how many
+  tool-calling passes one reply may spend in the llama.cpp, DeepSeek, Anthropic
+  and Gemini loops. At the limit the tools are withdrawn for one pass and a
+  short instruction explains why, so the model must answer — with no tool
+  schemas in the request the API cannot return another tool call and the turn is
+  guaranteed to end. This closes the last unbounded shape: the existing repeated-
+  call breaker and the tool-safety middleware both only count a call issued
+  *identically* over and over, so a model alternating between different tools
+  reset them on every call and ran until the turn's wall clock killed it with no
+  answer produced. Codex already had its own equivalent
+  (`CODEX_TURN_MAX_TOOL_CALLS`) and is unchanged. The cap is surfaced like the
+  repeat breaker — an amber chip in the web UI, a line in the CLI, and a
+  `tool_step_limit` stream event. 6 rests on the premise that a model still lost
+  after 3-4 passes is rarely one pass from succeeding, so a higher ceiling buys
+  a longer wait for the same failure rather than a better answer: nothing else
+  in Aperio bounds a turn's total length (per-request timeouts bound one
+  request), and at the ~42 s per pass recorded on the Ornith loop a cap of 6
+  fires in about 4 minutes where 64 would have taken ~45 — long after any real
+  user pressed Stop. The trade-off is stated rather than hidden: the deepest
+  legitimate chain seen so far (`doc_manifest` → `doc_batch` → `db_schema` →
+  `db_execute` → `db_query`) is 5 passes, so a document flow runs one pass short
+  of the cap and deeper workloads should raise the variable.
+
 - **Continuous-audit runs now have a durable usage ledger.** Audit slices can
   append immutable JSONL run records under `audit/ledger/`, and the T3.3
   accounting gate reads that ledger by default. Persistence validates complete

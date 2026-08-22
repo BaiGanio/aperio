@@ -303,3 +303,86 @@ describe("runDeepSeekLoop — tool call cycle", () => {
     assert.equal(fetchCount, 2, "should make 2 fetch calls (tool + text)");
   });
 });
+
+// =============================================================================
+// Per-turn tool-step cap (APERIO_TURN_MAX_TOOL_STEPS)
+//
+// Same guard, same wording as llamacpp.js — the two loops share the code and
+// must not drift. The repeated-call breaker only sees an IDENTICAL call issued
+// over and over; a model walking a different tool each pass resets it, so the
+// step cap is what actually bounds this `while (true)`.
+// =============================================================================
+describe("runDeepSeekLoop — per-turn tool-step cap", () => {
+  afterEach(() => { reset(); delete process.env.APERIO_TURN_MAX_TOOL_STEPS; });
+
+  // Every walked name is a REAL registered tool, so nothing upstream of the cap
+  // can reject the call first.
+  const walkedTools = Array.from({ length: 9 }, (_, i) => ({
+    type: "function",
+    function: { name: `probe_${i + 1}`, description: "", parameters: { type: "object", properties: {} } },
+  }));
+  const walkingSSE = n => [
+    `data: {"id":"ds-${n}","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}],"usage":null}\n\n`,
+    `data: {"id":"ds-${n}","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"probe_${n}","arguments":"{\\"n\\":${n}}"},"id":"call-${n}"}]},"finish_reason":null}],"usage":null}\n\n`,
+    `data: {"id":"ds-${n}","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":20,"output_tokens":5}}\n\n`,
+    "data: [DONE]\n\n",
+  ];
+
+  test("alternating tool calls hit the cap, lose the tools and must answer", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const bodies = [];
+    let fetchCount = 0;
+    mock.method(globalThis, "fetch", async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      bodies.push(body);
+      fetchCount++;
+      // Guard rail on the test itself: without the cap this never stops.
+      assert.ok(fetchCount <= 6, "the loop did not break — the model was still offered tools");
+      return {
+        ok: true, status: 200,
+        body: sseStream(body.tools ? walkingSSE(fetchCount) : textSSEChunks("Done.")),
+        text: async () => "",
+      };
+    });
+
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx({ getOpenAiTools: () => walkedTools, callTool: mock.fn(async () => "probe result") });
+
+    const result = await runDeepSeekLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "Done.", "the turn ends with a real answer, not a timeout");
+    assert.equal(fetchCount, 4, "three tool passes, then exactly one tool-free pass");
+    assert.ok(bodies.slice(0, 3).every(b => Array.isArray(b.tools)), "tools stay available up to the cap");
+    assert.equal(bodies[3].tools, undefined, "the forced pass carries no tool schemas at all");
+    assert.match(bodies[3].messages[0].content, /reached the per-reply limit/);
+    assert.equal(ctx.callTool.mock.calls.length, 3, "every distinct call really ran");
+    const capped = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_step_limit");
+    assert.ok(capped, "the cap is observable to the UI");
+    assert.equal(capped.steps, 3);
+    assert.equal(capped.limit, 3);
+  });
+
+  test("a turn that finishes under the cap keeps its tools and emits nothing", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "8";
+    const bodies = [];
+    let fetchCount = 0;
+    mock.method(globalThis, "fetch", async (_url, opts) => {
+      bodies.push(JSON.parse(opts.body));
+      fetchCount++;
+      return {
+        ok: true, status: 200,
+        body: sseStream(fetchCount <= 2 ? walkingSSE(fetchCount) : textSSEChunks("Done.")),
+        text: async () => "",
+      };
+    });
+
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx({ getOpenAiTools: () => walkedTools, callTool: mock.fn(async () => "probe result") });
+
+    const result = await runDeepSeekLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "Done.");
+    assert.ok(bodies.every(b => Array.isArray(b.tools)), "the cap must not fire on legitimate work");
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_step_limit").length, 0);
+  });
+});

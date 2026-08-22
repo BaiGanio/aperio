@@ -1164,3 +1164,107 @@ describe("runLlamaCppLoop — tool-repeat breaker", () => {
     assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_repeat_break").length, 0);
   });
 });
+
+// =============================================================================
+// test: per-turn tool-step cap (APERIO_TURN_MAX_TOOL_STEPS)
+//
+// The breaker above only fires on the SAME call repeated. A model that walks a
+// different tool every pass resets it — and the middleware counter — forever,
+// and this loop is `while (true)`. The cap is the unconditional bound: after N
+// tool-calling passes the tools come off and the model must answer.
+// =============================================================================
+describe("runLlamaCppLoop — per-turn tool-step cap", () => {
+  afterEach(() => {
+    reset();
+    delete process.env.APERIO_TURN_MAX_TOOL_STEPS;
+  });
+
+  // A different tool name and argument every pass: real progress to every
+  // repeat detector there is.
+  const walkingChunks = n => [
+    `data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"m${n}","function":{"name":"probe_${n}","arguments":"{\\"n\\":${n}}"}}]},"finish_reason":null}]}\n\n`,
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":100,"output_tokens":20}}\n\n',
+    "data: [DONE]\n\n",
+  ];
+  const answerChunks = [
+    'data: {"choices":[{"index":0,"delta":{"role":"assistant","content":"Done."},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":120,"output_tokens":8}}\n\n',
+    "data: [DONE]\n\n",
+  ];
+  // Every walked name must be a REAL registered tool, or the corrupted-name
+  // guard would recover/reject the call before the loop ever gets that far.
+  const walkedTools = Array.from({ length: 9 }, (_, i) => ({
+    type: "function",
+    function: { name: `probe_${i + 1}`, description: "", parameters: { type: "object", properties: {} } },
+  }));
+
+  function scriptFetch(bodies, guard) {
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        const body = JSON.parse(opts.body);
+        bodies.push(body);
+        chatCalls++;
+        // Guard rail on the test itself: fail loudly instead of hanging.
+        assert.ok(chatCalls <= guard, "the loop did not break — the model was still offered tools");
+        return { ok: true, status: 200, body: sseStream(body.tools ? walkingChunks(chatCalls) : answerChunks), text: async () => "" };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+    return () => chatCalls;
+  }
+
+  test("alternating tool calls hit the cap, lose the tools and must answer", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "3";
+    const bodies = [];
+    const chatCalls = scriptFetch(bodies, 6);
+
+    const emitter = { send: makeEmittersend() };
+    const ctx = baseCtx("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    ctx.getOpenAiTools = () => walkedTools;
+    ctx.callTool = mock.fn(async () => "probe result");
+
+    const result = await runLlamaCppLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "Done.", "the turn ends with a real answer, not a timeout");
+    assert.equal(chatCalls(), 4, "three tool passes, then exactly one tool-free pass");
+    assert.ok(bodies.slice(0, 3).every(b => Array.isArray(b.tools)), "tools stay available up to the cap");
+    assert.equal(bodies[3].tools, undefined, "the forced pass carries no tool schemas at all");
+    assert.match(bodies[3].messages[0].content, /reached the per-reply limit/);
+    assert.equal(ctx.callTool.mock.calls.length, 3, "every distinct call really ran");
+    const capped = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_step_limit");
+    assert.ok(capped, "the cap is observable to the UI");
+    assert.equal(capped.steps, 3);
+    assert.equal(capped.limit, 3);
+  });
+
+  test("a turn that finishes under the cap keeps its tools and emits nothing", async () => {
+    process.env.APERIO_TURN_MAX_TOOL_STEPS = "8";
+    const bodies = [];
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        // Two real tool passes, then the model answers of its own accord.
+        return { ok: true, status: 200, body: sseStream(chatCalls <= 2 ? walkingChunks(chatCalls) : answerChunks), text: async () => "" };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const emitter = { send: makeEmittersend() };
+    const ctx = baseCtx("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    ctx.getOpenAiTools = () => walkedTools;
+    ctx.callTool = mock.fn(async () => "probe result");
+
+    const result = await runLlamaCppLoop([{ role: "user", content: "Look into it." }], emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "Done.");
+    assert.ok(bodies.every(b => Array.isArray(b.tools)), "the cap must not fire on legitimate work");
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_step_limit").length, 0);
+  });
+});

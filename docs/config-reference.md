@@ -279,6 +279,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `80000` · advanced
 
 Store a complete tool result outside model context when its redacted UTF-8 content exceeds this byte count. 0 disables the byte threshold; the token threshold still applies. Stored session artifacts follow SESSION_RETENTION_DAYS; background-run artifacts follow AGENT_RUN_RETENTION_DAYS.
 
+#### `APERIO_TURN_MAX_TOOL_STEPS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `6` · advanced
+
+Maximum tool-calling passes allowed in one reply for the built-in provider loops (llama.cpp, DeepSeek, Anthropic, Gemini). At the limit the tools are withdrawn for one pass and the model must answer, which guarantees the turn ends — the repeated-call breaker only catches the SAME call issued over and over, not a model alternating between different tools. Nothing else bounds a turn's total length, so this is the only stop. 6 is set on the premise that a model still lost after 3-4 passes is rarely one pass from success, so a higher ceiling only buys a longer wait for the same failure (~4 minutes here on a slow local model). Raise it if your workload genuinely needs deeper chains — the deepest document flow runs about 5 passes; set to 0 to disable. (Codex has its own equivalent: CODEX_TURN_MAX_TOOL_CALLS.)
+
 ### llama.cpp (local) extras
 
 Defaults shown — override only if your llama-server setup differs.
