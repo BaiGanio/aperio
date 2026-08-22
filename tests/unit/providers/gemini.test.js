@@ -616,6 +616,54 @@ describe("runGeminiLoop — tool call cycle", () => {
     assert.deepEqual(resultIds, toolUseIds, "tool_result ids must match their corresponding tool_use ids in order");
   });
 
+  // findPriorToolResult dedup (executor.js) is wired into every provider's
+  // native tool-dispatch loop, not just llamacpp/deepseek's ToolExecutor —
+  // an identical repeated call within the turn must be served from the
+  // in-turn cache, not re-executed for real.
+  test("dedups an identical repeated tool call within the turn instead of re-executing it", async () => {
+    let callCount = 0;
+    const callTool = mock.fn(async () => "Sunny, 22°C");
+
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-2.0-flash",
+        contextWindow: 8192,
+        client: makeClient({
+          generateContentStream: async () => {
+            callCount++;
+            if (callCount <= 2) {
+              return {
+                stream: makeStream([textChunk("")]),
+                response: {
+                  usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 1, thoughtsTokenCount: 0 },
+                  functionCalls: () => [{ name: "get_weather", args: { city: "Paris" } }],
+                },
+              };
+            }
+            return {
+              stream: makeStream([textChunk("The weather in Paris is sunny.")]),
+              response: textResponse("The weather in Paris is sunny."),
+            };
+          },
+        }),
+      },
+      callTool,
+    });
+
+    const messages = [{ role: "user", content: "Weather in Paris?" }];
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop(messages, emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(callTool.mock.callCount(), 1, "the second identical call must be served from cache, not re-executed");
+
+    const toolResultMsgs = messages.filter(m => Array.isArray(m.content) && m.content.some(b => b.type === "tool_result"));
+    assert.equal(toolResultMsgs.length, 2);
+    const secondResult = toolResultMsgs[1].content.find(b => b.type === "tool_result").content;
+    assert.ok(secondResult.includes("already called"), "second result should carry the reuse note");
+    assert.ok(secondResult.includes("Sunny, 22°C"), "reuse note should carry the original result");
+  });
+
   // Regression: Gemini 3 attaches a thought_signature to each functionCall part
   // and 400s ("... is missing a thought_signature") if a replayed call doesn't
   // carry the exact same one back. The SDK's own result.response aggregation

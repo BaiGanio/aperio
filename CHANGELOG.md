@@ -199,6 +199,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
   own — get a bound on a repeated call, success or failure, not just
   llamacpp/deepseek.
 
+- **A repeated tool call on `anthropic`/`gemini` re-ran for real instead of
+  being served from cache.** `llamacpp`/`deepseek` already refuse to re-execute
+  an identical call within a turn and hand back the earlier result — the
+  bounding fix above just stopped the model from asking forever. `anthropic.js`
+  and `gemini.js` drive their own dispatch loops outside that shared executor,
+  so the same repeated call there still ran for real (wasted work and cost) up
+  to two more times before the bound above kicked in. Both now check the
+  in-turn cache before dispatching a call, same as the other two providers.
+
 - **The cost estimate in the context bar billed cached tokens at the full input
   rate.** Every turn re-sends the whole conversation, and on a provider with
   prompt caching most of that prompt is a cache read billed at roughly a tenth

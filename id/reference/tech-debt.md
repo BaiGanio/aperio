@@ -526,6 +526,19 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   `tool-repeated-call-detection` adapter for how it composes with the
   provider-level breaker above. New harness coverage:
   `repeated-call-break-success`.
+  **2026-08-22 — the dedup half closed for anthropic/gemini too.**
+  `findPriorToolResult` was only wired into llamacpp/deepseek's shared
+  `ToolExecutor` (`lib/tools/executor.js`); `anthropic.js`/`gemini.js` drive
+  their own tool-dispatch loops and re-executed an identical repeated call for
+  real (wasted work/cost) until the 3rd-call guard above stopped it. Both now
+  call `findPriorToolResult` before pushing their own turn's `tool_use` blocks
+  (so the current call can't match itself) and wrap a hit with the same
+  `reuseNote` llamacpp/deepseek use (now exported from `executor.js` instead of
+  file-local, so the wording can't drift). Covered by a new test per provider
+  in `tests/unit/providers/{anthropic,gemini}.test.js` — the harness can't see
+  this since it only drives the mock provider, never `anthropic.js`/`gemini.js`
+  directly (`tests/harness/README.md`, "What this harness deliberately does
+  not cover").
 
 ---
 

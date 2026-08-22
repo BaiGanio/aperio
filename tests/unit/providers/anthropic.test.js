@@ -201,6 +201,35 @@ describe("runAnthropicLoop — tool call cycle", () => {
       m.role === "user" && Array.isArray(m.content) && m.content.some(b => b.type === "tool_result")
     ), "should have tool_result in user message");
   });
+
+  // findPriorToolResult dedup (executor.js) is wired into every provider's
+  // native tool-dispatch loop, not just llamacpp/deepseek's ToolExecutor —
+  // an identical repeated call within the turn must be served from the
+  // in-turn cache, not re-executed for real.
+  test("dedups an identical repeated tool call within the turn instead of re-executing it", async () => {
+    let callCount = 0;
+    const script = () => {
+      callCount++;
+      return callCount <= 2 ? toolStream() : textStream();
+    };
+    const callTool = mock.fn(async () => "12:00");
+
+    const ctx = baseCtx({ provider: testProvider(script), callTool });
+    const messages = [{ role: "user", content: "What time is it?" }];
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+
+    assert.equal(callTool.mock.callCount(), 1, "the second identical call must be served from cache, not re-executed");
+
+    const toolResultMsgs = messages.filter(m =>
+      m.role === "user" && Array.isArray(m.content) && m.content.some(b => b.type === "tool_result")
+    );
+    assert.equal(toolResultMsgs.length, 2);
+    const secondResult = toolResultMsgs[1].content.find(b => b.type === "tool_result").content;
+    assert.ok(secondResult.includes("already called"), "second result should carry the reuse note");
+    assert.ok(secondResult.includes("12:00"), "reuse note should carry the original result");
+  });
 });
 
 // =============================================================================
