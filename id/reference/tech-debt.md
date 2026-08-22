@@ -46,20 +46,6 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
-## Docs i18n gate — `npm run i18n:check` is red on `nav_guide`
-
-- 2026-08-22 `scripts/check-docs-i18n.js` fails with "Stale English value for
-  docs i18n key: nav_guide". `docs/index.html:78` renders the link text
-  **"Guides"** (it points at `guides.html`), while `docs/locales/en.json:10`
-  holds **"Guide"**, and the checker requires the two to match character for
-  character. `node scripts/diff-locales.js`, the other half of the same npm
-  script, is green — all 26 app locales are complete. Found while adding an
-  unrelated locale key; **not fixed here** because writing to `docs/` needs the
-  developer's go-ahead, and only they can say which of the two words is the
-  intended label. One-word fix in whichever file is wrong.
-
----
-
 ## Docgraph — document facts (#250)
 
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
