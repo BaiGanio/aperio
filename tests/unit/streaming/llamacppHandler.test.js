@@ -2,6 +2,7 @@
 import { describe, test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { LlamaCppStreamHandler } from "../../../lib/streaming/llamacppHandler.js";
+import { resolveReasoningAdapter } from "../../../lib/workers/reasoning.js";
 
 // =============================================================================
 // Helpers
@@ -603,6 +604,470 @@ describe("process — idle stream timeout", () => {
 });
 
 // =============================================================================
+// process — thinking timeout
+// =============================================================================
+
+describe("process — thinking timeout", () => {
+  test("cuts off a stream that keeps reasoning but never answers or calls a tool", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const cancel = mock.fn(async () => {});
+    const chunks = [
+      deltaReasoning("thinking...\n"),
+      deltaReasoning("still thinking...\n"),
+      deltaReasoning("more...\n"),
+      deltaReasoning("even more...\n"),
+      deltaReasoning("even more still...\n"),
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000); // 60s per chunk
+              return { done: false, value: raw };
+            },
+            cancel,
+          };
+        },
+      },
+    };
+    const em = mockEmitter();
+    const h = new LlamaCppStreamHandler(response, em, noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, true);
+    assert.equal(cancel.mock.calls.length, 1);
+    assert.equal(h.streamError, null); // not an error path — caller's empty-completion retry handles this
+    assert.equal(result.text, "");
+    // The deadline is anchored to the FIRST reasoning chunk (read 1, t=60s),
+    // not connection start — so it takes 4 reads (t=240s, i.e. 180s of
+    // reasoning elapsed since t=60s, exactly the threshold), not 3 (t=180s,
+    // which is only 120s of reasoning).
+    assert.equal(idx, 4);
+  });
+
+  test("does not cut off when the answer arrives before the thinking timeout elapses", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const chunks = [deltaReasoning("thinking...\n"), deltaContent("here is the answer"), doneMarker];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(30_000); // well under the 180s threshold
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(result.text, "here is the answer");
+  });
+
+  test("does not cut off a tool call reached before the thinking timeout elapses", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const chunks = [
+      deltaReasoning("thinking...\n"),
+      deltaToolCall({ index: 0, id: "tc1", function: { name: "read_file", arguments: "{}" } }),
+      doneMarker,
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(30_000);
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(result.toolCalls.length, 1);
+  });
+
+  test("thinkingTimeoutMs: 0 disables the guard (DeepSeek's call site, which has no suppressed-thinking retry)", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const chunks = [
+      deltaReasoning("thinking...\n"),
+      deltaReasoning("still thinking...\n"),
+      deltaReasoning("more...\n"),
+      deltaReasoning("even more...\n"),
+      deltaContent("finally, the answer"),
+      doneMarker,
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000); // same cadence that trips the guard when it's enabled
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" }, false, 0);
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(result.text, "finally, the answer");
+  });
+
+  test("does NOT cut off a tag-free (unresolved) inline-adapter answer, even past the timeout", async (t) => {
+    // Uses the actual production adapter (resolveReasoningAdapter), not a
+    // hand-rolled stand-in. A chat template can pre-fill the opening <think>,
+    // so the model's content can start INSIDE reasoning with no opening tag —
+    // makeTagSplitter then holds every chunk in its speculative buffer and
+    // never fires onReasoningStart/onReasoningToken until a </think> arrives
+    // (see lib/workers/reasoning.js). That state is observably IDENTICAL to
+    // an ordinary tag-free answer that simply takes a long time to finish —
+    // there is no signal available mid-stream to tell them apart. An earlier
+    // version of this guard treated unresolved buffering as confirmed
+    // reasoning and cancelled+discarded it; that risked destroying a
+    // legitimate slow answer, so this state is deliberately left untracked.
+    // This is the same scenario as the old (now-removed) headless-cutoff
+    // test, run for even longer, asserting the opposite outcome.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const adapter = resolveReasoningAdapter("qwen3-7b");
+    const cancel = mock.fn(async () => {});
+    const chunks = [
+      deltaContent("Let me work through "),
+      deltaContent("this step by step "),
+      deltaContent("without ever closing "),
+      deltaContent("the reasoning block "),
+      deltaContent("at all, ever, "),
+      deltaContent("and it just keeps "),
+      deltaContent("taking a genuinely long time."),
+      doneMarker,
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000); // 7 * 60s = 420s, well past the 180s threshold
+              return { done: false, value: raw };
+            },
+            cancel,
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), adapter, mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(cancel.mock.calls.length, 0);
+    assert.equal(result.text, "Let me work through this step by step without ever closing the reasoning block at all, ever, and it just keeps taking a genuinely long time.");
+  });
+
+  test("still flushes an unresolved tag-free lead as the answer when the stream ends normally (not timed out)", async (t) => {
+    // Guards against over-correcting the fix above: skipping flushAdapter()
+    // must be conditional on thinkingTimedOut specifically, not a blanket
+    // change — an ordinary short, tag-free answer via the same real adapter
+    // must still come through once the stream completes on its own.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const adapter = resolveReasoningAdapter("qwen3-7b");
+    const chunks = [deltaContent("just a plain answer, "), deltaContent("no thinking tags at all"), doneMarker];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(1_000); // well under the threshold
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), adapter, mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(result.text, "just a plain answer, no thinking tags at all");
+  });
+
+  test("anchors the deadline to first reasoning activity, not connection start — a long prefill does not eat the budget", async (t) => {
+    // llama-server pings a 3-byte SSE comment throughout a long prefill,
+    // before any real delta arrives — none of those lines reach processDelta,
+    // so they must not advance the reasoning clock. Reasoning then starts
+    // fresh and must get its own full budget, not whatever was left after the
+    // prefill (which here has already exceeded the 180s threshold on its own,
+    // via connection time — the historical bug this test pins).
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const pings = Array(8).fill(": \n\n"); // 8 * 30s = 240s of prefill, already over the 180s threshold
+    const chunks = [...pings, deltaReasoning("finally starting to think\n"), deltaContent("the answer"), doneMarker];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(30_000);
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(result.text, "the answer");
+  });
+
+  test("a whitespace-only content delta mid-reasoning does not permanently disable the guard", async (t) => {
+    // A reasoning stream can emit a whitespace-only content delta (e.g. "\n")
+    // before continuing to reason. That makes fullText non-empty even though
+    // there is still no real answer — a raw truthiness check on fullText
+    // would treat that as "an answer arrived" and never trip again, letting
+    // runaway reasoning continue indefinitely. The guard must use the same
+    // semantic-emptiness check (stripped + trimmed) as the caller's
+    // empty-completion retry.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const cancel = mock.fn(async () => {});
+    const chunks = [
+      deltaReasoning("thinking...\n"),
+      deltaContent("\n"), // whitespace-only — not a real answer
+      deltaReasoning("still thinking...\n"),
+      deltaReasoning("more...\n"),
+      deltaReasoning("even more...\n"),
+      deltaReasoning("even more still...\n"),
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000);
+              return { done: false, value: raw };
+            },
+            cancel,
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, true);
+    assert.equal(cancel.mock.calls.length, 1);
+    assert.equal(result.text, "\n");
+  });
+
+  test("closes an open reasoning frame with reasoning_done when the timeout cuts off mid-reasoning", async (t) => {
+    // A reasoning_start already sent to the emitter needs its matching
+    // reasoning_done, or a UI that pairs them (e.g. the CLI emitter's
+    // inReasoning flag, which stream_start does not reset) stays stuck
+    // "in reasoning" through the retry that follows this cutoff.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const adapter = resolveReasoningAdapter("deepseek-v4-pro"); // native reasoning_content adapter, emits reasoning_start/done itself
+    const em = mockEmitter();
+    const chunks = [
+      deltaReasoning("thinking...\n"),
+      deltaReasoning("still thinking...\n"),
+      deltaReasoning("more...\n"),
+      deltaReasoning("even more...\n"),
+      deltaReasoning("even more still...\n"),
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000);
+              return { done: false, value: raw };
+            },
+            cancel: mock.fn(async () => {}),
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, em, adapter, mock.fn(), { name: "test-provider" });
+
+    await h.process();
+
+    assert.equal(h.thinkingTimedOut, true);
+    const types = em.send.mock.calls.map(c => c.arguments[0].type);
+    assert.ok(types.includes("reasoning_start"), "adapter should have opened a reasoning frame");
+    assert.equal(types.at(-1), "reasoning_done", "the guard must close the frame before breaking out");
+  });
+
+  test("does NOT discard an answer whose first SSE line is only half-buffered when the deadline lands", async (t) => {
+    // The guard's own precondition (empty fullText) is also true for the
+    // instant between the first fragment of the answer's `data:` line landing
+    // in sseBuffer and the newline that completes it — processLine has not run
+    // yet, so the answer exists but is invisible to the check. Cancelling there
+    // would throw the answer away, because the cutoff path deliberately skips
+    // the trailing-buffer flush. Split `data:` lines are routine on this wire.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const answerLine = deltaContent("here is the answer");
+    const cancel = mock.fn(async () => {});
+    const chunks = [
+      deltaReasoning("thinking...\n"),        // t=60s, anchors the 180s deadline
+      deltaReasoning("still thinking...\n"),  // t=120s
+      deltaReasoning("more...\n"),            // t=180s
+      answerLine.slice(0, 30),                // t=240s — deadline due, but half a line is buffered
+      answerLine.slice(30),                   // t=300s — completes it
+      doneMarker,
+    ];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000);
+              return { done: false, value: raw };
+            },
+            cancel,
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, false, "a buffered partial line must hold the cutoff back");
+    assert.equal(cancel.mock.calls.length, 0);
+    assert.equal(result.text, "here is the answer");
+  });
+
+  test("the partial-line grace is bounded — reads that always end mid-line cannot starve the guard", async (t) => {
+    // The counterweight to the test above: if the buffered fragment never
+    // resolves into an answer, the guard must still fire rather than defer
+    // forever. Every read here ends mid-line, so sseBuffer is never empty at
+    // the moment the deadline is checked.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const cancel = mock.fn(async () => {});
+    // Reads one byte longer than an SSE line, so every chunk carries the tail
+    // of the previous line plus the head of the next — the buffer is never
+    // empty when the loop looks at it.
+    const line = deltaReasoning("thinking...\n");
+    const stream = line.repeat(9);
+    const step = line.length + 1;
+    const chunks = Array.from({ length: Math.ceil(stream.length / step) }, (_, i) => stream.slice(i * step, (i + 1) * step));
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(60_000);
+              return { done: false, value: raw };
+            },
+            cancel,
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.thinkingTimedOut, true, "the 5s grace must expire, not renew on every fresh partial line");
+    assert.equal(cancel.mock.calls.length, 1);
+    assert.equal(result.text, "");
+    assert.ok(idx < chunks.length, "the guard must cut off before the stream ends on its own");
+  });
+
+  test("the deadline bounds the pending read too — sparse reasoning cannot stretch the budget", async (t) => {
+    // Reasoning chunks arriving just under the 120s idle timeout: checking the
+    // deadline only BETWEEN reads let a 180s budget run for ~330s, because
+    // each read could stay pending for a full idle interval past it. The wait
+    // itself must be capped by whatever is left of the thinking budget.
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    let cancelledAt = null;
+    const cancel = mock.fn(async () => { cancelledAt = Date.now(); });
+    let idx = 0;
+    // Unlike the other tests here, read() genuinely stays PENDING (resolved by
+    // a mock timer) instead of returning already-resolved — that is the whole
+    // scenario: a deadline that falls while the loop sits inside one read.
+    const response = {
+      body: {
+        getReader() {
+          return {
+            read: () => new Promise(resolve => setTimeout(() => {
+              if (idx >= 6) return resolve({ done: true, value: undefined });
+              resolve({ done: false, value: new TextEncoder().encode(deltaReasoning(`thinking ${idx++}\n`)) });
+            }, 110_000)),
+            cancel,
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const resultPromise = h.process();
+    let settled = false;
+    resultPromise.then(() => { settled = true; }, () => { settled = true; });
+    // Drive the mock clock in small steps, yielding to the microtask queue
+    // between them so the handler's loop can actually run.
+    for (let i = 0; i < 100 && !settled; i++) {
+      t.mock.timers.tick(10_000);
+      await new Promise(r => setImmediate(r));
+    }
+    await resultPromise;
+
+    assert.equal(h.thinkingTimedOut, true);
+    // First reasoning token at t=110s, 180s budget => cut off at t=290s. The
+    // pre-fix loop only noticed after the next read landed, at t=330s.
+    assert.equal(cancelledAt, 290_000);
+  });
+});
+
+// =============================================================================
 // constructor
 // =============================================================================
 
@@ -624,6 +1089,9 @@ describe("constructor", () => {
     assert.equal(h.mightBeToolCall, false);
     assert.equal(h.detectedThinking, false);
     assert.equal(h.streamError, null);
+    assert.equal(h.thinkingTimedOut, false);
+    assert.equal(h.reasoningSeen, false);
+    assert.equal(h.reasoningStartMs, null);
     assert.deepEqual(h.streamUsage, { input_tokens: 0, output_tokens: 0, thinking_tokens: 0 });
   });
 

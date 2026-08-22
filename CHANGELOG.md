@@ -177,6 +177,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A model stuck "thinking" forever could burn an entire turn without ever
+  answering or calling a tool.** No existing timeout caught this: the idle-read
+  timeout only fires when bytes stop arriving, and a model stuck reasoning stays
+  chatty (a token roughly every second), so it never trips. One recorded local
+  run spent all 900 seconds of a turn emitting nothing but reasoning tokens — no
+  answer, no tool call — until an external test-harness timer killed it.
+  `LlamaCppStreamHandler` now tracks how long a turn has been producing
+  confirmed reasoning — a native `reasoning`/`reasoning_content` field, or a
+  resolved inline `<think>...</think>` block — with no real answer and no
+  tool call yet; past `LLAMACPP_THINKING_TIMEOUT_MS` (default 180s, well
+  under the observed failure, and anchored to when reasoning actually began
+  rather than to connection start, so a long prompt prefill can't eat into
+  the budget) it cancels the stream and falls into the existing
+  empty-completion retry, which forces thinking off and nudges for a direct
+  answer, rather than letting the turn run out the clock unaided. A turn
+  that is actually producing output, or reasoning briefly before answering,
+  is untouched. Deliberately does NOT cut off a tag-free answer that just
+  hasn't finished streaming yet, even past the timeout — that state is
+  observably identical to a model stuck reasoning inside an unclosed,
+  template-pre-filled `<think>` block with no way to tell the two apart
+  mid-stream, and a legitimate slow answer must never be discarded on a
+  guess. The budget is a real maximum, not a between-reads sample: it bounds
+  how long the loop waits on each read, so reasoning chunks arriving just
+  under the idle timeout can no longer stretch a 180s limit to nearly 300s.
+  A cutoff falling in the instant when only the first fragment of the
+  answer's SSE line has been buffered is held back for up to five seconds,
+  so a split `data:` line — routine on this wire — is never mistaken for
+  silence and thrown away. Scoped to only the callers that can act on a cutoff:
+  `runDeepSeekLoop` shares the same stream handler but has no
+  suppressed-thinking retry, so its call site disables the guard entirely
+  rather than turn a long legitimate DeepSeek reasoning turn into a bare
+  empty-response fallback.
+
 - **A model that kept re-issuing the same tool call could burn an entire turn on
   it and answer nothing.** The same-turn dedup cache already refused to re-run an
   identical call and handed back the earlier result with a "do not call it again"

@@ -566,6 +566,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `120000` · advance
 
 Max time with zero bytes from a llama.cpp/Ollama streaming response before the turn is ended as stalled. Per-read, not per-turn — a long prefill still sends an SSE keep-alive ping well under this, so it does not fire during legitimate long generations.
 
+#### `LLAMACPP_THINKING_TIMEOUT_MS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `180000` · advanced
+
+Max time a turn may spend emitting reasoning tokens with no answer and no tool call before the stream is cut off and retried with thinking suppressed. Only counts time while reasoning keeps growing and the answer stays empty, so a turn that is actually producing output is never cut off.
+
 #### `LLAMACPP_HEALTH_TIMEOUT_MS`
 
 number · tier 1 (Settings UI, restart to apply) · default: `3000` · advanced

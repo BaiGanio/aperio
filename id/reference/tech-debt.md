@@ -134,22 +134,6 @@ one pass, four distinct failure modes — no two runs failed the same way.** The
 harness itself is settled (three-run KV/wall-clock verification, above), so
 these are the model, not the rig.
 
-- 2026-08-13 **Runaway reasoning: a turn spent its entire 900 s budget on
-  thinking tokens and emitted nothing.** Round 12 turn 2 logged
-  `wallMs=900004 output_tokens=4678 thinking_tokens=4678` — every token
-  produced in fifteen minutes was internal reasoning, with no answer and no
-  tool call — then fell into the known empty-turn cascade (four 4,011 ms turns,
-  0 tokens). This is what makes a run take 25 min instead of 15, and it is the
-  only failure mode here that no gate check names directly; it surfaces as
-  `withinPerTurnWallClockCeiling: false` plus "one or more turns did not
-  complete". New in round 12 — rounds 9-11 never did it, so its frequency is
-  1-in-4 and unmeasured.
-  **Re-examined 2026-08-18 (A2D follow-up on the 2026-08-14 harness fix):** the
-  four-turn cascade itself is explained by `runTurn()`'s pre-fix turn-id
-  mismatch, not by additional model failures — do not add a gate check for the
-  cascade shape itself. The one harness-independent defect here is turn 2
-  alone: 900s spent entirely on thinking tokens with zero output and no tool
-  call.
 - 2026-08-13 **The write path silently produced nothing: `insertedRealRows:
   false` on a run that proposed `db_execute` and had the confirm approved.**
   Rows were never written, which is the *core* claim of T-G2.3. Alongside it,
