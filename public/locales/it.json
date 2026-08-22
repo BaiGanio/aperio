@@ -194,6 +194,7 @@
   "skills_more":              "Di più…",
   "skills_load_error":        "Impossibile caricare l'abilità.",
   "images_dropped_notice":  "{provider} non può vedere le immagini — questo turno verrà eseguito solo con testo.",
+  "tool_repeat_break_notice": "{model} ha ripetuto la stessa chiamata allo strumento {repeats}× di fila, quindi gli strumenti sono stati disattivati per questa risposta.",
   "skills_panel_nav_title": "Competenze — visualizza, modifica, crea e attiva le competenze del tuo agente",
   "skills_panel_label": "Competenze",
   "skills_panel_search_ph": "Cerca competenze…",

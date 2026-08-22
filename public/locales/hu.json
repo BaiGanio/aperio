@@ -194,6 +194,7 @@
   "skills_more":              "tovább…",
   "skills_load_error":        "Nem sikerült betölteni a készségeket.",
   "images_dropped_notice":  "A(z) {provider} nem lát képeket — ez a kör csak szöveggel fut.",
+  "tool_repeat_break_notice": "A(z) {model} ugyanazt az eszközhívást ismételte meg {repeats}× egymás után, ezért ehhez a válaszhoz kikapcsoltuk az eszközöket.",
   "skills_panel_nav_title": "Képességek — az ügynököd képességeinek megtekintése, szerkesztése, létrehozása és be-/kikapcsolása",
   "skills_panel_label": "Képességek",
   "skills_panel_search_ph": "Képességek keresése…",

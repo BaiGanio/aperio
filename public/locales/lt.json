@@ -194,6 +194,7 @@
   "skills_more":              "daugiau…",
   "skills_load_error":        "Nepavyko įkelti įgūdžių.",
   "images_dropped_notice":  "{provider} nemato paveikslėlių — šis ėjimas vyks tik su tekstu.",
+  "tool_repeat_break_notice": "{model} pakartojo tą patį įrankio iškvietimą {repeats}× iš eilės, todėl šiam atsakymui įrankiai buvo išjungti.",
   "skills_panel_nav_title": "Įgūdžiai — peržiūrėk, redaguok, kurk ir perjunk savo agento įgūdžius",
   "skills_panel_label": "Įgūdžiai",
   "skills_panel_search_ph": "Ieškoti įgūdžių…",

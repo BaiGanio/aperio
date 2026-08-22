@@ -194,6 +194,7 @@
   "skills_more":              "rohkem…",
   "skills_load_error":        "Oskust ei saanud laadida.",
   "images_dropped_notice":  "{provider} ei näe pilte — see käik toimub ainult tekstiga.",
+  "tool_repeat_break_notice": "{model} kordas sama tööriistakutset {repeats}× järjest, seega lülitati tööriistad selle vastuse jaoks välja.",
   "skills_panel_nav_title": "Oskused — vaata, muuda, loo ja lülita oma agendi oskuseid",
   "skills_panel_label": "Oskused",
   "skills_panel_search_ph": "Otsi oskusi…",

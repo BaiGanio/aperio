@@ -49,3 +49,7 @@ onStreamEvent("no_tool_use_detected", (msg) => {
 onStreamEvent("slow_local_turn_detected", (msg) => {
   _renderSlowTurnWarning(msg.model, msg.genTps, msg.hint);
 });
+
+onStreamEvent("tool_repeat_break", (msg) => {
+  _renderToolRepeatBreakWarning(msg.model, msg.repeats);
+});

@@ -208,6 +208,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   to two more times before the bound above kicked in. Both now check the
   in-turn cache before dispatching a call, same as the other two providers.
 
+- **The tool-repeat breaker above fired silently — the user just saw the
+  assistant stop using tools mid-turn with no explanation.** `llamacpp`/
+  `deepseek` now send an amber notice ("`{model}` repeated the same tool call
+  `{repeats}`× in a row, so tools were turned off for this reply") to both the
+  web UI and the CLI when the breaker trips, translated across all 26 locales.
+
 - **The cost estimate in the context bar billed cached tokens at the full input
   rate.** Every turn re-sends the whole conversation, and on a provider with
   prompt caching most of that prompt is a cache read billed at roughly a tenth

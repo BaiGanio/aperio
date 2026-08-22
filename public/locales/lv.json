@@ -194,6 +194,7 @@
   "skills_more":              "vairāk…",
   "skills_load_error":        "Nevarēja ielādēt prasmi.",
   "images_dropped_notice":  "{provider} neredz attēlus — šis gājiens notiks tikai ar tekstu.",
+  "tool_repeat_break_notice": "{model} atkārtoja to pašu rīka izsaukumu {repeats}× pēc kārtas, tāpēc rīki šai atbildei tika izslēgti.",
   "skills_panel_nav_title": "Prasmes — apskati, rediģē, izveido un pārslēdz sava aģenta prasmes",
   "skills_panel_label": "Prasmes",
   "skills_panel_search_ph": "Meklēt prasmes…",

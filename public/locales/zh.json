@@ -194,6 +194,7 @@
     "skills_more":              "更多…",
     "skills_load_error":        "无法加载技能。",
     "images_dropped_notice":  "{provider} 无法识别图片——本轮仅以文本方式运行。",
+    "tool_repeat_break_notice": "{model} 连续 {repeats} 次调用了相同的工具，因此本次回复已关闭工具调用。",
     "skills_panel_nav_title": "技能 — 查看、编辑、创建并切换你的智能体的技能",
     "skills_panel_label": "技能",
     "skills_panel_search_ph": "搜索技能…",

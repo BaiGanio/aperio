@@ -194,6 +194,7 @@
   "skills_more":              "više…",
   "skills_load_error":        "Nije moguće učitati vještinu.",
   "images_dropped_notice":  "{provider} ne vidi slike — ovaj potez izvršit će se samo s tekstom.",
+  "tool_repeat_break_notice": "{model} je isti poziv alata ponovio {repeats}× zaredom, pa su alati za ovaj odgovor isključeni.",
   "skills_panel_nav_title": "Vještine — pregledaj, uredi, izradi i uključi/isključi vještine svog agenta",
   "skills_panel_label": "Vještine",
   "skills_panel_search_ph": "Pretraži vještine…",

@@ -194,6 +194,7 @@
   "skills_more":              "mer...",
   "skills_load_error":        "Kunde inte ladda skicklighet.",
   "images_dropped_notice":  "{provider} kan inte se bilder — den här turen körs endast med text.",
+  "tool_repeat_break_notice": "{model} upprepade samma verktygsanrop {repeats}× i rad, så verktygen stängdes av för detta svar.",
   "skills_panel_nav_title": "Färdigheter — visa, redigera, skapa och växla din agents färdigheter",
   "skills_panel_label": "Färdigheter",
   "skills_panel_search_ph": "Sök färdigheter…",

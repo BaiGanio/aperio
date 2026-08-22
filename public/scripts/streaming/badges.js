@@ -471,6 +471,22 @@ function _renderNoToolWarning(model) {
   scrollToBottom();
 }
 
+// Reuses the no-tool-use chip's styling — same amber, dismissible pattern —
+// for the tool-repeat breaker (lib/agent/providers/llamacpp.js, deepseek.js):
+// the model kept issuing an identical tool call, so tools were taken away for
+// this turn. Without this the user just sees the assistant go quiet on tools.
+function _renderToolRepeatBreakWarning(model, repeats) {
+  const chip = document.createElement("div");
+  chip.className = "no-tool-warning";
+  chip.innerHTML =
+    `<span class="no-tool-warning-icon">⚠</span>` +
+    `<span class="no-tool-warning-text">${escapeHtml(t("tool_repeat_break_notice", { model, repeats }))}</span>` +
+    `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
+  chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
+
 // llamacpp.md Phase 5: reuses the no-tool-use chip's styling (generic amber
 // warning, not tool-specific) rather than inventing a new UI mechanism.
 function _renderSlowTurnWarning(model, genTps, hint) {

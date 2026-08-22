@@ -194,6 +194,7 @@
   "skills_more":              "plus…",
   "skills_load_error":        "Impossible de charger la compétence.",
   "images_dropped_notice":  "{provider} ne peut pas voir les images — ce tour se déroulera uniquement en texte.",
+  "tool_repeat_break_notice": "{model} a répété le même appel d'outil {repeats}× de suite, les outils ont donc été désactivés pour cette réponse.",
   "skills_panel_nav_title": "Compétences — voir, modifier, créer et activer les compétences de ton agent",
   "skills_panel_label": "Compétences",
   "skills_panel_search_ph": "Rechercher des compétences…",

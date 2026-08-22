@@ -197,6 +197,7 @@
   "skills_more":              "more…",
   "skills_load_error":        "Could not load skill.",
   "images_dropped_notice":    "{provider} can't see images — this turn will run text-only.",
+  "tool_repeat_break_notice": "{model} repeated the same tool call {repeats}× in a row, so tools were turned off for this reply.",
   "skills_panel_nav_title": "Skills — view, edit, create and toggle your agent's skills",
   "skills_panel_label": "Skills",
   "skills_panel_search_ph": "Search skills…",
