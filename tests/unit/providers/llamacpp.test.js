@@ -1056,3 +1056,111 @@ describe("estimateThinkingTokens", () => {
     assert.equal(estimateThinkingTokens(0, 40, 0), 10);
   });
 });
+
+// =============================================================================
+// test: tool-repeat breaker
+//
+// The dedup cache (findPriorToolResult) stops an identical in-turn call from
+// being RE-EXECUTED, but nothing stopped the model from re-ISSUING it, and this
+// loop is `while (true)` with no step cap. Ornith-1.0-9B-MTP issued
+// `doc_manifest` 188 times in one turn (2026-08-18) — every repeat correctly
+// served from the cache — until the 600 s timeout killed the turn with no
+// answer. The breaker takes the tools off the request for one pass and forces
+// an answer.
+// =============================================================================
+describe("runLlamaCppLoop — tool-repeat breaker", () => {
+  afterEach(() => {
+    reset();
+  });
+
+  // Streams one and the same tool call every time, the way the recorded loop did.
+  const repeatChunks = n => [
+    `data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"m${n}","function":{"name":"doc_manifest","arguments":"{}"}}]},"finish_reason":null}]}\n\n`,
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":100,"output_tokens":20}}\n\n',
+    "data: [DONE]\n\n",
+  ];
+  const answerChunks = [
+    'data: {"choices":[{"index":0,"delta":{"role":"assistant","content":"There are 9 documents."},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":120,"output_tokens":8}}\n\n',
+    "data: [DONE]\n\n",
+  ];
+
+  test("a model repeating one call is stripped of its tools and made to answer", async () => {
+    const bodies = [];
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        // Without the breaker this scripted model never stops calling the tool.
+        // The guard rail on the test itself: fail loudly instead of hanging.
+        assert.ok(chatCalls <= 6, "the loop did not break — the model was still being asked for tool calls");
+        const body = JSON.parse(opts.body);
+        // Once the tools are gone the scripted model complies and answers.
+        return { ok: true, status: 200, body: sseStream(body.tools ? repeatChunks(chatCalls) : answerChunks), text: async () => "" };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const messages = [{ role: "user", content: "How many documents are there?" }];
+    const emitter = { send: makeEmittersend() };
+    // Not baseCtx()'s default: that model is the VLM sidecar, which is served
+    // without tool schemas, so the request bodies would carry no `tools` at all.
+    const ctx = baseCtx("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    ctx.getOpenAiTools = () => [{ type: "function", function: { name: "doc_manifest", description: "", parameters: { type: "object", properties: {} } } }];
+    ctx.callTool = mock.fn(async () => "9 documents");
+
+    const result = await runLlamaCppLoop(messages, emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "There are 9 documents.", "the turn ends with a real answer, not a timeout");
+    assert.equal(chatCalls, 4, "three repeats, then exactly one tool-free pass");
+    assert.ok(bodies.slice(0, 3).every(b => Array.isArray(b.tools)), "tools are offered while the model is still making progress");
+    assert.equal(bodies[3].tools, undefined, "the forced pass carries no tool schemas at all");
+    assert.match(bodies[3].messages[0].content, /No tools are available for this reply/);
+    // The tool itself runs once; repeats 2 and 3 come from the dedup cache.
+    assert.equal(ctx.callTool.mock.calls.length, 1);
+    const broke = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_repeat_break");
+    assert.ok(broke, "the break is observable to the UI");
+    assert.equal(broke.repeats, 3);
+  });
+
+  test("a model making real progress keeps its tools", async () => {
+    const bodies = [];
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        if (chatCalls > 3) return { ok: true, status: 200, body: sseStream(answerChunks), text: async () => "" };
+        // Same tool, different arguments each time — progress, not a loop.
+        return {
+          ok: true, status: 200,
+          body: sseStream([
+            `data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"m${chatCalls}","function":{"name":"doc_manifest","arguments":"{\\"period\\":\\"2026-0${chatCalls}\\"}"}}]},"finish_reason":null}]}\n\n`,
+            'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":100,"output_tokens":20}}\n\n',
+            "data: [DONE]\n\n",
+          ]),
+          text: async () => "",
+        };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const messages = [{ role: "user", content: "Summarize each month." }];
+    const emitter = { send: makeEmittersend() };
+    const ctx = baseCtx("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    ctx.getOpenAiTools = () => [{ type: "function", function: { name: "doc_manifest", description: "", parameters: { type: "object", properties: {} } } }];
+    ctx.callTool = mock.fn(async () => "9 documents");
+
+    const result = await runLlamaCppLoop(messages, emitter, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "There are 9 documents.");
+    assert.equal(ctx.callTool.mock.calls.length, 3, "every distinct call really runs");
+    assert.ok(bodies.every(b => Array.isArray(b.tools)), "the breaker must not fire on legitimate work");
+    assert.equal(emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_repeat_break").length, 0);
+  });
+});

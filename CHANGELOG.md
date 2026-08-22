@@ -177,6 +177,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A model that kept re-issuing the same tool call could burn an entire turn on
+  it and answer nothing.** The same-turn dedup cache already refused to re-run an
+  identical call and handed back the earlier result with a "do not call it again"
+  note, but nothing stopped the model from asking a fourth, tenth, or
+  hundred-and-eighty-eighth time — every provider loop runs until it gets an
+  answer, with no step cap, and the existing repeated-call guard only counts
+  calls that *fail*. Each repeat still cost a full generation pass, so the only
+  backstop was the turn timeout: one recorded local run spent nearly nine minutes
+  re-asking for a document manifest it already had, then died with no answer.
+  After three identical calls in a row the loop now takes the tools off the
+  request for one pass, tells the model why, and refuses to act on a tool call
+  leaked in prose — so the turn ends with whatever answer the results already
+  support instead of timing out. Distinct calls, a different tool, and the same
+  tool with different arguments are all untouched; the counter resets at every
+  new user message. The shared repeated-call guard that sits underneath this
+  (`tool-safety-middleware.js`) used to only count calls that *fail* — a call
+  that kept *succeeding* identically was invisible to it. It now counts either,
+  and because every provider routes through the same shared tool wrapper, all
+  of them — including `anthropic`/`gemini`, which have no step cap of their
+  own — get a bound on a repeated call, success or failure, not just
+  llamacpp/deepseek.
+
 - **The cost estimate in the context bar billed cached tokens at the full input
   rate.** Every turn re-sends the whole conversation, and on a provider with
   prompt caching most of that prompt is a cache read billed at roughly a tenth

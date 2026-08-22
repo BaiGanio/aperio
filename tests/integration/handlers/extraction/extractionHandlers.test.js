@@ -346,6 +346,46 @@ describe("T-G4.3 confirmed cold-start learning", () => {
     assert.equal(result.template.name, "nova-telecom-bill");
   });
 
+  // Real-corpus finding (tech-debt.md, 2026-08-22): match_keywords only
+  // encode issuer identity, so a credit note from an already-templated
+  // issuer scored a keyword-confident match against the bill template even
+  // though its amount is a refund_due, not the template's amount_due — an
+  // auto-matched extraction would have silently read a refund as a charge.
+  test("same issuer, different form (bill vs its own credit note) does not auto-match on keywords alone", async () => {
+    const bill = [
+      "СофияЕнерго ЕАД",
+      "ул. Позитано 5, София",
+      "ЕИК: BG200123456",
+      "Продажба на електрическа енергия",
+      "Фактура 03/2026",
+      "За плащане: 45.80 лв",
+    ].join("\n");
+    const creditNote = [
+      "СофияЕнерго ЕАД",
+      "ул. Позитано 5, София",
+      "ЕИК: BG200123456",
+      "Продажба на електрическа енергия",
+      "Кредитно известие 03/2026",
+      "Сума за възстановяване: 34.20 лв",
+    ].join("\n");
+
+    const learned = await extractHandlers.matchOrPropose(ctxFor(store), { text: bill, name: "sofiaenergo-bill" });
+    assert.equal(learned.status, "proposed");
+    await templateHandlers.decideTemplateProposal(ctxFor(store), learned.token, { decision: "approve" });
+
+    // Sanity check: keywords alone (matchTemplates/classifyMatch, no field
+    // check) DO score this confident — the bug this test guards against is
+    // real, not hypothetical, on this exact pair.
+    const ranked = await matchHandlers.matchTemplates(store, { text: creditNote });
+    assert.equal(matchHandlers.classifyMatch(ranked).status, "confident");
+
+    const result = await extractHandlers.matchOrPropose(ctxFor(store), { text: creditNote, name: "sofiaenergo-credit-note" });
+    assert.equal(result.status, "proposed");
+    assert.equal(result.shapeMismatch?.template.name, "sofiaenergo-bill");
+    assert.equal(result.shapeMismatch.resolvedFields, 0);
+    assert.equal(result.shapeMismatch.totalFields, 1);
+  });
+
   test("rejecting a proposal leaves extraction_templates untouched", async () => {
     const before = await templateHandlers.list(store);
     const result = await extractHandlers.matchOrPropose(ctxFor(store), {

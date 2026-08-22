@@ -328,7 +328,7 @@ const PROVENANCE_GATES = [
       "calledDbExecute", "interruptApproved", "insertedRealRows",
       "calledDbQueryAfterConfirm", "dbQueryReturnedRealRows",
       "followUpNarratesDecimalTotal", "followUpTotalMatchesQuery",
-      "noPhantomWriteClaims",
+      "noPhantomWriteClaims", "noPhantomReadClaims",
     ],
     context: ["provenanceLadder", "successTurn", "successPromptTier", "capabilityClaim"],
   },

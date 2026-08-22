@@ -255,6 +255,12 @@ async function _propose(ctx, args) {
       `**Name:** ${result.proposal.name}`,
       `**Keywords:** ${result.proposal.match_keywords.join(", ") || "(none)"}`,
       `**Fields:** ${result.proposal.fields.map((f) => `${f.name} (${f.amount_label ?? f.date_role})`).join(", ")}`,
+      ...(result.shapeMismatch ? [
+        "",
+        `Note: this text's keywords matched existing template "${result.shapeMismatch.template.name}", but only ` +
+          `${result.shapeMismatch.resolvedFields}/${result.shapeMismatch.totalFields} of its fields fit this document ` +
+          `(e.g. a credit note next to a bill) — proposing a separate template instead of reusing it.`,
+      ] : []),
       "",
       // The tool-hook (lib/agent/tool-hooks.js) extracts this exact "Action:"
       // line as the confirm card's label — same convention db_execute's own

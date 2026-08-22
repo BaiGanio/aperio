@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, extractPipeAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, extractPipeAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult, countTrailingRepeatedToolCalls, TOOL_REPEAT_LIMIT } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -1148,5 +1148,149 @@ describe("executeToolCalls — duplicate-call short-circuit", () => {
     assert.ok(resultMsg, "prior result is handed back on the intercepted path");
     assert.ok(resultMsg.content[0].content.includes("CACHED ISSUE BODY"), "reuses the prior body");
     assert.ok(resultMsg.content[0].content.includes("do not call"), "model is nudged to stop repeating");
+  });
+});
+
+// =============================================================================
+// countTrailingRepeatedToolCalls — runaway-loop breaker
+//
+// findPriorToolResult stops a repeated call from being RE-EXECUTED; nothing
+// stopped the model from re-ISSUING it. Every provider loop is `while (true)`
+// with no step cap, so a model that never registers it already has the answer
+// burns the whole turn on one call (observed: Ornith-1.0-9B-MTP issued
+// `doc_manifest` 188 times in nine minutes, then the turn timed out with no
+// answer). This counter is the signal the provider loops break on.
+// =============================================================================
+
+describe("countTrailingRepeatedToolCalls", () => {
+  const user = (text = "list the documents") => ({ role: "user", content: text });
+  const call = (id, name, input) => ({ role: "assistant", content: [{ type: "tool_use", id, name, input }] });
+  const result = (id, text = "RESULT") => ({ role: "tool", content: [{ type: "tool_result", tool_use_id: id, content: text }] });
+
+  test("returns 0 when the turn has no tool call at all", () => {
+    assert.equal(countTrailingRepeatedToolCalls([user()]), 0);
+  });
+
+  test("returns 0 when the tail is an assistant text answer", () => {
+    const msgs = [user(), call("a1", "doc_manifest", {}), result("a1"),
+      { role: "assistant", content: [{ type: "text", text: "There are 9 documents." }] }];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 0);
+  });
+
+  test("returns 1 for a call issued once", () => {
+    assert.equal(countTrailingRepeatedToolCalls([user(), call("a1", "doc_manifest", {}), result("a1")]), 1);
+  });
+
+  test("counts identical back-to-back calls, skipping the results between them", () => {
+    const msgs = [user(),
+      call("a1", "doc_manifest", { period: "2026-06" }), result("a1"),
+      call("a2", "doc_manifest", { period: "2026-06" }), result("a2"),
+      call("a3", "doc_manifest", { period: "2026-06" }), result("a3")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 3);
+  });
+
+  test("reaches the breaker limit on the recorded repeat shape", () => {
+    const msgs = [user()];
+    for (let i = 0; i < 5; i++) { msgs.push(call(`a${i}`, "doc_manifest", {}), result(`a${i}`)); }
+    assert.ok(countTrailingRepeatedToolCalls(msgs) >= TOOL_REPEAT_LIMIT);
+  });
+
+  test("argument key order does not break the match", () => {
+    const msgs = [user(),
+      call("a1", "doc_search", { query: "fuel", limit: 5 }), result("a1"),
+      call("a2", "doc_search", { limit: 5, query: "fuel" }), result("a2")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 2);
+  });
+
+  test("a different tool resets the run", () => {
+    const msgs = [user(),
+      call("a1", "doc_manifest", {}), result("a1"),
+      call("a2", "doc_manifest", {}), result("a2"),
+      call("a3", "db_schema", {}), result("a3")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 1);
+  });
+
+  test("the same tool with different arguments is real progress, not a repeat", () => {
+    const msgs = [user(),
+      call("a1", "doc_search", { query: "fuel" }), result("a1"),
+      call("a2", "doc_search", { query: "rent" }), result("a2")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 1);
+  });
+
+  test("counting stops at the current turn — an earlier turn's calls do not add up", () => {
+    const msgs = [user("first ask"),
+      call("a1", "doc_manifest", {}), result("a1"),
+      call("a2", "doc_manifest", {}), result("a2"),
+      { role: "assistant", content: [{ type: "text", text: "done" }] },
+      user("second ask"),
+      call("b1", "doc_manifest", {}), result("b1")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 1);
+  });
+
+  test("the intercepted path's user-role tool_result is skipped like a tool-role one", () => {
+    const interceptResult = id => ({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: "RESULT" }] });
+    const msgs = [user(),
+      call("i1", "doc_manifest", {}), interceptResult("i1"),
+      call("i2", "doc_manifest", {}), interceptResult("i2")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 2);
+  });
+
+  test("a tool preamble alongside the call still counts as a call, not an answer", () => {
+    const withText = (id, name) => ({ role: "assistant", content: [{ type: "text", text: "Let me check." }, { type: "tool_use", id, name, input: {} }] });
+    const msgs = [user(), withText("a1", "doc_manifest"), result("a1"), withText("a2", "doc_manifest"), result("a2")];
+    assert.equal(countTrailingRepeatedToolCalls(msgs), 2);
+  });
+});
+
+// =============================================================================
+// ToolExecutor answerOnly — what the breaker actually enforces
+//
+// The tool-free request alone is not enough: a model that leaks a call in prose
+// would be intercepted and the loop would spin again. answerOnly closes both
+// paths so the forced pass can only produce a final answer.
+// =============================================================================
+
+describe("ToolExecutor answerOnly", () => {
+  const noopStream = () => ({ flushBufferedContent() {}, flushRemainingTokenBuffer() {}, tokenBuffer: "" });
+
+  test("discards native tool calls and answers instead", async () => {
+    const messages = [{ role: "user", content: "how much did I spend?" }];
+    const callTool = mock.fn(async () => "RESULT");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages, ["doc_manifest"], true);
+    const out = await ex.executeNonThinkingResponse("You spent 696.84 BGN.", [{ id: "t1", name: "doc_manifest", args: "{}" }], noopStream());
+
+    assert.equal(callTool.mock.calls.length, 0, "no tool may run on the forced answer pass");
+    assert.equal(out, "You spent 696.84 BGN.", "the turn ends with a real answer");
+  });
+
+  test("does not intercept a tool call leaked in prose", async () => {
+    const leak = '{"name": "doc_manifest", "parameters": {}}';
+    const messages = [{ role: "user", content: "how much did I spend?" }];
+    const callTool = mock.fn(async () => "RESULT");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages, ["doc_manifest"], true);
+    const out = await ex.executeNonThinkingResponse(leak, [], noopStream());
+
+    assert.equal(callTool.mock.calls.length, 0, "a leaked call must not restart the loop");
+    assert.equal(out, leak, "returns a string, so the provider loop terminates");
+  });
+
+  test("thinking models take the same forced-answer path", async () => {
+    const messages = [{ role: "user", content: "how much did I spend?" }];
+    const callTool = mock.fn(async () => "RESULT");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages, ["doc_manifest"], true);
+    const out = await ex.executeThinkingResponse("You spent 696.84 BGN.", [{ id: "t1", name: "doc_manifest", args: "{}" }], noopStream(), true);
+
+    assert.equal(callTool.mock.calls.length, 0);
+    assert.equal(out, "You spent 696.84 BGN.");
+  });
+
+  test("without the flag the same input still runs the tool", async () => {
+    const messages = [{ role: "user", content: "how much did I spend?" }];
+    const callTool = mock.fn(async () => "RESULT");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages, ["doc_manifest"]);
+    const out = await ex.executeNonThinkingResponse("", [{ id: "t1", name: "doc_manifest", args: "{}" }], noopStream());
+
+    assert.equal(callTool.mock.calls.length, 1, "normal turns are unaffected");
+    assert.equal(out, null, "returning null keeps the provider loop going");
   });
 });

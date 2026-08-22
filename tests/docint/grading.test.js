@@ -447,6 +447,9 @@ test("gates: a clean transcript passes T-G2.3 and T-L4; T-G2.4 needs an oracle",
     // the currencies the run itself wrote, so T-G2.3 stays a real verdict here
     // rather than degrading to "not-evaluated" the way T-G2.4 must.
     noPhantomWriteClaims: true,
+    // Needs no oracle either — the SQL itself is the evidence (see
+    // read-claims.mjs).
+    noPhantomReadClaims: true,
   });
   assert.equal(grading.gates["T-G2.3"].context.capabilityClaim, "realistic-usage");
 });

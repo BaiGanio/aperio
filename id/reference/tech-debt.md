@@ -73,11 +73,21 @@ housekeeping go in `A2D.md`, not here.
   models exists — the previous 550,000 ms guess was demoted to a reported metric
   after it failed substantive passes; a real derived ceiling would be worth having,
   but reinstating a guessed number is not the way to get one.
-- Still open, deliberately not attempted: a phantom-READ check (a model querying
-  `FROM <table>` it never created — gemma-4-12B's side of the family, distinct
-  from the fabricated-write-claim case `noPhantomWriteClaims` already covers).
-  Needs different evidence (system/pre-existing tables excluded) than the write
-  case; no current run is blocked on it.
+- 2026-08-22 **Stale entry corrected.** This used to say the phantom-READ
+  check (a model querying `FROM <table>` it never created — gemma-4-12B's
+  side of the family, distinct from the fabricated-write-claim case
+  `noPhantomWriteClaims` already covers) was deliberately not attempted. It
+  was already built and wired in on 2026-08-20 (`94f77065`): `read-claims.mjs`
+  exports `phantomReadClaims()`, gated on the run itself either `CREATE
+  TABLE`-ing the table or discovering it via `db_schema` on the same
+  connection, with system connections (`aperio`) excluded outright. Wired
+  into `grading.mjs` as `checks.noPhantomReadClaims`, tagged into T-G2.3's
+  `gateFailures` — so it already gated real runs — but was missing from
+  `PROVENANCE_GATES["T-G2.3"].checks`, the list `buildGates()` uses to render
+  the gate's own `checks` object; a passing run's `gates["T-G2.3"].checks`
+  silently omitted it even though a phantom read there would have failed the
+  gate. Added today. 12 unit tests (`read-claims.test.js`) plus the full
+  106-test `npm run test:docint` green.
 - 2026-08-22 **Standing recommendation acted on for the worst offender —
   `citesQueryProvenance` removed outright, not just demoted.** The vocabulary
   check (required "query"/"table"/"database"/"sql" near the figure) is gone
@@ -295,398 +305,164 @@ because the round-12 blend retired the premise of the second arm.
   `tests/integration/handlers/extraction/extractionHandlers.test.js`
   (boilerplate deprioritization, header-term preference, cross-provider
   distinguishability, and a noisy OCR-like-text case), all green as of
-  2026-08-21. Still open: those tests are synthetic, not the real
-  household-gen corpus or a real bill — genuine real-corpus evidence (ideally
-  household-gen bills from several distinct providers) is still needed before
-  this heuristic is fully trusted for real cold-start learning.
+  2026-08-21.
+  **2026-08-22 real-corpus run.** Ran `proposalKeywords()` against all 135
+  real `.txt` files in the generated household corpus (48 filename-derived
+  categories, 9 months, /Users/lk/Projects/household — one-off script, not
+  committed since the corpus lives outside the repo). Cross-provider
+  distinguishability holds up on real text: unrelated issuers never collide
+  (no false match above the 0.6 confident threshold between e.g.
+  electricity, water, heating, internet, grocery, fuel). Within-issuer
+  consistency is strong too — same provider across different months scores
+  avgJaccard 0.47–1.00 on its own keyword sets, so a second month's bill from
+  a provider a template was already learned from would still auto-match it.
+  **New finding, not previously tested: the heuristic captures issuer
+  identity, not document TYPE, so two different roles from the SAME issuer
+  are indistinguishable to it.** `electricity-bill` vs
+  `electricity-credit-note` (same provider, SofiaEnergo) scored keyword
+  overlap 1.00, as did two distinct regulator notices from the same office
+  (`tariff-increase-notice` vs `tax-increase-notice-bg`, both KEVR). Since
+  `matchTemplates()`'s score is exactly that keyword overlap and
+  `CONFIDENT_THRESHOLD` is 0.6, a credit note arriving after a bill template
+  is already learned would silently auto-match the bill template rather than
+  prompt for a new one — and get extracted with the bill's field shape
+  (positive `amount_label`, bill-shaped dates), not a credit note's. A milder
+  version shows up in the travel receipts: same-city documents (e.g.
+  `gatwick-express`/`heathrow-express`, `internet-payment`/`water-payment`)
+  cluster at 0.45–0.60 from shared city/country/"ticket" vocabulary, right at
+  the threshold.
+  **2026-08-22 fix shipped for the money-corrupting half of this.**
+  `matchOrPropose()` (`lib/handlers/extraction/extractHandlers.js`) no longer
+  trusts a keyword-confident match on its own — it now also runs
+  `extractFields()` (the same resolver a real extraction would use) against
+  the candidate template and requires `FIELD_SHAPE_THRESHOLD` (0.8, exported)
+  of its fields to actually resolve from the incoming text; below that it
+  falls through to propose a new template instead, carrying a `shapeMismatch`
+  explanation the MCP tool surfaces to the user. Threshold picked
+  empirically, not guessed: every genuine same-template real-corpus document
+  resolved 100% of fields, while the electricity-bill/electricity-credit-note
+  pair (the one real bill-vs-refund case in the corpus) resolved only
+  33%/75% depending on match direction — 0.8 separates both cleanly. 34
+  tests green (`tests/integration/handlers/extraction/extractionHandlers.test.js`,
+  including a BG bill-vs-credit-note regression reproducing the real-corpus
+  finding), full 2602-test `npm run test:integration` green.
+  **Deliberately does NOT cover the milder half**, confirmed by the same
+  empirical run: same-shape-different-issuer collisions (two billers' payment
+  slips, two cities' train tickets, two regulator notices) resolve fields at
+  ~1.00 on both sides because they genuinely share the same amount/date
+  shape — field-checking can't see an issuer-identity mistake the way it
+  catches a bill/refund polarity mistake, and it's lower stakes since no
+  total gets corrupted, just filed under the wrong company name.
+  **2026-08-22 candidate fix tried and rejected: requiring a template's
+  top-N (1–3) most-distinctive keywords to literally appear in the candidate
+  text, instead of only the overall keyword-overlap score.** Tested against
+  the same real corpus. Result: does not close the gap. Of the four pairs
+  that actually score above `CONFIDENT_THRESHOLD` today (the only ones that
+  can silently misfire), it catches none reliably — `tariff-increase-notice`/
+  `tax-increase-notice-bg` and `internet-payment`/`water-payment` share their
+  top-3 keywords verbatim in both directions (their header IS the generic
+  document-type boilerplate; the real differentiator word, e.g. "internet" vs
+  "water", ranks 7th-8th, not top-3), and `gatwick-express`/`heathrow-express`
+  is only caught in one match direction, not the other. The pairs it does
+  catch (barcelona/helsinki/jfk/shanghai travel receipts) already score below
+  0.6 today and were never at risk. One useful side-finding while testing:
+  what first looked like a false positive (`grocery-receipt` failing its own
+  true-positive check) turned out to be the corpus's own two real, distinct
+  stores (ФРЕШМАРКЕТ vs ЕВРОМАРКЕТ) that a filename-only grouping had wrongly
+  lumped together — not a regression. Not shipped; no code changed for this
+  candidate. **Still open, and no further idea in hand** — closing it needs
+  a signal keyword-position/overlap tuning cannot provide (the confusable
+  documents' own text is, by construction, generically similar where it
+  matters), not another reweighting of `match_keywords`.
 
 ---
 
 ## Document Intelligence — save/insert mechanics on gemma4 (#250)
 
 Gemma 4 E4B's own SKILL.md-adherence gaps in the propose→confirm write flow,
-found live on the 2026-08-13 T-L4.3 WS2 provenance run (harness-level grading
-bugs from the same run are fixed, not listed here — the raw session-by-session
-record lived in `document-intelligence-ws2-tg23-open-issues.md`, deleted
-2026-08-14 on T-G2.3's closure; recover with `git log -- trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
-**SKILL.md wording landed for all three 2026-08-13** (verify-existing-state
-bullet + strengthened per-row-INSERT bullet + query-columns-from-own-schema
-bullet, `skills/document-intelligence/SKILL.md` §5 and Gotchas). **Re-run
-same day (see "Cross-model T-L4 run" in the open-issues file) — still not a
-clean T-G2.3 pass, but a partial re-validation on gemma4-E4B before the
-developer stopped that run at turn 2:** keep this entry until a run
-completes cleanly, but see per-bullet updates below — the picture is more
-nuanced than "unvalidated" now.
+found on the 2026-08-13 T-L4.3 WS2 provenance run. SKILL.md gained several
+fixes the same day (§5 verify-existing-state, strengthened per-row-INSERT
+guidance, a worked VALUES/params example, a first-write `db_schema` check,
+"describing a save is not doing it") plus a §6 currency self-check and a
+travel-exclusion discriminating test. Raw session-by-session record
+recoverable via `git log -- trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`
+(deleted 2026-08-14 on T-G2.3's closure).
 
-- 2026-08-13 **Hallucinated re-insertion on a second save attempt.** Told
-  (follow-up prompt: "if the rows aren't in the table yet, finish saving them
-  now"), the model did not check what was already saved via `db_query` first
-  — it inserted 12 new rows with **fabricated placeholder hashes**
-  (`"hash1"`…`"hash12"` instead of real `sha256` values), **invented category
-  labels never present in the source documents** (`Rent`, `Subscriptions`,
-  `Bills/Housing` — the real categories are Utilities/Fuel/Groceries/
-  Transport/Internet), **systematically mismatched `amount_normalized` vs
-  `original_amount_string` pairs** (e.g. amount `95.6` paired with original
-  string `"29.99"` — two different real documents' values shuffled together),
-  and **reclassified two of the three explicitly-excluded EUR travel
-  receipts as legitimate categorized spending** (the Munich train receipt as
-  `Subscriptions`, the Berlin hotel as `Bills/Housing`) — the exact exclusion
-  the fixture tests for. This is worse than a wasteful duplicate: it writes
-  confabulated financial data into the user's real database as if genuine.
-  SKILL.md §5 now tells the model to verify existing state via
-  `db_query`/`db_schema` before a second save attempt (landed 2026-08-13).
-  **Still unvalidated as of the same-day re-run**: that run's INSERT never
-  succeeded (see the params/VALUES-mismatch bullet below), so the model
-  never reached a *second* save attempt on already-populated data — the
-  specific scenario this bullet targets never got a chance to occur, pass or
-  fail. Needs a run where turn 2's INSERT actually lands before this can be
-  called validated either way.
-- 2026-08-13 **Per-row INSERT despite explicit multi-row guidance.** The same
-  12-row batch above was issued as 12 separate single-row `db_execute`
-  confirms, not the one multi-row `INSERT ... VALUES (...), (...), ...`
-  SKILL.md §5 already explicitly requires — even though the follow-up prompt
-  itself said "a single multi-row INSERT is fine — it's still one statement."
-  Confirms this is a live, reproducible gap, not a stale/already-fixed one.
-  SKILL.md §5's bullet strengthened 2026-08-13 with the concrete cache-reprocess
-  cost of an extra turn (known since the same T-L4.3 run's cache-reuse
-  root-cause) as the "why," and an explicit "prompt permission is not license
-  to still do it per row" line. **Partially validated by the same-day
-  re-run, in a genuinely useful way**: on the exact same follow-up prompt
-  ("finish saving them now... a single multi-row INSERT is fine"), gemma4-E4B
-  correctly attempted **one** multi-row `INSERT` on all 3 retries — never
-  fell back to per-row confirms. But the statement itself was structurally
-  broken every time: a `VALUES (?,?,?,?,?,?,?)` clause with only one
-  7-placeholder tuple, while `params` held all rows flattened (65, then 91,
-  then a nested array of 13 seven-element tuples) — the model kept changing
-  the *params* shape without ever adding the missing `VALUES (...), (...),
-  ...` tuples to the *SQL text*. So the per-row habit this bullet targets
-  does look fixed; it just uncovered a different, new structural bug in
-  building a matching multi-row `VALUES`/`params` pair. New tech debt, not
-  covered by any existing SKILL.md wording — needs its own guidance (or a
-  worked example) on keeping tuple count in the SQL text and the flattened
-  params array in sync. Run was stopped by the developer mid-3rd-retry, so
-  it's unknown whether a 4th attempt would have self-corrected.
-- 2026-08-13 **Wrong column name in the model's own follow-up query.** Turn 4
-  ran `SELECT ... SUM(amount) ... FROM spending_june_2026`, but the model's
-  own `CREATE TABLE` (confirmed two turns earlier, and re-confirmed via its
-  own `db_schema` call in this same turn) named the column
-  `amount_normalized`, not `amount`. The failed query then ran into the
-  600s per-turn hard timeout with no retry, cascading into two more turns of
-  empty answers — the same "broken connection after hard timeout" pattern
-  documented from earlier runs (re-examined 2026-08-18: this cascade shape is
-  the pre-2026-08-14 harness turn-id bug, so the two empty follow-on turns are
-  not separate model evidence — the real defect is the wrong column name
-  alone). SKILL.md Gotchas now tells the model to
-  re-read its own `db_schema` result's exact column names into the query
-  rather than retyping from recall (landed 2026-08-13). **Consistent with
-  the fix on the one case the same-day re-run exercised**: gemma4-E4B's
-  turn-1 `db_query` used `SUM(normalized_amount)`, matching the exact column
-  name from its own turn-0 `CREATE TABLE` — no mismatch this run. One data
-  point only, and not the scenario the original bug hit (that was a later
-  turn, after a `db_schema` re-confirm and a hard-timeout retry), so this
-  stays open rather than closing, but it's a genuine positive signal, not
-  silence.
-- 2026-08-13 **New: multi-row `INSERT` structural mismatch (gemma4-E4B),
-  found on the same-day re-run.** See the per-row-INSERT bullet above for
-  the full detail — logged here as its own line since it's a distinct root
-  cause (SQL-text/params-shape sync, not a per-row-vs-multi-row habit).
-  **SKILL.md worked example landed same day** (§5, after the
-  `params`-must-match-placeholder-count bullet): explains one `VALUES`
-  tuple per row, one flat `params` array of rows×columns, and states the
-  fix directly ("add tuples to `VALUES`, don't reshape `params`") against
-  the exact three-retry failure sequence from this run. **Unvalidated —
-  needs a live re-run reaching this same turn** before this line can be
-  removed.
-- 2026-08-13 **New: gemma-4-26B-A4B total non-engagement on turn 1** (a
-  different, larger model than the gemma4-E4B this section is otherwise
-  about — logged here since it's the same propose→confirm write flow).
-  Turn 0 completed normally (`CREATE TABLE`, no `IF NOT EXISTS` guard,
-  confirmed). Turn 1 (the same "query it per category" follow-up gemma4-E4B
-  answered normally) instead ran the full 600,047ms per-turn hard timeout
-  with **zero tool calls and zero output/thinking tokens** — no partial
-  answer, no attempted tool call, nothing. Triggered the known
-  "broken-connection-after-hard-timeout" cascade for the rest of the run
-  (empty ~4s turns, one stray re-read of an already-read document, an
-  unexplained `shell` tool-profile addition). Not seen on any gemma4-E4B run
-  to date. Unknown whether this is 26B-A4B-specific (different chat
-  template/adapter routing — this build uses `adapter="gemma"` same as E4B,
-  so the difference is more likely something about the larger model's own
-  behavior on this prompt) or a one-off fluke; needs a repeat run before
-  concluding either way. Not investigated further this session.
-  **Re-examined 2026-08-18:** the empty ~4s cascade turns and the stray
-  document re-read are explained by the pre-2026-08-14 harness turn-id bug,
-  not by 26B-A4B behavior — drop them from any future case for
-  model-specificity. The `shell` tool-profile addition was separately
-  root-caused and fixed the same session (`classifyProfiles()` bare-`\brun\b`
-  match, see the per-row-INSERT entry below) — likely the same mechanism
-  here too, since the follow-up prompt text is the same SQL-language "run"
-  trigger, though this specific run was not re-verified against the fix. The
-  one defect this bullet still stands on is turn 1's total non-engagement
-  itself: 600s, zero tool calls, zero tokens.
-- 2026-08-13 **New: Ornith-1.0-9B — clean save→query→narrate mechanics, but
-  an undisclosed currency blend and an excluded-document leak** (a different
-  model family from gemma4, logged here for the same reason as 26B-A4B
-  above). This run is the closest any local model has gotten to a clean
-  T-G2.3 pass: a genuine single multi-row `INSERT` (13 rows, no
-  params/VALUES mismatch — the exact bug gemma4-E4B hit), a real `db_query`
-  returning real rows, and a final answer that correctly narrates a table
-  built from the query result. Two real, deserved failures on top of that
-  clean mechanism: (1) an undisclosed blended total, `**Grand total:
-  893.24** (696.84 BGN + 196.40 EUR)` — the exact pattern SKILL.md §6 exists
-  to prevent; (2) the fixture's explicitly-excluded Munich train receipt
-  (49.90 EUR) counted as legitimate spending (`EUR | Transport | 49.90`) —
-  smaller in scope than gemma4-E4B's T-L4.3 reclassification of 2 of 3
-  excluded receipts, but the same category of bug. Neither of these is one
-  of the three original gemma4-targeted SKILL.md gaps; both are about
-  scope/disclosure discipline on an otherwise-working provenance flow, and
-  apply to §6 (no-blend) and the exclusion-handling guidance rather than §5
-  (save/insert mechanics).
-  **Notable and worth flagging, not just fixing: both failures happened
-  against guidance that already named this exact scenario.** §6 already
-  contained this run's own numbers verbatim as a labeled anti-example
-  ("Overall Grand Total: 893.24 (696.84 BGN + 196.40 EUR) is a failure",
-  landed that same morning in `195f39cc`, before this run) — the numbers
-  match because the fixture corpus is deterministic, not because the
-  wording was written after seeing this run. The Gotchas section already
-  said "EUR travel receipts saved into `Transport`/`Dining` alongside
-  domestic BGN spending" was a recorded false positive. Wording this
-  specific still didn't stop Ornith from doing exactly that — real evidence
-  that prose alone has a ceiling here, not proof positive but a second
-  data point after gemma4-E4B's own gaps.
-  **SKILL.md landed this session (chore/docint-skill-correction... branch,
-  uncommitted as of this entry):** §6 gained an explicit pre-send self-check
-  imperative ("before you send the final answer, re-read every line for two
-  amounts in different currencies added into one figure") — a procedural
-  checklist framing rather than more explanation, since the explanation was
-  already maximal. Gotchas gained a new, separate bullet giving the actual
-  discriminating test for travel spending ("is this the user's own money"
-  isn't enough — a train ticket really is the user's money; the test is
-  document kind + away-from-home destination) and explicitly distinguishing
-  it from a legitimate foreign-currency purchase, which stays in its own
-  per-currency total per §6 rather than being excluded. **Unvalidated —
-  given the ceiling already observed once, this needs a live re-run before
-  trusting the new wording, more than the other three items in this
-  section.**
-- 2026-08-13 **New, same-day re-re-run: gemma4-E4B failed all three of its
-  first turns and was stopped by the developer before completion** (not the
-  same run as the "Cross-model T-L4 run" above — a later, separate attempt
-  the same day, after the currency/travel-exclusion SKILL.md edits landed).
-  Turn 0 (main prompt, explicit "save the results so I can query them again
-  later") called **zero** `db_execute` — not even a `CREATE TABLE`, worse
-  than every prior mechanism-ladder run, which always attempted at least
-  table creation on turn 0. Turn 1 then issued a `db_query` against a table
-  name it invented on the spot, **before ever calling `db_schema` or
-  creating anything** — the query's own error ("no connection named
-  extraction") was the only thing that told the model nothing existed yet;
-  it then created the table (still no `INSERT`). Turn 2 — the exact turn
-  handed explicit "a single multi-row INSERT is fine" permission, the one
-  today's worked-example fix targets — produced **zero tool calls**, only
-  52 seconds of prose, and the next turn reverted to re-reading a source
-  document instead of inserting. Developer's verdict: three consecutive
-  turn failures is a clean fail; today's actual VALUES/params fix was never
-  exercised because the model never attempted an `INSERT` at all this run.
-  **SKILL.md gained two new §5 bullets same session**: verify
-  `db_schema`/a prior confirmed `CREATE TABLE` before the *first*
-  `db_query`/write in a conversation (not just before a *second* save
-  attempt, which the existing bullet already covered), and an explicit
-  "describing a save is not doing it — the turn must contain the
-  `db_execute` call itself" bullet. Both unvalidated — no re-run yet.
-  **A real code bug was also root-caused and fixed this session, not just a
-  SKILL.md gap**: turn 2→3's tool-schema fingerprint reverted 40→38, and the
-  `[tools] turn=N profiles=[...]` log showed turn 3 gaining an unexplained
-  `shell` profile — the same anomaly flagged as unexplained in T-L4.2 and
-  this morning's 26B-A4B run. Root cause: `classifyProfiles()`
-  (`lib/agent/tool-profiles.js`) matches a bare `\brun\b` for its `shell`
-  profile trigger, and follow-up 3's own scripted text ("run SELECT
-  category, currency, SUM(amount) GROUP BY category, currency against the
-  extraction table") contains "run" as ordinary SQL language, not a shell
-  request — docGraph intent already had a narrowing guard against this
-  exact false-positive class (line ~483), database intent did not. Fixed by
-  extending the same narrowing to database intent: `shell` is now dropped
-  for database-intent text unless a stronger, unambiguous shell/QA signal
-  (command/terminal/render/grep/libreoffice/soffice/pdftoppm/thumbnail/
-  pptx/slide/slides/presentation/powerpoint/deck/xlsx/spreadsheet) is also
-  present. 3 new regression tests added
-  (`tests/unit/agent/tool-profiles.test.js`); full unit suite (2627 tests)
-  green. This is a real, evidenced contributor to the broader "Tool
-  profiles / schema budgeting" cache-reuse gap above — a spurious profile
-  addition is exactly the mechanism that busts llama-server's prefix cache
-  — though it is very unlikely to be the *only* cause of that gap (the
-  38↔40 fingerprint swing at the turn-0→1 boundary predates this specific
-  trigger and needs its own explanation). **Re-validated live same evening,
-  round 3 (below) — the SKILL.md bullet failed to change the outcome; the
-  classifyProfiles fix was not exercised (run killed before turn 2→3).**
-- 2026-08-13 **Round 3 re-run, same evening: turn 2's zero-tool-call failure
-  recurred immediately, on the very first live test of the bullet written to
-  fix it.** Command/ceilings identical to every T-L4 run this session. Turn 0:
-  `doc_batch` → `db_connections` (checked existing state first, the intended
-  effect of an earlier bullet) → `db_execute CREATE TABLE monthly_spending`,
-  confirmed, no INSERT — the ordinary mechanism-ladder shape, not the
-  zero-`db_execute` worst case from the run above. Turn 1: a real `db_query`
-  against the exact table/column names from its own turn-0 `CREATE TABLE`
-  (`SELECT category, currency, SUM(amount_normalized)... FROM
-  monthly_spending`), correctly returned near-empty (table still has no rows)
-  — the known "correct query, empty table" pattern, not a new bug. **Turn 2**
-  (the follow-up handing explicit "a single multi-row INSERT is fine"
-  permission — the exact turn the "describing a save is not doing it" bullet
-  above targets): **zero tool calls again**, 71,956ms of real generation
-  (44,270 input / 993 output / 610 thinking tokens — not a stall or empty
-  round-trip), and turn 3 immediately reverted to a fresh `doc_batch` read
-  instead of inserting — the identical shape as the failure the bullet was
-  written for, down to the exact next-turn regression. The developer's
-  standing rule this session (kill on the first turn that repeats a known
-  failure shape, don't let the ladder run out) was applied live: the run was
-  killed at this point, so the `classifyProfiles` shell-narrowing fix was
-  never exercised (no turn 2→3 tool-schema transition happened) and stays
-  unvalidated by this run. **This is real evidence the "describing a save is
-  not doing it" bullet does not change gemma4-E4B's behavior on this specific
-  turn** — prose repetition of a rule the model already isn't following is
-  unlikely to fix it on a fourth iteration either. Worth treating as a design
-  question next (e.g. whether the harness/skill can force a tool-call-shaped
-  response on this turn rather than allowing a pure-prose reply, or whether
-  this is better characterized as a generation-level tool-call-emission gap
-  than a prompt-adherence gap) rather than a fifth wording attempt.
-- 2026-08-18 **New: Ornith-1.0-9B-MTP fabricated an entire fake table via the
-  wrong tool family, never touched `db_execute`/`db_query` once across a full
-  8-follow-up ladder.** Run against the fixed `document-intelligence-skill-
-  harness.mjs` (see the harness-import bullet below), same June fixture. Turn
-  0 (1011 tokens, no tool call) wrote a plan, then called `recall` (Aperio's
-  own memory-search tool, not a database connection), found nothing, and
-  **inserted fabricated `INSERT INTO memories (...) VALUES (...)` SQL as
-  prose** — never actually executed, just narrated — with invented category
-  names not in the real taxonomy (Streaming/Subscriptions, Personal Care) and
-  a single USD total, discarding the real BGN/EUR corpus entirely. Every
-  follow-up turn compounded this: `remember` calls failed real MCP schema
-  validation (`required param 'title' (string) is missing`), one turn openly
-  said "I don't know where the data is supposed to live" and asked the user
-  for a schema, and the final two turns narrated a "Grand Total" anyway from
-  nothing real, in one case immediately after admitting no data existed. This
-  is a different and arguably worse failure than the currency blend this
-  session's SKILL.md/mechanism work targets: it never reached the point where
-  a blend could even occur, because it never touched a real currency-mixed
-  dataset. New evidence against `db_execute`/`recall` tool-family confusion
-  under this ladder's phrasing ("save the results", "query the extraction
-  table") — worth its own investigation before another live run is spent on
-  this model. Not investigated further this session (time-boxed).
-
----
-
-## Document-intelligence harness — broken relative imports since the T464 move
-
-- 2026-08-18 `tests/docint/harness/document-intelligence-skill-harness.mjs`
-  and `tests/docint/harness/gemma-simple-capability-harness.mjs` could not run
-  at all: every relative import (4 static, 3 dynamic, in the skill harness;
-  2 static in the capability harness) had one extra `../` — a leftover from
-  moving these files into `tests/docint/harness/` (map #455 ticket T464,
-  memory `project_public_launch_wayfinder_ticket464`) without correcting the
-  depth. First failure was a static-import `ERR_MODULE_NOT_FOUND` on
-  `harness-gate.mjs`; fixing that surfaced a second one from a dynamic
-  `import("../../../../db/sqlite.js")` deeper in the file, resolving one
-  directory above the repo root in both cases. **Fixed 2026-08-18** — all 7
-  paths corrected to the right depth from `tests/docint/harness/`, verified
-  by resolving each import directly before re-running. The move landed
-  2026-08-15 (`2a2532cd`); checked every other dated entry in this file for a
-  run recorded between then and this fix — none exists, so no prior recorded
-  result needs re-examination. Any future `DOCINT_EVALUATION_PROVIDER=
-  llamacpp` invocation before this fix would have failed at import time,
-  before booting anything, so this was silently unusable rather than
-  silently wrong.
+- **Hallucinated re-insertion on a second save attempt** — fabricated
+  placeholder hashes, invented category labels, shuffled amount/original-string
+  pairs, and 2 of 3 excluded EUR travel receipts reclassified as spending.
+  SKILL.md fix landed. **Unvalidated** — no re-run has actually reached a
+  genuine second save attempt yet.
+- **Multi-row INSERT VALUES/params mismatch** — the model correctly emits one
+  multi-row `INSERT` (the per-row habit is fixed) but the `VALUES` tuple count
+  and the flattened `params` array go out of sync (a 7-placeholder `VALUES`
+  against 65/91/nested-13-tuple `params`, across three retries). SKILL.md
+  worked example landed. **Unvalidated** — needs a live re-run reaching this
+  turn.
+- **Wrong column name in a follow-up query** (`SUM(amount)` when the model's
+  own `CREATE TABLE` named the column `amount_normalized`), cascading into a
+  hard timeout. SKILL.md fix landed. One later run got the column name right,
+  but wasn't the same failure scenario — **stays open**.
+- **gemma-4-26B-A4B: total non-engagement on turn 1** — 600s, zero tool
+  calls, zero output/thinking tokens, no partial answer. One-off so far,
+  unexplained, not reproduced since. **Open, not investigated further.**
+- **Ornith-1.0-9B: undisclosed currency blend + one excluded travel receipt
+  counted as spending** — otherwise the cleanest save→query→narrate run any
+  local model has produced (genuine multi-row INSERT, real query, correct
+  narration). Both failures happened even though SKILL.md already named this
+  exact scenario, numbers and all, before the run. §6 self-check + a new
+  discriminating test landed. **Unvalidated, and a ceiling was already
+  observed once** — needs a live re-run before trusting the new wording.
+- **gemma4-E4B repeatedly fails turn 2 with zero tool calls, including on the
+  very first live test of the fix written for it.** Two same-day re-runs
+  after "describing a save is not doing it" landed: one produced zero
+  `db_execute` calls all run (no `CREATE TABLE` even); the next reproduced
+  the identical zero-tool-call turn-2 failure, 72s of real generation and no
+  tool call, that the bullet targeted. **The one finding with real signal
+  against the whole approach**: prose alone did not move this failure.
+  Worth treating as a design question — can the harness/skill force a
+  tool-call-shaped response on this turn rather than allow pure prose? —
+  rather than a fifth wording attempt.
+- **Ornith-1.0-9B-MTP fabricated an entire fake table via the wrong tool
+  family** — used `recall`/`remember` (Aperio's own memory tools), never
+  touched `db_execute`/`db_query` once across 8 follow-ups, inventing
+  categories and a single USD total from nothing. Worse than the
+  currency-blend case: never reached real data at all. **Open, not
+  investigated.**
+- A real code bug found along the way is already fixed and shipped:
+  `classifyProfiles()` (`lib/agent/tool-profiles.js`) matched a bare `run`
+  and added a spurious `shell` tool profile to database-intent SQL text
+  containing the word "run" — fixed by extending docGraph's existing
+  narrowing guard to database intent. 3 regression tests, full suite green.
 
 ---
 
 ## gemma-4-E4B tool-call leakage — pipe-delimited shape, distinct from the Ornith angle-bracket fix
 
-- 2026-08-22 **Fixed.** `unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL` under
-  llama.cpp reproducibly (2/2 tries, same query) leaked a malformed
-  `doc_search` call instead of issuing it properly, whenever the query
-  argument is a quoted string:
-  `<|tool_call>call:doc_search{query:<|"|>Northwind Labs<|"|>}<tool_call|>`.
-  `[agent] tool-call leakage from model=...` fired, the thinking-suppressed
-  retry reproduced the identical string ("tool-call leakage persisted after
-  retry"), and the turn fell back to "I tried to use one of my tools but
-  couldn't issue the call correctly" — same failure shape as the Ornith
-  angle-bracket leak below, but a **different leaked format** (pipe
-  characters inside the angle brackets, `call:name{...}` curly-brace syntax,
-  not `<function=name><parameter=x>val</parameter></function>`, and every
-  quote rendered as `<|"|>` — llama.cpp's own internal template quote marker,
-  the same one already found leaking into `db_execute` args elsewhere in this
-  file). Found live while recording the demo video (`var/demo/record.js`)
-  after switching from `gemma-4-E2B` to `gemma-4-E4B`; E2B does not show this
-  leak on the same query/tool. Detection already fired correctly (the generic
-  `<\|\s*tool_call\s*\|?>` pattern); only recovery was missing. Fixed by
-  adding `extractPipeAngleToolCall()` (`lib/tools/executor.js`), wired into
-  `extractTextToolCall()` alongside the bracket/angle extractors: swaps the
-  `<|"|>` marker back to a real quote, then parses the `call:name{...}` body
-  as a JSON-object literal (bare keys allowed). 8 new tests in
-  `tests/unit/tools/executor.test.js` (exact recorded leak string, no-arg
-  call, multi-arg, prose-prefixed, known-tool gate, detect/recover
-  agreement), full unit suite (2683 tests) green. **Live-tested 2026-08-22,
-  did not reproduce this specific shape**: 12 real turns against the actual
-  model in an isolated scratch setup (own DB, own ports, cleaned up after) —
-  11 clean successes, 1 different leak (a "narrated call" shape, recovered
-  fine by the existing retry-with-thinking-suppressed path, not by this
-  fix). The exact pipe-angle shape this fix targets never recurred, so the
-  fix itself remains validated only against the recorded string plus unit
-  tests, not a live reproduction. Along the way this same session found and
-  fixed a real, unrelated bug that was silently breaking the live test
-  itself: `lib/providers/index.js` hardcoded `http://127.0.0.1:8080` as the
-  llama.cpp base URL regardless of `LLAMACPP_PORT`, so a non-default port
-  (set here to isolate the test from a real running instance) talked to
-  nothing and every turn failed with "the local llama.cpp engine is not
-  running" until fixed to derive the default from `LLAMACPP_PORT`, matching
-  `lib/helpers/llamacpp/constants.js`. 2 new tests in
-  `tests/integration/providers.test.js`.
-
-  **Second live-test round, same day, 21 more turns** (same isolated-scratch
-  method, same `doc_search`/"Northwind Labs" trigger, a few quoted-query
-  variants added): a different result from the first 12. The exact
-  pipe-angle string (`call:doc_search{query:<|"|>...<|"|>}`) showed up again
-  in the model's visible answer text in 11 of the first 13 attempts (the
-  last 8 are discarded — an unrelated harness bug broke the docgraph poll
-  mid-run, nothing to do with the leak). But none of those 11 recurrences
-  tripped the server's `[agent] tool-call leakage` log line, and none caused
-  a tool failure — every one of those turns still returned a correct,
-  doc-grounded answer. `detectToolCallLeak()`'s `<\|\s*tool_call\s*\|?>`
-  pattern should match this text on sight, so the only way detection stayed
-  silent is that the model issued a real, valid tool call through the native
-  `tool_calls` channel and *also* narrated a broken-looking pseudo-call in
-  the same response's visible content — cosmetic leak text shown to the
-  user, no functional failure, unlike the original bug (broken text as the
-  *only* channel, no native call, real failure). This still doesn't exercise
-  `extractPipeAngleToolCall()`. Net across both live rounds (12 + 21 = 33
-  tries): 0 live triggers of the actual failure mode the fix targets. The
-  fix remains validated only against the originally recorded string and
-  unit tests.
+- 2026-08-22 **Fixed and shipped**, code+unit-tested: `extractPipeAngleToolCall()`
+  (`lib/tools/executor.js`) recovers gemma-4-E4B's pipe-delimited leak shape
+  (`<|tool_call>call:doc_search{query:<|"|>...<|"|>}<tool_call|>`), distinct
+  from the Ornith angle-bracket shape below. 8 unit tests, full suite green.
+  **Still open:** 0-for-33 on live reproduction across two isolated test
+  rounds (12 + 21 turns) — the fix is validated only against the originally
+  recorded string, never against a live trigger of the actual failure mode.
+  Round 2 did show the same pipe-angle text appearing cosmetically in 11/13
+  answers, but as narration alongside a real native tool call, not as the
+  broken-only-channel failure this fix targets — so it still doesn't confirm
+  the recovery path itself works live. Leave open until one live run actually
+  exercises `extractPipeAngleToolCall()`.
 
 ---
 
 ## Ornith tool-call leakage — angle-bracket shape unparsed
 
-- 2026-08-18 **Fixed.** `detectToolCallLeak()`'s generic `<tool_call>` pattern
-  (`lib/tools/executor.js`) correctly flagged Ornith-1.0-9B-MTP's leaked calls
-  and triggered the retry-with-thinking-suppressed path, but nothing actually
-  RECOVERED them — `extractBracketToolCall()` only knows the bbcode shape
-  (`[tool_call](name) [key]val[/key]`), and the JSON-object extractor in
-  `extractTextToolCall()` doesn't match this either. The real, live-observed
-  leak shape is angle-bracket, not bbcode:
-  `<tool_call> <function=db_schema> <parameter=connection> aperio </parameter>
-  </function> </tool_call>`. Recorded on the forced-`document-intelligence`-
-  skill re-run of the provenance harness (same session as the currency-blend
-  guard work below): the model correctly attempted `db_schema`, the leak fired,
-  the retry reproduced the identical unparseable text, and the turn fell back
-  to "I tried to use one of my tools but couldn't issue the call correctly" —
-  four times across the run, every attempt from turn 1 onward, and the model
-  never got another tool call to land for the rest of the ladder. **This, not
-  skill persistence or tool availability (both already confirmed present),
-  was the actual blocker to a clean provenance run for this model.** Fixed by
-  adding `extractAngleToolCall()` alongside `extractBracketToolCall()`, wired
-  into `extractTextToolCall()` the same way; handles the no-parameter case
-  (`<function=db_connections> </function>`, also observed live) and JSON-typed
-  parameter values. 7 new tests in `tests/unit/tools/executor.test.js`
-  (mirroring the existing bracket-shape coverage), full unit+integration
-  (5268 tests) and harness suites green. **Unvalidated live** — fixed and
-  unit-tested against the exact recorded leaked strings from this session's
-  run, not yet re-run against a fresh live turn.
+- 2026-08-18 **Fixed and shipped**, code+unit-tested: `extractAngleToolCall()`
+  (`lib/tools/executor.js`) recovers Ornith-1.0-9B-MTP's angle-bracket leak
+  shape (`<tool_call> <function=db_schema> <parameter=connection>...`), the
+  actual blocker to a clean provenance run for this model. 7 unit tests, full
+  unit+integration+harness suites green. **Still open: unvalidated live** —
+  fixed and tested against the exact recorded leaked strings, not yet
+  re-run against a fresh live turn.
 
 ---
 
@@ -711,14 +487,45 @@ nuanced than "unvalidated" now.
   that it already has the answer and keeps asking again**, burning the
   entire turn budget on a call it already made. Turn 3 was killed at this
   point rather than let it repeat a fourth time (developer's standing rule);
-  the run's own db_execute was never reached. Not investigated further this
-  session — candidates worth checking before another attempt: whether the
-  tool RESULT text is actually landing in the model's own context on the
-  next generation step (a context-assembly gap would produce exactly this
-  "it doesn't know it already asked" symptom), whether this is a sampling/
-  repetition-penalty issue specific to `llama.cpp`'s `ornith` adapter path,
-  or whether it's dependent on `ctx-size 131072` specifically (this run's
-  KV cache size) rather than the model itself.
+  the run's own db_execute was never reached.
+  **2026-08-22 — the context-assembly hypothesis was checked and is NOT the
+  cause; a real structural gap was found next to it and is now fixed.** Read
+  end-to-end rather than re-run: `capToolResults`/`trimByTokens`/
+  `dropOrphanedToolResults` (`lib/context/trim.js`) all handle both tool-result
+  shapes, `trimByTokens` already pins the freshest tool_use/tool_result pair by
+  object identity so trimming cannot evict what the model just fetched, and
+  `toOpenAIMessages` (`lib/agent/providers/llamacpp.js`) keys its tool-result
+  branch on the block type, not the role, so the intercepted path's
+  `{role:"user"}` results convert correctly too. The result WAS in context. The
+  gap is that **nothing bounded the loop**: every provider loop is `while (true)`
+  with no step cap (only `codex-turn-meter.js` has one, `maxSteps: 128`), and the
+  existing repeated-call guard in `tool-safety-middleware.js` counts repeated
+  *failures* only — a call that keeps SUCCEEDING is invisible to it. The dedup
+  cache made each repeat cheap to execute but did nothing about the full
+  generation pass each one still cost (40–45 s for the `db_schema` turns), so the
+  only backstop was the 600 s wall clock. Fixed with a repeat breaker:
+  `countTrailingRepeatedToolCalls()` + `TOOL_REPEAT_LIMIT` (`lib/tools/executor.js`)
+  count identical back-to-back calls within the current turn; at 3 the llamacpp
+  and deepseek loops set `noTools` for one pass, append `TOOL_REPEAT_NUDGE`, emit
+  `tool_repeat_break`, and run the executor in `answerOnly` mode so a call leaked
+  in prose cannot restart the loop — the turn is guaranteed to end on that pass.
+  19 tests (10 detector + 4 `answerOnly` + 2 real-loop tests driving
+  `runLlamaCppLoop` through a mocked llama-server, plus the existing suites);
+  full unit (2700) + integration (2602) + harness (32) green.
+  **Still open — the fix bounds the damage, it does not explain the behaviour.**
+  Untouched candidates: whether this is a sampling/repetition-penalty issue
+  specific to `llama.cpp`'s `ornith` adapter path, or dependent on
+  `ctx-size 131072` specifically (this run's KV cache size) rather than the
+  model itself. **Also unvalidated live** — the breaker is proven against a
+  scripted loop, never yet against a real Ornith turn.
+  **2026-08-22 — the success-blind gap closed.** The repeated-call guard
+  described above (the paragraph starting "the existing repeated-call guard
+  ... counts repeated failures only") now counts identical calls regardless
+  of outcome, moved into `tool-safety-middleware.js` so every provider gets
+  it for free (not just llamacpp/deepseek) — see that file's
+  `tool-repeated-call-detection` adapter for how it composes with the
+  provider-level breaker above. New harness coverage:
+  `repeated-call-break-success`.
 
 ---
 

@@ -621,6 +621,39 @@ describe("callToolHooked() — repeated-failure loop breaker", () => {
     assert.doesNotMatch(r3, /STOP/);
   });
 
+  test("halts after 3 identical SUCCEEDING calls, not just failing ones", async () => {
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => "42",
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "42" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, Date.now());
+    const r1 = await hooks.callToolHooked("get_answer", { q: "life" });
+    const r2 = await hooks.callToolHooked("get_answer", { q: "life" });
+    const r3 = await hooks.callToolHooked("get_answer", { q: "life" });
+    assert.equal(r1, "42");
+    assert.equal(r2, "42");
+    assert.match(r3, /STOP/);   // third identical success trips the breaker too
+    assert.ok(events.some((e) => e.type === "tool_budget_exhausted" && e.kinds.includes("repeatedCall")));
+
+    // The breaker also opens the failure-budget gate, so a 4th attempt this
+    // turn — even a different tool — is blocked before it ever executes.
+    const r4 = await hooks.callToolHooked("other_tool", { x: 1 });
+    assert.match(r4, /TOOL-CALL BUDGET EXHAUSTED/);
+  });
+
   test("routes tool safety through the named lifecycle middleware stack", () => {
     const events = [];
     const factory = createToolHooks({

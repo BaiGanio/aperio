@@ -132,6 +132,24 @@ describe("Behavior checks — does the assistant's conversation loop still work 
     assert.equal(starts.length, 3, "the break should fire on the 3rd identical failure, not a 4th attempt");
     assert.equal(events.filter(e => e.type === "tool_budget_exhausted").length, 1);
   });
+
+  // Exercises tool-safety-middleware.js's repeated-call guard on a call that
+  // SUCCEEDS every time — the gap the middleware used to have (it only
+  // counted repeated failures) before this scenario existed. The mock
+  // provider's own loop has no step cap of its own (unlike llamacpp/deepseek,
+  // which additionally force a tool-free pass — see tool-safety-middleware.js
+  // for how the two compose), so this is the one place a shared-middleware
+  // guardrail like this can be proven without a real provider loop.
+  test("trying the exact same succeeding action three times in a row also stops the assistant", async (t) => {
+    const scenario = loadScenario("repeated-call-break-success");
+    const { events, finalText } = await runScenario(t, scenario);
+    const starts = events.filter(e => e.type === "tool_start" && e.name === "fetch_data");
+    assert.equal(starts.length, 3, "the break should fire on the 3rd identical success, not a 4th attempt");
+    const exhausted = events.filter(e => e.type === "tool_budget_exhausted");
+    assert.equal(exhausted.length, 1);
+    assert.deepEqual(exhausted[0].kinds, ["repeatedCall"]);
+    assert.equal(finalText, scenario.providerScript.at(-1).text);
+  });
 });
 
 describe("Confirmation checks — does a confirm-before-act tool stop the turn and ask?", () => {
