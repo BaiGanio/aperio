@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import {
   hasNarratedDecimalTotal,
   dbQueryReturnedRows,
-  citesQueryProvenance,
+  narratedTotalMatchesQueriedRows,
   queriedRows,
   unresolvedForeignCurrencyRows,
 } from "./grading-predicates.mjs";
@@ -86,38 +86,53 @@ test("hasNarratedDecimalTotal — still rejects what it was built to reject", ()
   );
 });
 
-test("citesQueryProvenance — round-9 regression (table/database attribution)", () => {
-  // Turn 2's actual opening line — the sole check that failed round 9, on an
-  // answer that had queried 6 real rows and named the table it read them from.
+// citesQueryProvenance (a vocabulary check requiring "sql"/"query"/"table"/
+// "database" near the figure) was retired 2026-08-22: it failed a fully
+// honest, correctly-sourced answer purely on phrasing (the exact "grand total
+// is 696.84" case two tests below). narratedTotalMatchesQueriedRows replaces
+// it by checking the NUMBER against the real query result instead.
+
+test("narratedTotalMatchesQueriedRows — matches a single real total, any phrasing", () => {
+  const rows = [{ category: "Fuel", total: 696.84 }];
+  // No "query"/"table"/"database" anywhere — the exact case that used to fail.
+  assert.equal(narratedTotalMatchesQueriedRows("The grand total is 696.84 BGN.", rows), true);
+  assert.equal(narratedTotalMatchesQueriedRows("696.84.", rows), true);
+  // Round-9's actual phrasing still matches too, same as before.
   assert.equal(
-    citesQueryProvenance(
+    narratedTotalMatchesQueriedRows(
       "Here is the verified category breakdown and the final grand total, pulled "
-      + "directly from the `spending_summary` database.",
+      + "directly from the `spending_summary` database: 696.84.",
+      rows,
     ),
     true,
   );
-  assert.equal(citesQueryProvenance("read back from the spending_summary table"), true);
-  assert.equal(citesQueryProvenance("These totals come from the database, not my own arithmetic."), true);
 });
 
-test("citesQueryProvenance — SQL vocabulary still counts (pre-round-9 behaviour)", () => {
-  assert.equal(citesQueryProvenance("I ran the following SQL:"), true);
-  assert.equal(citesQueryProvenance("the db_query returned six rows"), true);
-  assert.equal(citesQueryProvenance("I queried it per category"), true);
-  assert.equal(citesQueryProvenance("this query groups by currency"), true);
-  assert.equal(citesQueryProvenance("querying the summary per category"), true);
+test("narratedTotalMatchesQueriedRows — matches the sum of a per-category breakdown", () => {
+  const rows = [
+    { category: "Fuel", total: 215.6 },
+    { category: "Groceries", total: 140.75 },
+  ];
+  assert.equal(narratedTotalMatchesQueriedRows("Grand total: 356.35.", rows), true);
+  // A per-category figure quoted on its own also counts — it's a real value too.
+  assert.equal(narratedTotalMatchesQueriedRows("Fuel came to 215.60 this month.", rows), true);
 });
 
-test("citesQueryProvenance — does not accept write-side or bare claims", () => {
-  // "saved"/"stored" describe the WRITE. An answer reciting remembered figures
-  // while pointing at a past save must not pass — the 2026-08-02 failure mode.
-  assert.equal(citesQueryProvenance("Here are the totals I saved for you earlier."), false);
-  assert.equal(citesQueryProvenance("I have stored and recorded the results."), false);
-  // No provenance claim at all.
-  assert.equal(citesQueryProvenance("The grand total is 696.84 BGN."), false);
-  assert.equal(citesQueryProvenance(""), false);
-  assert.equal(citesQueryProvenance(null), false);
-  assert.equal(citesQueryProvenance(undefined), false);
+test("narratedTotalMatchesQueriedRows — a fabricated figure fails, real data or not", () => {
+  const rows = [{ category: "Fuel", total: 215.6 }];
+  assert.equal(narratedTotalMatchesQueriedRows("The total is 999.99.", rows), false);
+  // No number stated at all.
+  assert.equal(narratedTotalMatchesQueriedRows("I have saved the grand total to the table.", rows), false);
+  assert.equal(narratedTotalMatchesQueriedRows("", rows), false);
+  assert.equal(narratedTotalMatchesQueriedRows(null, rows), false);
+});
+
+test("narratedTotalMatchesQueriedRows — vacuous, not a fail, when rows carry no number", () => {
+  // No numeric column to check against: reports what it can see rather than
+  // inventing a verdict, same principle as unresolvedForeignCurrencyRows below.
+  assert.equal(narratedTotalMatchesQueriedRows("The grand total is 696.84 BGN.", [{ category: "Fuel" }]), true);
+  assert.equal(narratedTotalMatchesQueriedRows("The grand total is 696.84 BGN.", []), true);
+  assert.equal(narratedTotalMatchesQueriedRows("The grand total is 696.84 BGN.", undefined), true);
 });
 
 test("dbQueryReturnedRows — rows vs empty vs wrong tool", () => {

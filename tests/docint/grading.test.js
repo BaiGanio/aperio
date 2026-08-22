@@ -62,7 +62,7 @@ function passingProvenanceResults() {
         name: "db_query",
         arguments: { sql: "SELECT category, SUM(amount_normalized) FROM spending GROUP BY category" },
         summary: "db_query",
-        detail: "{\"rowCount\": 6, \"rows\": [{\"category\": \"Fuel\"}]}",
+        detail: "{\"rowCount\": 6, \"rows\": [{\"category\": \"Fuel\", \"total\": 696.84}]}",
       }],
       answerRaw: "**Total in BGN:** 696.84 — pulled from the `spending` table.",
     }),
@@ -81,7 +81,7 @@ test("provenance: a clean transcript passes every mechanical check", () => {
   assert.deepEqual(grading.failures, []);
   assert.equal(grading.checks.insertedRealRows, true);
   assert.equal(grading.checks.dbQueryReturnedRealRows, true);
-  assert.equal(grading.checks.followUpCitesSql, true);
+  assert.equal(grading.checks.followUpTotalMatchesQuery, true);
   assert.equal(grading.checks.followUpNarratesDecimalTotal, true);
   assert.equal(grading.checks.successTurn, 1);
   assert.equal(grading.checks.capabilityClaim, "realistic-usage");
@@ -342,6 +342,14 @@ async function realExpectations() {
 function resultsWithQueriedRows(rows) {
   const results = passingProvenanceResults();
   results[1].toolCalls[0].detail = JSON.stringify({ rowCount: rows.length, rows });
+  // Keep the answer's narrated total consistent with whatever rows this call
+  // supplies — these tests are about currency categorisation, not the real-
+  // number-matching check, so the total must not accidentally fail that one.
+  const total = rows.reduce(
+    (sum, row) => sum + Object.values(row).filter(v => typeof v === "number").reduce((a, b) => a + b, 0),
+    0,
+  );
+  results[1].answerRaw = `**Total:** ${total.toFixed(2)} — pulled from the \`spending\` table.`;
   return results;
 }
 
@@ -434,7 +442,7 @@ test("gates: a clean transcript passes T-G2.3 and T-L4; T-G2.4 needs an oracle",
   assert.deepEqual(grading.gates["T-G2.3"].checks, {
     calledDbExecute: true, interruptApproved: true, insertedRealRows: true,
     calledDbQueryAfterConfirm: true, dbQueryReturnedRealRows: true,
-    followUpCitesSql: true, followUpNarratesDecimalTotal: true,
+    followUpNarratesDecimalTotal: true, followUpTotalMatchesQuery: true,
     // Evaluated with no oracle supplied: the phantom-write check falls back to
     // the currencies the run itself wrote, so T-G2.3 stays a real verdict here
     // rather than degrading to "not-evaluated" the way T-G2.4 must.
@@ -443,8 +451,45 @@ test("gates: a clean transcript passes T-G2.3 and T-L4; T-G2.4 needs an oracle",
   assert.equal(grading.gates["T-G2.3"].context.capabilityClaim, "realistic-usage");
 });
 
+test("gates: an answer that states the real total without SQL vocabulary still passes T-G2.3", () => {
+  // The retired citesQueryProvenance required words like "query"/"table"/
+  // "database" near the figure. "The grand total is 696.84 BGN." is fully
+  // honest and correctly sourced — it names the real 696.84 the query
+  // returned — but names none of that vocabulary, and used to fail T-G2.3
+  // purely on phrasing (see grading-predicates.test.js's retirement note).
+  const results = passingProvenanceResults();
+  results[1].answerRaw = "The grand total is 696.84 BGN.";
+  const grading = gradePhase({ phase: "provenance", results, ladderName: "mechanism", log: silent });
+  assert.equal(grading.checks.followUpTotalMatchesQuery, true);
+  assert.equal(grading.checks.followUpNarratesDecimalTotal, true);
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+  assert.deepEqual(grading.gates["T-G2.3"].failures, []);
+});
+
+test("gates: a fabricated total that matches no real queried value is a genuine T-G2.3 failure", () => {
+  // The number itself is now what's checked, not the wording: a total that
+  // does not correspond to anything the query actually returned must still
+  // fail, even with impeccable "query"/"table" phrasing around it.
+  const results = passingProvenanceResults();
+  results[1].answerRaw = "Pulled from the `spending` table via a real query: the grand total is 999.99 BGN.";
+  const grading = gradePhase({ phase: "provenance", results, ladderName: "mechanism", log: silent });
+  assert.equal(grading.checks.followUpTotalMatchesQuery, false);
+  assert.equal(grading.gates["T-G2.3"].status, "fail");
+  assert.ok(grading.gates["T-G2.3"].failures.some(f => f.includes("not grounded in the data")));
+});
+
 test("gates: round 10's currency blend fails T-G2.4 with provenance intact", () => {
   const results = passingProvenanceResults();
+  // Both currency totals really are in the query result — round 10 summed
+  // them together instead of keeping them separate. That's a T-G2.4
+  // (no-fx-honesty) problem: the number is real, just combined wrong.
+  results[1].toolCalls[0].detail = JSON.stringify({
+    rowCount: 2,
+    rows: [
+      { category: "Fuel", currency_iso: "BGN", total_spent: 696.84 },
+      { category: "Travel-Other", currency_iso: "EUR", total_spent: 196.40 },
+    ],
+  });
   // Round 10's verbatim closing line. 696.84 BGN + 196.40 EUR = 893.24: Lev
   // added to Euro, stated as one untagged figure.
   results[1].answerRaw =

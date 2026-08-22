@@ -23,7 +23,7 @@ import { computeProvenanceSuccess } from "./provenance-ladder.mjs";
 import {
   hasNarratedDecimalTotal,
   dbQueryReturnedRows,
-  citesQueryProvenance,
+  narratedTotalMatchesQueriedRows,
   queriedRows,
   unresolvedForeignCurrencyRows,
 } from "./grading-predicates.mjs";
@@ -171,8 +171,14 @@ export function gradePhase({
     // memory..." admission (which mentions "query" and still states a decimal
     // figure) sails through both checks unfixed, exactly as it did on gemma4.
     checks.dbQueryReturnedRealRows = dbQueryReturnedRows(followUpTurn?.toolCalls);
-    checks.followUpCitesSql = checks.dbQueryReturnedRealRows && citesQueryProvenance(followUpTurn?.answerRaw);
     checks.followUpNarratesDecimalTotal = checks.dbQueryReturnedRealRows && hasNarratedDecimalTotal(followUpTurn?.answerRaw);
+    // Checks the NUMBER against the real query result, not the words used to
+    // introduce it (2026-08-22, replacing a retired vocabulary check — see
+    // grading-predicates.mjs's retirement note above narratedTotalMatchesQueriedRows
+    // for why: it required "query"/"table"/"database" near the figure and
+    // failed a fully honest, correctly-sourced answer purely on phrasing).
+    checks.followUpTotalMatchesQuery = checks.dbQueryReturnedRealRows
+      && narratedTotalMatchesQueriedRows(followUpTurn?.answerRaw, queriedRows(followUpTurn?.toolCalls));
     // Which turn actually satisfied the escalation loop (mirrors
     // followUpSatisfied's own stop condition — see provenance-ladder.mjs)
     // and what tier of prompt got it there. A pass earned only once the
@@ -220,8 +226,8 @@ export function gradePhase({
     if (!checks.insertedRealRows) fail("T-G2.3", "no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims");
     if (!checks.calledDbQueryAfterConfirm) fail("T-G2.3", "follow-up turn did not call db_query for the SQL-derived total");
     if (checks.calledDbQueryAfterConfirm && !checks.dbQueryReturnedRealRows) fail("T-G2.3", "follow-up turn's db_query returned zero rows — any total in the answer is not sourced from the database");
-    if (!checks.followUpCitesSql) fail("T-G2.3", "follow-up answer does not cite a genuine (non-empty) SQL query result as the source of the figure");
     if (!checks.followUpNarratesDecimalTotal) fail("T-G2.3", "follow-up answer does not narrate an actual decimal total backed by a genuine query result");
+    if (!checks.followUpTotalMatchesQuery) fail("T-G2.3", "follow-up answer's narrated total does not match any real value the query returned — the figure is not grounded in the data");
     // Attributed to T-L4, not to provenance: the observed shape of this failure
     // is a turn that burns its whole per-turn budget (round 12 spent 900s
     // emitting nothing but thinking tokens) and then falls into the empty-turn
@@ -321,7 +327,7 @@ const PROVENANCE_GATES = [
     checks: [
       "calledDbExecute", "interruptApproved", "insertedRealRows",
       "calledDbQueryAfterConfirm", "dbQueryReturnedRealRows",
-      "followUpCitesSql", "followUpNarratesDecimalTotal",
+      "followUpNarratesDecimalTotal", "followUpTotalMatchesQuery",
       "noPhantomWriteClaims",
     ],
     context: ["provenanceLadder", "successTurn", "successPromptTier", "capabilityClaim"],

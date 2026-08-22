@@ -52,42 +52,61 @@ export function hasNarratedDecimalTotal(answer) {
   return NARRATED_TOTAL.test(text);
 }
 
-// Vocabulary that counts as naming a stored/queried source for a figure.
-//
-// Round 9 (2026-08-13) failed the gate on this check alone, with the same
-// defect shape as round 8's markdown bug one round earlier: a lexical test
-// that punished valid phrasing. The old pattern was /sql|query|db_query/i and
-// gemma4 answered
-//
-//   "...the final grand total, pulled directly from the `spending_summary`
-//    database."
-//
-// naming the exact table it had just CREATEd, INSERTed into and SELECTed
-// from — a concrete provenance claim, stronger than the bare word "query" —
-// but never uttering "sql" or "query", so it scored false.
-//
-// Why widening is safe rather than a loosened gate: this predicate is only
-// ever consumed ANDed with dbQueryReturnedRows for the SAME turn (see
-// followUpCitesSql in the harness), so anything reaching it has already been
-// proven to sit on a real db_query that came back with rows. The lexical half
-// is not what stops a fabricated figure — dbQueryReturnedRows is. What this
-// asks is the narrower question of whether the answer TOLD the user the
-// number came from stored data instead of from the model's own arithmetic.
-//
-// Deliberately excluded: "saved", "stored", "recorded". Those describe the
-// WRITE, not the read, so "the totals I saved earlier" would score true for
-// an answer reciting from memory — exactly the failure mode the 2026-08-02
-// gemma4 run exhibited.
-const QUERY_PROVENANCE = /\b(?:sql|db_query|quer(?:y|ies|ied|ying)|databases?|tables?)\b/i;
+// Retired 2026-08-22: a vocabulary check (`/\b(?:sql|db_query|quer(?:y|ies|
+// ied|ying)|databases?|tables?)\b/i`) used to live here, requiring the answer
+// to name its source in specific words. It failed a fully honest, correctly-
+// sourced answer — "The grand total is 696.84 BGN." — purely because it names
+// none of those words (this exact string is tested below). Two rounds of
+// widening (round 8's markdown-emphasis fix, round 9's table/database
+// widening) both patched symptoms of the same root problem: prose phrasing is
+// an open-ended surface no fixed word list covers. Replaced by
+// narratedTotalMatchesQueriedRows below, which checks whether the NUMBER the
+// answer states is real, not which words introduce it.
+
+/** Every finite number in these row objects, from any column. Deliberately
+ *  not restricted to a specific column name — the model names its own
+ *  aggregate columns ("total", "SUM(amount)", "sum", ...), and a fixed name
+ *  list would go blind on exactly the column it needs. */
+function numericRowValues(rows) {
+  const out = [];
+  for (const row of rows ?? []) {
+    for (const value of Object.values(row)) {
+      if (typeof value === "number" && Number.isFinite(value)) out.push(value);
+    }
+  }
+  return out;
+}
+
+/** Every `\d+.\d\d`-shaped decimal amount anywhere in the answer, as numbers —
+ *  not just ones next to a "total" cue, since a model may state a grand total
+ *  and its per-category components in the same sentence and any of them
+ *  should count as citing real data. */
+function narratedAmounts(answer) {
+  return [...String(answer ?? "").matchAll(/-?\d+\.\d{2}\b/g)].map(m => Number(m[0]));
+}
+
+const CENTS_TOLERANCE = 0.02; // decimal-string rounding, matching verifyCurrencyClaims (lib/agent/tool-hooks.js)
+const closeEnough = (a, b) => Math.abs(a - b) < CENTS_TOLERANCE;
 
 /**
- * Did this answer attribute its figure to a queried/stored source?
+ * Did the answer state a decimal amount that actually matches what the query
+ * returned — either a single value (a per-category or per-currency figure
+ * quoted directly) or the sum of everything the query returned (a grand
+ * total)? Checks the NUMBER against the real data, not the words used to
+ * introduce it — see the retirement note above for what this replaces and why.
  *
- * See QUERY_PROVENANCE for why this admits table/database attribution and not
- * merely SQL jargon, and why that stays sound.
+ * Vacuous — true — when the query returned no numeric column to check
+ * against: this reports what it can see, and failing an answer over a column
+ * this predicate cannot read is the exact mistake the retired check made (the
+ * same principle unresolvedForeignCurrencyRows below is built on).
  */
-export function citesQueryProvenance(answer) {
-  return QUERY_PROVENANCE.test(String(answer ?? ""));
+export function narratedTotalMatchesQueriedRows(answer, rows) {
+  const values = numericRowValues(rows);
+  if (values.length === 0) return true;
+  const amounts = narratedAmounts(answer);
+  if (amounts.length === 0) return false;
+  const sum = values.reduce((a, b) => a + b, 0);
+  return amounts.some(a => closeEnough(a, sum) || values.some(v => closeEnough(a, v)));
 }
 
 /**

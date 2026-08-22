@@ -78,13 +78,36 @@ housekeeping go in `A2D.md`, not here.
   from the fabricated-write-claim case `noPhantomWriteClaims` already covers).
   Needs different evidence (system/pre-existing tables excluded) than the write
   case; no current run is blocked on it.
-- **Standing recommendation, backed by four separate false-failure incidents
-  (markdown emphasis, SQL vocabulary, currency phrasing, category-as-components —
-  each invalidated a whole run before being fixed reactively):** move
-  category/provenance grading off substring-matching over free prose. The
-  structural checks (`dbQueryReturnedRows`, `insertedRealRows`) already carry the
-  actual evidentiary weight; the prose checks only ask how the model narrated it,
-  and prose phrasing is an open-ended surface no fixed set of checks will cover.
+- 2026-08-22 **Standing recommendation acted on for the worst offender —
+  `citesQueryProvenance` removed outright, not just demoted.** The vocabulary
+  check (required "query"/"table"/"database"/"sql" near the figure) is gone
+  from the codebase entirely, along with the `followUpCitesSql` gate it fed.
+  Concrete proof it was flaky, not hypothetical: a fully honest,
+  correctly-sourced answer — `"The grand total is 696.84 BGN."` — already had
+  a test on file proving it failed the check on wording alone. Replaced by
+  `narratedTotalMatchesQueriedRows()` (`grading-predicates.mjs`), a new T-G2.3
+  gating check (`followUpTotalMatchesQuery`) that matches the NUMBER the
+  answer states against the real query result — either a single value (a
+  per-category/per-currency figure quoted directly) or the sum of every
+  numeric value the query returned (a grand total) — instead of matching
+  words. Vacuous-true when the query returned no numeric column to check
+  against, same house style as `unresolvedForeignCurrencyRows`. This is
+  strictly stronger than what it replaces: the old check would pass a
+  perfectly-worded citation of a fabricated number ("according to my query,
+  the total is 999.99") and fail a wordless-but-correct one; the new check
+  requires the number itself be real, in any phrasing. `followUpNarratesDecimalTotal`
+  (an answer must still state *some* decimal total) stays as a separate,
+  narrower gating check. Full 39-test `grading.test.js` +
+  `grading-predicates.test.js` and 106-test `npm run test:docint` green;
+  replayed against the two runnable archived transcripts in
+  `var/docint-runs/` — overall status unchanged on both (both were already
+  failing for unrelated reasons, `db_execute` never proposed), though each
+  now reports the new grounding failure in place of the old vocabulary one, as
+  expected for a transcript that never reached a real queried total.
+  **Not addressed here**: the currency-phrasing and category-as-components
+  incidents already got their own fixes elsewhere (`verifyCurrencyClaims`
+  mechanism, `unresolvedForeignCurrencyRows`'s structural rewrite) — this entry
+  only tracks the piece that was still open.
 - Still open: `grading.gates` (T-G2.3/T-G2.4/T-L4 split by gate, not one bundled
   `status`) makes remaining failures legible but doesn't close them — T-G2.4 still
   fails on gemma4-E4B (currency blend, tracked in the gemma4-E4B section below) and
@@ -613,6 +636,27 @@ nuanced than "unvalidated" now.
   running" until fixed to derive the default from `LLAMACPP_PORT`, matching
   `lib/helpers/llamacpp/constants.js`. 2 new tests in
   `tests/integration/providers.test.js`.
+
+  **Second live-test round, same day, 21 more turns** (same isolated-scratch
+  method, same `doc_search`/"Northwind Labs" trigger, a few quoted-query
+  variants added): a different result from the first 12. The exact
+  pipe-angle string (`call:doc_search{query:<|"|>...<|"|>}`) showed up again
+  in the model's visible answer text in 11 of the first 13 attempts (the
+  last 8 are discarded — an unrelated harness bug broke the docgraph poll
+  mid-run, nothing to do with the leak). But none of those 11 recurrences
+  tripped the server's `[agent] tool-call leakage` log line, and none caused
+  a tool failure — every one of those turns still returned a correct,
+  doc-grounded answer. `detectToolCallLeak()`'s `<\|\s*tool_call\s*\|?>`
+  pattern should match this text on sight, so the only way detection stayed
+  silent is that the model issued a real, valid tool call through the native
+  `tool_calls` channel and *also* narrated a broken-looking pseudo-call in
+  the same response's visible content — cosmetic leak text shown to the
+  user, no functional failure, unlike the original bug (broken text as the
+  *only* channel, no native call, real failure). This still doesn't exercise
+  `extractPipeAngleToolCall()`. Net across both live rounds (12 + 21 = 33
+  tries): 0 live triggers of the actual failure mode the fix targets. The
+  fix remains validated only against the originally recorded string and
+  unit tests.
 
 ---
 
