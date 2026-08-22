@@ -518,19 +518,6 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
 
 ---
 
-## Db-connect — extraction identity / managed lock
-
-- 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE
-  the new build's first touch (no read, write, or provisioning since upgrade)
-  stays orphaned: the old raw options are gone and the saved hash cannot be
-  inverted, so the row is rejected rather than silently adopting an arbitrary
-  `var/extraction/<hash>.db` path (which would reopen the forged-`provisioned`
-  hole). Documented in `lib/db-connect/extraction.js` +
-  `tests/unit/db-connect/extraction.test.js`; closing it soundly would require
-  persisting the adopted identity at first recognition.
-
----
-
 ## Db-connect — placeholder validation (db_execute)
 
 - 2026-08-03 `validateBoundParams()`'s backslash-escaping assumption
@@ -573,6 +560,7 @@ These are intentional deferrals. Do not "fix" them without discussion.
 |------|--------|------------|
 | CSP headers disabled | Resolved: Helmet CSP is enforced by default; use `APERIO_CSP=report` for rollout diagnostics | — |
 | `tree-sitter` pinned at `^0.24.7` | Cannot upgrade to 0.25+ (ABI 15) | `tree-sitter-wasms` must ship ABI-15 grammar builds |
+| A v1-era `extraction` row whose connection string is edited before the new build's first touch stays orphaned (`lib/db-connect/extraction.js`) | Permanent: the old identity is gone the moment the process restarts with a new connection string, and a one-way hash can't be inverted. Fails closed on purpose (rejects rather than silently adopting an arbitrary path). 2026-08-22: error message now names the stranded file for manual recovery (`reservedExtractionNameError()`) | Unrecoverable by design — nothing to unblock |
 
 ## Investigated and rejected
 

@@ -201,6 +201,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A stranded "extraction" connection reported a misleading error.** When the
+  self-provisioned document-extraction database's saved file no longer
+  matched the profile's current identity (most often a database connection
+  setting changed around an app upgrade), the error said a foreign connection
+  "already uses" the reserved name — wrong and confusing when it was actually
+  the profile's own earlier row, just no longer recognizable. This case can't
+  be auto-recovered (the old identity is gone once the process restarts with
+  new settings, and a one-way hash can't be inverted), so it still fails
+  closed, but `reservedExtractionNameError()` (`lib/db-connect/extraction.js`)
+  now tells the two cases apart and names the real file path so the old data
+  can be recovered by hand.
+
 - **A model stuck "thinking" forever could burn an entire turn without ever
   answering or calling a tool.** No existing timeout caught this: the idle-read
   timeout only fires when bytes stop arriving, and a model stuck reasoning stays

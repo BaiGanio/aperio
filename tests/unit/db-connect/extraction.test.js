@@ -436,6 +436,16 @@ describe("legacy identity adoption (P1)", () => {
       () => extractionMod.provisionExtractionConnection(editedStore),
       /reserved/i,
     );
+    // The message must diagnose THIS as Aperio's own stranded row (not a
+    // generic "rename it" collision) and point at the real file so the data
+    // can be recovered by hand.
+    try {
+      await extractionMod.provisionExtractionConnection(editedStore);
+      assert.fail("expected provisionExtractionConnection to reject");
+    } catch (err) {
+      assert.match(err.message, /upgrade/i);
+      assert.ok(err.message.includes(v1Path), "message names the actual stranded file path");
+    }
   });
 
   test("P1: adoption is per-profile — a legacy path from a DIFFERENT host is not adopted", () => {
