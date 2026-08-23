@@ -41,8 +41,21 @@ housekeeping go in `A2D.md`, not here.
   records, reusing `lib/pricing.js` and the real billing classifiers. Its
   persistence half landed the same day as `ledger.js`: immutable JSONL records,
   fail-closed reads, and direct `streamUsage` mapping that preserves
-  `cache_creation_input_tokens` as `tokens.cacheCreationInput`. T6–T9 (waves,
-  journeys, triage, closeout) are still open.
+  `cache_creation_input_tokens` as `tokens.cacheCreationInput`. 2026-08-23 T6 (slice
+  execution) landed as `audit/scripts/slice-execution.js` — pure, injectable checks
+  for T6.1 (slice exit gate / deferral completeness, reusing `schema.js`'s
+  `SCHEMA.STATUSES`), T6.2 (a candidate cannot become Confirmed on model agreement
+  alone; delegates the actual transition to `schema.js`'s `transitionFinding`), T6.3
+  (one primary lens per slice; a second lens or any precision-model use needs a
+  recorded human override naming a reason, approver, and finding IDs), and T6.4
+  (Duplicate classification by matching invariant + affected file, distinct from a
+  shared-symptom/different-invariant match). Same day, a review round caught three
+  fail-open gaps and they were fixed before landing: malformed/unrecognized evidence
+  no longer counts as independent proof, an unrecognized lens kind or a frontier
+  model mislabeled `primary-cloud` now fails closed into the override requirement
+  instead of skipping it, and a malformed (non-array) wave input is rejected instead
+  of silently passing as an empty wave. `npm run test:audit` is now 171 tests /
+  20 suites. T7–T9 (journeys, triage, closeout) are still open.
 
 ---
 
