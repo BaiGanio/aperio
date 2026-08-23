@@ -385,6 +385,59 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   categories and a single USD total from nothing. Worse than the
   currency-blend case: never reached real data at all. **Open, not
   investigated.**
+- 2026-08-22 **A worse sibling of the bullet above, from an isolated live
+  T-G2.3 provenance run against the same model** (`DOCINT_PHASE=provenance
+  DOCINT_EVALUATION_PROVIDER=llamacpp LLAMACPP_MODEL=protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M`,
+  run to close out the "unvalidated live" status on the angle-bracket leak fix
+  and the same-call repeat breaker below). `toolCalls` was `[]` on every one
+  of 7 recorded turns — **zero tool calls, real or leaked, the entire run** — so
+  neither of those two fixes was exercised at all; both stay exactly as
+  unvalidated as before, for a different reason than expected (there was no
+  tool-call attempt of any shape for the recovery/breaker code to act on).
+  Turn 1 burned the full 600s ceiling looping the same
+  Problem/Unknowns/Approach/Plan prose template dozens of times without ever
+  calling `recall`. Every later turn then asserted, in plain prose, that it
+  had already checked the schema or already run the query ("I've checked the
+  schema and there are no tables...", "I didn't run any query... I then
+  checked the database and confirmed there's no extraction table") — false in
+  both cases; `toolCalls` proves neither happened. This is confabulation about
+  its own tool use, not merely skipping tools. Raw run JSON:
+  archived at
+  `var/docint-runs/provenance-2026-08-22T16-15-20-638Z-60825.json`.
+  **2026-08-22 investigation — root cause was a harness capability-gate
+  mismatch, not evidence that Ornith ignored offered tools.** The documented
+  command overrides `LLAMACPP_MODEL` to Ornith but leaves
+  `APERIO_CAPABLE_MODELS` inherited from `.env`; that list contains only the
+  Gemma model. `isCapableModel()` therefore returns false and
+  `getSelectedTools()` sends an empty tool array, even though skill matching
+  independently injects the document-intelligence workflow and names
+  `doc_repos`/`db_schema`/`db_query`/`db_execute`. The `[tools] attached=40`
+  line is misleading here: it logs the pre-capability plan (`turn.names`), not
+  the schemas actually sent. A fresh exact-command reproduction archived as
+  `var/docint-runs/provenance-2026-08-22T16-47-18-551Z-62025.json` again had
+  zero calls on all 7 recorded turns; it printed JS pseudo-calls plus bare
+  `<recall>`/`<db_schema>` tags instead. Those are not the supported Ornith
+  `<tool_call><function=...>` leak shape, and turn 1 timed out while still
+  streaming, before end-of-response interception runs. The confabulation is
+  real (the fresh run falsely said its recalls returned nothing), but these
+  runs tested a contradictory skill-instructions-with-no-tools prompt, not
+  Ornith's willingness to use visible tools. **Fixed and live-verified
+  2026-08-22:** the isolated llama.cpp harness now merges its selected
+  evaluation model into `APERIO_CAPABLE_MODELS` before boot, with 3 pure
+  regression tests, and the agent log reports the effective post-gate attached
+  count plus the larger planned count when they differ. The exact-command
+  rerun (`var/docint-runs/provenance-2026-08-22T17-16-22-837Z-62798.json`)
+  attached 40/74 schemas and completed a real
+  `doc_batch → db_schema → db_execute → db_query` flow: confirmed INSERT,
+  query rows, narrated SQL-derived totals, T-G2.3 PASS and T-L4 PASS. The
+  successful write also exposed that the managed extraction DB lives under
+  repo `var/extraction/`, outside the harness scratch root; the harness now
+  derives and deletes that exact per-scratch-store file after graceful
+  shutdown, failing the run if cleanup fails. The test-created file from the
+  verification run was removed. The
+  separate T-G2.4 currency/travel-classification failures remain model-quality
+  debt. The angle-leak and same-call repeat-breaker paths also remain
+  unvalidated live because this corrected run needed neither recovery path.
 - A real code bug found along the way is already fixed and shipped:
   `classifyProfiles()` (`lib/agent/tool-profiles.js`) matched a bare `run`
   and added a spurious `shell` tool profile to database-intent SQL text

@@ -221,15 +221,21 @@ describe("buildModelsPreset", () => {
     for (const ctx of ctxLines) assert.ok(ctx <= 4096, `expected a small window on a 4GB machine, got ${ctx}`);
   });
 
-  test("the 8 GiB curated default (Gemma E4B) receives enough context for Aperio's startup prompt", () => {
-    const model = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
+  test("the 8 GiB curated small Gemma agents receive enough context for Aperio's startup prompt", () => {
+    const models = [
+      "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL",
+      "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    ];
     const noCache = { modelCacheDir: "/definitely/not/a/cache" };
-    const atEightGiB = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
-    const belowTier = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
     const mainSection = ini => ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
 
-    assert.match(mainSection(atEightGiB), /ctx-size = 8192/);
-    assert.doesNotMatch(mainSection(belowTier), /ctx-size = 8192/);
+    for (const model of models) {
+      const atEightGiB = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
+      const belowTier = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
+
+      assert.match(mainSection(atEightGiB), /ctx-size = 8192/, `${model} should receive the agent floor`);
+      assert.doesNotMatch(mainSection(belowTier), /ctx-size = 8192/, `${model} should retain RAM-fit sizing below the tier`);
+    }
   });
 
   test("uses curated hybrid facts conservatively when no inspectable cache is supplied", () => {
@@ -461,10 +467,10 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
     // parity holds regardless of the current default roster or whether the GGUF
     // is cached locally (gguf facts carry the reserveGB:4/0.15 override that a
     // curated-only entry does not). balanced profile => cacheScale 1, no ceiling.
-    // Deliberately NOT the curated default (gemma4:e4b-qat) — that model gets a
-    // special agent-floor override in serveCtxFor (see sizing.js), which would
-    // break this parity check at small RAM sizes.
-    const hf = MODEL_FACTS["gemma4:e2b-qat"].hf;
+    // Deliberately not one of the curated small Gemma agents — those models get
+    // a special agent-floor override in serveCtxFor (see sizing.js), which
+    // would break this parity check at small RAM sizes.
+    const hf = MODEL_FACTS["qwen3.5:9b"].hf;
     for (const totalRamGB of [4, 8, 16, 24, 48, 64]) {
       const facts = resolveModelFacts(hf, {});
       const ini = buildModelsPreset({ LLAMACPP_MODEL: hf }, { totalRamGB });

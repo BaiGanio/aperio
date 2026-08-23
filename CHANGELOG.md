@@ -201,6 +201,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The live document-intelligence llama.cpp harness could silently evaluate a
+  model with no tools.** Selecting a model through `LLAMACPP_MODEL` did not add
+  it to `APERIO_CAPABLE_MODELS`, so the skill prompt named database/document
+  tools while the request carried an empty schema array; local models then
+  role-played calls in prose and confabulated results. The harness now
+  capability-enables its selected evaluation model before boot, cleans up the
+  per-run managed extraction database after shutdown, and the agent log reports
+  effective attached schemas separately from the larger pre-gate plan.
+
 - **The idle-shutdown watchdog could kill the server mid-generation on a long
   local-model turn (#454).** The dead-man's switch only reset on the browser
   tab's `/api/heartbeat` ping, with zero visibility into whether a turn was

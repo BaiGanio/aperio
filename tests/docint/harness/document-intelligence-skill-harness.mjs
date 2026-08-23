@@ -51,6 +51,10 @@ import net from "node:net";
 import { WebSocket } from "ws";
 import { buildExpectations } from "../../fixtures/household-gen/harness-gate.mjs";
 import { resolveLadder } from "../provenance-ladder.mjs";
+import {
+  cleanupEvaluationExtraction,
+  includeEvaluationModelInCapableModels,
+} from "./evaluation-env.mjs";
 import { hasNarratedDecimalTotal, dbQueryReturnedRows } from "../grading-predicates.mjs";
 import { gradePhase } from "../grading.mjs";
 
@@ -157,6 +161,7 @@ const PHASE_PROMPTS = {
 let scratch = null;
 let app;
 let gracefulShutdown;
+let harnessStore;
 const results = [];
 let expectations = null;
 let oracle = null;
@@ -533,6 +538,19 @@ try {
     } catch { /* e.g. non-llamacpp evaluation provider never wrote one */ }
   }
   await gracefulShutdown?.().catch(() => {});
+  if (harnessStore) {
+    try {
+      const { extractionDbPath, deleteExtractionFile } = await import("../../../lib/db-connect/extraction.js");
+      await cleanupEvaluationExtraction(harnessStore, {
+        extractionDbPath,
+        deleteExtractionFile,
+        log: file => console.error(`HARNESS removed extraction DB -> ${file}`),
+      });
+    } catch (error) {
+      console.error(`HARNESS extraction cleanup failed: ${error?.message ?? error}`);
+      process.exitCode = 1;
+    }
+  }
   try { app?.httpServer?.close?.(); } catch { /* already closed */ }
   if (scratch) {
     try { rmSync(scratch, { recursive: true, force: true }); } catch { /* best effort */ }
@@ -541,6 +559,9 @@ try {
 
 async function runModelPhase({ primary, secondary, dbPath }) {
   console.error("HARNESS start");
+  const capableModels = EVALUATION_PROVIDER === "llamacpp"
+    ? includeEvaluationModelInCapableModels(process.env.APERIO_CAPABLE_MODELS, EVALUATION_MODEL)
+    : null;
   Object.assign(process.env, {
     PORT: String(webPort), APERIO_CONFIG_PRECEDENCE: "env", DB_BACKEND: "sqlite",
     SQLITE_PATH: dbPath,
@@ -553,11 +574,12 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     ...(EVALUATION_PROVIDER === "deepseek"
       ? { DEEPSEEK_MODEL: EVALUATION_MODEL }
       : EVALUATION_PROVIDER === "llamacpp"
-      ? { LLAMACPP_MODEL: EVALUATION_MODEL }
+      ? { LLAMACPP_MODEL: EVALUATION_MODEL, APERIO_CAPABLE_MODELS: capableModels }
       : { CODEX_MODEL: EVALUATION_MODEL }),
-    // The database tool writes only through Aperio's scratch runtime. Keep
-    // Codex's native tools read-only so this shared repository cannot be
-    // changed by an evaluation turn.
+    // The main DB and allowed write paths stay in scratch; the separately
+    // managed extraction DB is removed explicitly in finally. Keep Codex's
+    // native tools read-only so this shared repository cannot be changed by an
+    // evaluation turn.
     CODEX_SANDBOX: "read-only",
     CODEX_APPROVAL_POLICY: "never",
     CODEX_MCP_APPROVAL_MODE: "approve",
@@ -567,10 +589,14 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     WIKI_REFRESH_AUTOSTART_LLAMACPP: "false",
     EMBEDDING_PROVIDER: "none",
   });
+  if (EVALUATION_PROVIDER === "llamacpp") {
+    console.error(`HARNESS capability-enabled model=${EVALUATION_MODEL}`);
+  }
   const { createApp } = await import("../../../lib/server.js");
   app = await createApp({ root: resolve("."), runtimeRoot: scratch, skipBoot: false, skipBrowser: true, autoListen: false });
   const boot = await app.bootAppOnce();
   gracefulShutdown = boot.gracefulShutdown;
+  harnessStore = boot.store;
   await new Promise((resolvePromise, reject) => {
     app.httpServer.once("error", reject);
     app.httpServer.listen(webPort, "127.0.0.1", resolvePromise);
