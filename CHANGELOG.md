@@ -357,6 +357,59 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Security
 
+- **The SQLite database is now created `0600` and repaired to `0600` on open.**
+  `.sqlite/aperio.db` holds provider API keys since the settings overlay landed,
+  but better-sqlite3 creates the file itself, so the process umask decided its
+  mode and shipped installs world-readable at `0644`. The mode is now forced on
+  every open — new databases start private, and an existing `0644` file is
+  tightened the next time Aperio starts. The database and every sidecar SQLite
+  puts beside it (WAL, SHM, journal) carry the same rows and get the same
+  treatment, in two passes: everything already on disk the instant
+  `new Database()` returns, before anything that can throw — an unclean exit
+  leaves 0644 sidecars behind on a pre-existing install, and a boot that dies
+  loading sqlite-vec or applying a migration must not leave them readable — then
+  again after the migrations, for the sidecars this boot created itself. The
+  file is also created `0600` up front rather than chmod-ed afterwards, so there
+  is no window in which it exists world-readable — a descriptor another local
+  user opened in that window could not be revoked by a later `chmod`. When
+  encryption is on, both roots are hardened: the decrypted temp copy Aperio
+  opens *and* the encrypted path, whose plaintext WAL/SHM leftovers from an
+  unclean pre-fix shutdown nothing else would revisit. The directory Aperio
+  creates for the database is made `0700`; a directory that already exists is
+  left alone. The encrypt/decrypt file writes got the same treatment, because
+  `writeFileSync` silently ignores its `mode` option when the target already
+  exists. A missing sidecar and Windows (no POSIX mode bits) are expected and
+  stay quiet; any other `chmod` failure — a group-owned database we can write
+  but not re-permission — is now logged as a warning rather than swallowed,
+  since it means the file stays readable by other users on that machine.
+
+- **Added Subresource Integrity to the CDN assets, and moved Prism off the CDN.**
+  The Bootstrap Icons stylesheet and the Mermaid bundle now carry `integrity`
+  (sha384) plus `crossorigin` in `index.html`, `setup.html` and
+  `codegraph-atlas.html`. Prism could not be fixed the same way: `prism-autoloader`
+  injects a script tag per language grammar at runtime and cannot put an
+  `integrity` attribute on them, so hashing the autoloader would have verified
+  the loader while leaving every grammar it fetches unverified. Prism is instead
+  served from the pinned `prismjs@1.29.0` npm package through `/vendor/prismjs/`,
+  the same pattern the offline d3 build already uses — the grammar files become
+  same-origin and the CDN leaves the script path entirely.
+
+- **A quote in a link URL could inject attributes into rendered chat markdown.**
+  `renderMarkdown()` interpolated the href into an anchor raw, so a `"` inside
+  the URL closed the attribute and let the rest of the match become attributes on
+  the anchor — an inline event handler being the obvious payload, on a string
+  written by the model and by tool output. The quote is now encoded. Only the
+  quote: `&`, `<` and `>` are already escaped earlier in the same chain, so a
+  full escape pass would double-encode the `&` in a query string and break links.
+
+- **`SECURITY.md` now has a "Known limitations" section.** It names, without
+  softening, the gaps that remain: the Docker image binds `0.0.0.0` and neither
+  Compose file sets `APERIO_AUTH_TOKEN`; `APERIO_AUTH_TOKEN` guards only `/api/*`,
+  so an unauthenticated caller can fetch `/`, collect the `aperio_static` cookie
+  it hands out, and read `/uploads`, `/scratch` and `/roundtables`; chat markdown
+  is escaped by bespoke code rather than a vetted sanitizer; and the icon font
+  files fetched by the Bootstrap Icons stylesheet remain outside SRI's reach.
+
 - **Rewrote git history to remove a stale `audit/` tree and old build renders.**
   `master`'s history on GitHub no longer contains `audit/` (superseded findings,
   including one naming an unpatched issue by exact file:line), `manual/preview-output`,

@@ -156,7 +156,14 @@ function renderMarkdown(text) {
     // routes and https to keep the innerHTML injection safe (no javascript:/data:).
     .replace(/!\[([^\]]*)\]\((\/(?:scratch|uploads)\/[^)\s]+|https:\/\/[^)\s]+)\)/g,
       (_, alt, src) => `<img class="chat-image" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy">`)
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    // A `"` inside the URL would otherwise close the href attribute and let the
+    // rest of the match inject arbitrary HTML attributes (an inline event
+    // handler, say) into the anchor this innerHTML builds. Only the quote needs
+    // escaping here — `&`, `<` and `>` were already escaped at the top of this
+    // chain, so a full escapeHtml() pass would double-encode the `&` in a query
+    // string and break the link.
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      (_, label, href) => `<a href="${href.replace(/"/g, "&quot;")}" target="_blank" rel="noopener noreferrer">${label}</a>`);
 
   const lines = text.split("\n");
   const output = [];

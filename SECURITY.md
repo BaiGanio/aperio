@@ -54,6 +54,9 @@ and is meant to run on a machine you trust.
   and WebSocket transports. `APERIO_CSP=report` is available for rollout
   diagnostics, while `APERIO_CSP=off` is a temporary troubleshooting escape hatch.
 - **Secrets at rest** (`.env`, sessions, logs, handoffs) are written `0600`.
+  The SQLite database is too — it carries provider API keys from the settings
+  overlay alongside every memory. An older install created before this was
+  enforced is repaired to `0600` the next time Aperio opens it.
 - **Git history was rewritten on 2026-08-15** to remove an old `audit/` tree
   (superseded findings, one of which named an unpatched bug with exact
   file:line locations) plus stale build renders (`manual/preview-output`,
@@ -88,6 +91,50 @@ When `APERIO_DB_ENCRYPT=1` is set, Aperio encrypts the SQLite database file at r
 - Migrating to a new machine requires either: (a) exporting the keychain entry, or (b) starting fresh with a new database (remove the keychain entry and restart).
 - Journal mode switches from WAL to DELETE when encrypted (WAL files would leak plaintext to the temp directory).
 - Only applies to the SQLite backend (`DB_BACKEND=sqlite` or auto-detected SQLite). Postgres uses its own encryption mechanisms (provider-managed for cloud, filesystem-level for Docker).
+
+---
+
+## ⚠️ Known Limitations
+
+These are real, currently-unfixed properties of the shipping code. They are
+listed so you can judge whether your deployment is affected — not as a roadmap,
+and not with the sharp edges filed off.
+
+- **The Docker image binds every interface, and neither Compose file turns on
+  authentication.** `docker/Dockerfile` sets `HOST=0.0.0.0`, and
+  `docker/docker-compose.prod.yml` publishes the app as `"${PORT:-31337}:31337"`
+  — with no `127.0.0.1:` prefix, unlike the Postgres service directly above it.
+  Neither file sets `APERIO_AUTH_TOKEN`. A default `docker compose up` therefore
+  exposes an unauthenticated Aperio — memories, settings, conversations, and any
+  tools you enabled — to everything that can route to the host. Before running
+  the container on a network you do not fully control: set `APERIO_AUTH_TOKEN`,
+  and bind the published port to `127.0.0.1` or to one specific interface.
+
+- **`APERIO_AUTH_TOKEN` gates the API, not the application.** The guard returns
+  early for every path outside `/api/`, so the app shell at `/` is served to any
+  caller. That shell is also what hands out the per-process `aperio_static`
+  cookie which gates `/uploads`, `/scratch` and `/roundtables`. An
+  unauthenticated client can therefore request `/`, keep the cookie it is given,
+  and read agent-generated and user-uploaded files out of the workspace without
+  ever presenting the token. The shared secret is a gate on the data API and the
+  WebSocket; it is not a perimeter. If you need one, put a reverse proxy that
+  authenticates *every* path in front of Aperio.
+
+- **Chat markdown is rendered with a hand-written escaper, not a vetted
+  sanitizer.** Model output and tool output are turned into HTML and assigned
+  through `innerHTML`. The escaping is deliberate and tested, but it is bespoke
+  code on a hostile input path, and a bespoke escaper is a weaker guarantee than
+  a maintained sanitizer. The browser Content-Security-Policy (`APERIO_CSP=on`,
+  the default) is the second layer here — do not turn it off on an instance that
+  renders untrusted content.
+
+- **Subresource Integrity does not extend to CDN-fetched fonts.** The two
+  remaining jsDelivr assets (the Bootstrap Icons stylesheet and the Mermaid
+  bundle) carry `integrity` hashes, and Prism is served from Aperio itself
+  precisely because its autoloader pulls unhashable grammar files at runtime.
+  The icon font files that the Bootstrap Icons stylesheet requests are still
+  fetched without integrity checking. They are font data rather than executable
+  code, but a fully offline or fully-verified deployment should vendor them.
 
 ---
 

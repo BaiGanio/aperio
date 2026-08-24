@@ -709,6 +709,22 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
 
 ---
 
+### Markdown image `src` is escaped twice (`public/scripts/markdown.js`)
+
+Found while fixing the anchor `href` escaping for #466. The inline-image rule
+interpolates `escapeHtml(src)`, but by that point the shared entity pass at the
+top of the same chain has already turned `&` into `&amp;` — so `escapeHtml`
+re-encodes it to `&amp;amp;` and an image URL carrying a query string
+(`?w=100&h=100`) renders with a broken `src`. The anchor rule beside it now
+escapes only the `"` for exactly this reason.
+
+Not fixed here because it is outside #466's scope and needs its own regression
+test over the image cases (local `/scratch` and `/uploads` routes plus https).
+The fix is the same one-liner: replace the `escapeHtml(src)` call with a
+quote-only escape.
+
+---
+
 ## Intentional deferrals
 
 These are intentional deferrals. Do not "fix" them without discussion.

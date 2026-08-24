@@ -42,6 +42,7 @@ import { AGENT_JOB_SEED } from '../agent-job-seed.js';
 import { normalizeAgentJobDefinition } from '../../lib/agent/job-spec.js';
 import { DB_TABLES, isAllowedTable } from '../tables.js';
 import { decryptDbFileInPlace } from './encryption.js';
+import { restrictFileMode, precreateSecureFile } from '../../lib/helpers/secureFile.js';
 import { SqliteWiki, SELF_WIKI_TABLES } from './wiki.js';
 import { recallMemories, recallSelfMemories } from './search.js';
 import {
@@ -57,6 +58,20 @@ const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
 const DEFAULT_PATH = process.env.SQLITE_PATH || './.sqlite/aperio.db';
 // sqlite-vec's vec0 rejects FLOAT[N] columns wider than this at CREATE time.
 const SQLITE_VEC_MAX_DIMS = 8192;
+// The database file plus every sidecar SQLite may put beside it. All of them
+// carry the same rows, so all of them get the same 0600 treatment.
+const DB_FILE_SUFFIXES = ['', '-wal', '-shm', '-journal'];
+
+// Tighten a database file and every sidecar that can hold the same rows, for each
+// given root path. Two roots matter when encryption is on: openPath is the
+// decrypted temp copy we actually read/write, while dbPath holds the encrypted
+// blob — but a pre-#466 unclean shutdown in WAL mode can have left *plaintext*
+// -wal/-shm next to dbPath, and nothing else ever revisits them.
+export function _hardenDbFiles(...roots) {
+  for (const root of new Set(roots.filter(Boolean))) {
+    for (const suffix of DB_FILE_SUFFIXES) restrictFileMode(root + suffix);
+  }
+}
 
 // Logical vector store name → its vec0 sidecar table. Single source for
 // clearing (all or one) and resizing, so a new store can't be added to one
@@ -86,7 +101,9 @@ export class SqliteStore {
     // (used by tests, and available to callers wanting a throwaway store).
     const memory = DEFAULT_PATH === ':memory:';
     const dbPath = memory ? ':memory:' : resolve(DEFAULT_PATH);
-    if (!memory) mkdirSync(dirname(dbPath), { recursive: true });
+    // 0700 applies only to directories we create here — an existing dir keeps
+    // its mode, so pointing SQLITE_PATH into a shared folder never re-permissions it.
+    if (!memory) mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
 
     // ── Reconcile: encryption OFF but the file on disk is still encrypted ──
     // prepareDatabase already migrates the other three states (off+plaintext,
@@ -114,7 +131,24 @@ export class SqliteStore {
       : (memory ? true : !existsSync(dbPath));
 
     const openPath = encrypted ? tempDbPath : dbPath;
+    // SECRET-02, creation — better-sqlite3 opens the file itself, so it takes no
+    // `mode` and the umask (0644 by default) decides. Create it 0600 first: a
+    // chmod after the fact cannot revoke a descriptor another local user grabbed
+    // during that window. No-ops when the database already exists.
+    if (!memory) precreateSecureFile(openPath);
     const db = new Database(openPath);
+    // SECRET-02, first pass — tighten everything that exists the instant the
+    // handle is open, before anything that can throw. better-sqlite3 creates the
+    // file under the process umask (0644 by default) and it holds every memory
+    // and, since #252, the provider API keys in the settings overlay. Everything
+    // between here and the second pass below can fail hard — sqliteVec.load() and
+    // runSqliteMigrations() both throw uncaught — and a boot that never finished
+    // must not leave a legacy install readable. The sidecars are included because
+    // an unclean exit leaves them on disk (a clean close checkpoints them away),
+    // so a pre-#466 database can arrive here with 0644 WAL/SHM already present
+    // holding the same rows. restrictFileMode no-ops on the ones not yet created,
+    // and swallows the chmod that Windows cannot perform.
+    if (!memory) _hardenDbFiles(openPath, dbPath);
     // DELETE journal mode when encrypted: WAL/SHM files would leak plaintext
     // to the temp directory even after the main file is encrypted on close.
     // For single-user local access, the performance difference is negligible.
@@ -140,6 +174,10 @@ export class SqliteStore {
     }
 
     await runSqliteMigrations(db);
+    // SECRET-02, second pass — sidecars the first pass could not have seen: the
+    // WAL, SHM and journal files this boot materialised itself, which appear only
+    // once the journal-mode pragma and the migrations start writing.
+    if (!memory) _hardenDbFiles(openPath, dbPath);
     const store = new SqliteStore(db);
     await store.refreshCache();
     // Persist encryption state so close() can re-encrypt and clean up.

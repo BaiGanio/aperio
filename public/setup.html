@@ -10,10 +10,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
+        crossorigin="anonymous" />
 
-   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <!-- Prism syntax highlighting — self-hosted from the pinned npm package (#466).
+       SRI cannot secure the CDN build: prism-autoloader injects one script tag
+       per language grammar at runtime, with no integrity attribute on it. NO
+       external theme CSS (it overrides the font on dark themes). -->
+  <script src="/vendor/prismjs/prism.js" defer></script>
+  <script src="/vendor/prismjs/plugins/autoloader/prism-autoloader.min.js"
+          data-autoloader-path="/vendor/prismjs/components/" defer></script>
   <!-- Pull in the app's CSS variables (accent, font-mono, radius-sm, etc.) -->
 
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />

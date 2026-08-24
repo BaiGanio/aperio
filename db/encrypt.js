@@ -25,6 +25,7 @@ import { execSync, execFileSync } from 'node:child_process';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import logger from '../lib/helpers/logger.js';
+import { restrictFileMode } from '../lib/helpers/secureFile.js';
 
 const ALGORITHM    = 'aes-256-gcm';
 const KEY_LENGTH   = 32;  // 256 bits
@@ -276,6 +277,7 @@ export function encryptFile(srcPath, destPath, keyBuf) {
   const plain = readFileSync(srcPath);
   const enc   = encrypt(plain, keyBuf);
   writeFileSync(destPath, enc, { mode: 0o600 });
+  restrictFileMode(destPath); // `mode` is ignored when destPath already existed
 }
 
 export function decryptFile(srcPath, destPath, keyBuf) {
@@ -283,6 +285,7 @@ export function decryptFile(srcPath, destPath, keyBuf) {
   const enc   = readFileSync(srcPath);
   const plain = decrypt(enc, keyBuf);
   writeFileSync(destPath, plain, { mode: 0o600 });
+  restrictFileMode(destPath); // `mode` is ignored when destPath already existed
 }
 
 // A real hash of the FULL path, not just a prefix: two managed databases that
@@ -470,6 +473,7 @@ export function prepareDatabase(dbPath, keyBuf) {
       // Read plaintext, encrypt in-place at encPath, then decrypt to temp.
       const plaintext = readFileSync(encPath);
       writeFileSync(encPath, encrypt(plaintext, keyBuf), { mode: 0o600 });
+      restrictFileMode(encPath); // encPath pre-existed, so `mode` above was ignored
       decryptFile(encPath, tempPath, keyBuf);
     } else {
       decryptFile(encPath, tempPath, keyBuf);
