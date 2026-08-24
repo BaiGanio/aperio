@@ -84,7 +84,8 @@ and one-time VM setup are documented in [`vms/README.md`](../../vms/README.md).
 
 ## CD Workflows
 
-- `cd.release.yml` — release automation (version bump, changelog, publish)
+- `cd.release.yml` — release automation (version bump, changelog, publish).
+  **Gated on tests** (see below) — it does not run on `push`.
 - `cd.gh-pages.yml` — docs site deployment
 - `cd.k3s-deploy.yml` — cross-compiles the ARM64 image with QEMU on GitHub's
   AMD64 runners, pushes it to `ghcr.io`, then sends an HMAC-signed webhook to the
@@ -93,6 +94,81 @@ and one-time VM setup are documented in [`vms/README.md`](../../vms/README.md).
   (with `branch` and `skip_build` inputs). Requires the `APERIO_PI_WEBHOOK_URL`
   and `APERIO_PI_WEBHOOK_SECRET` repository secrets; Pi-side setup is documented
   in the workflow header and `k8s/aperio-webhook.service`.
+
+### The release gate
+
+`cd.release.yml` used to trigger on `push: branches: [master, beta-m*]`, which
+raced `ci.codecov.yml` rather than waiting for it: a push that broke the suite
+still bumped `package.json`, tagged, and published the ZIP (#455, timed fault
+\#3). It now uses the same `workflow_run` shape `cd.gh-pages.yml` already used:
+
+```yaml
+on:
+  workflow_run:
+    workflows: ["(ci) Codecov Run tests and upload coverage"]
+    types: [completed]
+  workflow_dispatch:
+```
+
+with the `version` job guarded by:
+
+```yaml
+if: >-
+  github.event_name == 'workflow_dispatch' ||
+  (github.event.workflow_run.event == 'push' &&
+   github.event.workflow_run.head_branch == 'master' &&
+   github.event.workflow_run.conclusion == 'success' &&
+   !contains(github.event.workflow_run.head_commit.message, 'skip ci'))
+```
+
+Four things follow from that trigger change, and all four are load-bearing:
+
+- **Checkout needs an explicit ref.** `workflow_run` checks out the default
+  branch tip, not the commit that triggered the upstream run, so the job passes
+  `ref: ${{ github.event.workflow_run.head_sha || github.ref }}`. Without it
+  the *Analyze Commit* step (`git log -1 --pretty=%s`) reads the wrong message
+  and picks the wrong bump — or no bump at all.
+- **The branch name is not `github.ref_name`.** On a `workflow_run` event that
+  built-in resolves to the default branch. The job resolves the real branch once
+  into `env.RELEASE_BRANCH` (`workflow_run.head_branch || github.ref_name`) and
+  uses it for the branch push and the `release`-branch sync.
+- **Loop safety comes from GitHub's own `[skip ci]`.** The bump commit is
+  `chore: release vX [skip ci]`, and GitHub does not start *any* workflow for a
+  push whose head commit says that — so Codecov never runs, so there is no
+  `workflow_run`, so the release cannot re-trigger itself. Verified against
+  history: the v0.68.0 and v0.69.0 bump commits produced zero Codecov push runs.
+  The `!contains(...)` clause in the `if:` is a redundant second check on the
+  same fact, not the primary mechanism.
+- **`workflow_dispatch` bypasses the gate**, deliberately, so a release can
+  still be cut by hand if the gate ever misfires.
+
+A `concurrency: { group: release }` block keeps two runs from bumping the
+version at once.
+
+**Why Codecov alone is the gate.** `ci.generated-artifacts.yml` and
+`ci.sri-pins.yml` are *not* wired in, on purpose:
+
+- Both are path-filtered, so on most commits they never run at all. A hard
+  dependency on a workflow that legitimately did not run would deadlock every
+  release. `workflow_run` also keys off a single upstream workflow, so a second
+  gate would mean polling the Actions API for a sibling run's conclusion.
+- Their substance is largely already inside `npm run test:ci`, which the Codecov
+  run executes: `tests/integration/scripts/gen-env-example.test.js` (case C3)
+  shells out to the real `gen-env-example.js --check`, and
+  `tests/unit/security/sri-check.test.js` covers the SRI logic. The unique
+  residue is the mascot-derivative check and the SRI *network* fetch — and the
+  SRI workflow is fail-soft on network errors by design, which makes it a poor
+  release gate regardless.
+
+**Branches.** `beta-m*` was dropped from the trigger on 2026-08-24. Codecov only
+ever ran on `master`, so a `beta-m*` push could not be gated at all; the branch
+pattern had also never produced a release run in recorded history. The beta
+version-numbering code inside the *Bump Version* step is left in place but is
+now unreachable.
+
+**Editing caveat.** `workflow_run` always uses the copy of the workflow file on
+the **default branch**. Changes to `cd.release.yml` take effect only once merged
+to `master` — they cannot be tested from a branch.
 
 ## Bot Workflows
 

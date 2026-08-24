@@ -1,8 +1,40 @@
 name: (cd) Release & Versioning
 
+# ---------------------------------------------------------------------------
+# Gate: never release a broken tree (#455, timed fault #3).
+#
+# This used to trigger on `push` and raced the test suite — a push that broke
+# the suite still bumped, tagged and published. It now waits for the Codecov
+# workflow (the one that runs `npm run test:ci` + the harness + e2e + browser)
+# to COMPLETE, and only proceeds when that run SUCCEEDED. Same shape as
+# cd.gh-pages.yml, which has been gating on this workflow for a while.
+#
+# Loop safety: the bump commit below is `chore: release vX [skip ci]`. GitHub's
+# own [skip ci] handling means that push never starts a Codecov run at all, so
+# there is no workflow_run to re-trigger this workflow. Verified against
+# history: the v0.68.0 and v0.69.0 bump commits produced zero Codecov push
+# runs. The `!contains(... head_commit.message, 'skip ci')` clause below is a
+# second belt on the same trousers, not the primary mechanism.
+#
+# Branches: master only. `beta-m*` was dropped (2026-08-24) — it had never
+# fired a release, and Codecov never ran there, so it could not be gated.
+#
+# workflow_dispatch is kept as the manual escape hatch: it skips the gate
+# entirely, for cutting a release by hand if the gate ever misfires.
+#
+# NOTE: workflow_run always uses the copy of this file on the DEFAULT branch
+# (master). Changes here take effect only once merged to master.
+# ---------------------------------------------------------------------------
 on:
-  push:
-    branches: [master, beta-m*]
+  workflow_run:
+    workflows: ["(ci) Codecov Run tests and upload coverage"]
+    types: [completed]
+  workflow_dispatch:
+
+# One release at a time — two overlapping runs would both bump the version.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -20,7 +52,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: "!contains(github.event.head_commit.message, 'skip ci')"
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'master' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       !contains(github.event.workflow_run.head_commit.message, 'skip ci'))
+
+    env:
+      # On a workflow_run event the built-in branch name is the default branch,
+      # not the branch that was actually pushed. Resolve the real one once here
+      # and use it everywhere below.
+      RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
 
     outputs:
       new_v:        ${{ steps.versioning.outputs.new_v }}
@@ -31,6 +74,10 @@ jobs:
         with:
           token: ${{ secrets.MY_PAT }}
           fetch-depth: 0
+          # workflow_run does NOT check out the commit that triggered the
+          # upstream run — without this, "Analyze Commit" below reads the wrong
+          # message and picks the wrong bump.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       # Determine bump type and whether launcher binaries are requested.
       # Convention: feat:/fix: bump minor/patch, with an optional Conventional
@@ -64,7 +111,7 @@ jobs:
         if: steps.info.outputs.bump != 'skip'
         run: |
           # If this is a beta release, append -beta.1
-          if [[ "${{ github.ref_name }}" == beta-m* ]]; then
+          if [[ "${{ env.RELEASE_BRANCH }}" == beta-m* ]]; then
             # Get last tag to increment beta number
             LAST_BETA=$(git tag -l "*-beta*" --sort=-version:refname | head -1)
             
@@ -132,7 +179,7 @@ jobs:
           git push origin "v$NEW_V" --force
 
           echo "→ pushing branch..."
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:${{ env.RELEASE_BRANCH }}
 
           echo "→ verifying tag exists on remote..."
           git ls-remote --tags origin "refs/tags/v$NEW_V"
@@ -145,7 +192,7 @@ jobs:
         # identical bits. Only from master (never beta). The first release after
         # this lands creates the branch; later ones fast-forward it (no --force),
         # so users who `git pull` never hit a rewritten history.
-        if: steps.info.outputs.bump != 'skip' && github.ref_name == 'master'
+        if: steps.info.outputs.bump != 'skip' && env.RELEASE_BRANCH == 'master'
         run: |
           set -euo pipefail
           echo "→ updating release → $(git rev-parse --short HEAD)…"
