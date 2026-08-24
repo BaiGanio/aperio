@@ -11,6 +11,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Leaving `run_node_script` / `run_python_script` ungated is now recorded as a
+  decision, not a gap.** Both tools execute code on the host with the user's
+  privileges and remain outside `APERIO_ENABLE_SHELL` and `CONFIRMABLE_TOOLS`,
+  because eight bundled skills (`pptx`, `docx`, `docx-advanced`, `pdf`,
+  `design-randomizer`, `agent-conduct`) generate their output by writing a
+  script and running it — a switch would break document generation on a fresh
+  install, and a confirm prompt would charge several clicks per document.
+  `SECURITY.md` now states the decision and its full cost, including that the
+  spawned child inherits the server environment (provider API keys included),
+  and points anyone who cannot accept that baseline to host-level isolation
+  rather than to a setting. The `APERIO_ENABLE_SHELL` help text in
+  `lib/config.js` (and the generated `.env.example` / `docs/config-reference.md`)
+  now says the switch gates `run_shell` **only**. Documentation and help text
+  only — no behaviour change.
+
 - **`SECURITY.md` now describes the code-execution and database surfaces as they
   actually are.** Four corrections, all documentation-only:
   - The threat model warned about `run_shell` alone. `run_node_script` and
