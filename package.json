@@ -121,7 +121,7 @@
     "sharp": "^0.35.3",
     "sqlite-vec": "^0.1.9",
     "tree-sitter-wasms": "^0.1.13",
-    "uuid": "^14.0.1",
+    "uuid": "^14.0.2",
     "web-tree-sitter": "^0.24.7",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
