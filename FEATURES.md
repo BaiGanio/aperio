@@ -318,6 +318,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Opt-in TLS/HTTPS (`APERIO_TLS_CERT` + `APERIO_TLS_KEY`, fail-loud on partial config)
 - Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)
 - Frontend supply-chain gate (`npm run check:sri`) — fetches every CDN asset pinned with an `integrity` attribute in `public/*.html`, recomputes the digest, and rejects a stale hash or a URL pinned to two different hashes across pages; a fetch failure warns instead of failing, so a CDN outage never blocks a build
+- Self-hosted frontend vendor assets — Prism, D3 and the Bootstrap Icons stylesheet + `.woff2` fonts are served from their pinned npm packages via `/vendor/…` routes rather than a CDN, because Subresource Integrity does not cascade to the grammar files and font files those assets go on to request; the Mermaid bundle is the only CDN asset left, and CSP trusts `cdn.jsdelivr.net` in `script-src` alone
 - Crash breaker (sliding window → supervised restart); scrubbed terminal error handler with correlation id
 - DB access via table-name whitelist
 - Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)

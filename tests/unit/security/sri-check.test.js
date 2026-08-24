@@ -1,11 +1,15 @@
 // tests/unit/security/sri-check.test.js
 //
-// #466 — three pages pin CDN assets with hand-written Subresource Integrity
-// hashes (bootstrap-icons in index/setup/codegraph-atlas, mermaid in index).
+// #466 — CDN assets pinned with hand-written Subresource Integrity hashes.
 // Nothing verified them: a version bump that forgets the hash fails *silently*
 // — the browser drops the asset, so icons vanish or a diagram never renders,
-// with no console error a user reads and no CI failure. The hash is also
-// duplicated across three files, so a bump can fix two and leave the third.
+// with no console error a user reads and no CI failure.
+//
+// Bootstrap Icons has since been vendored out of the CDN entirely (SRI could
+// not cover the .woff2 the stylesheet went on to fetch), leaving the Mermaid
+// bundle in index.html as the one remaining pin. The multi-page and
+// cross-file-conflict cases below therefore run on synthetic fixtures — they
+// still guard the parser against the day a second pin comes back.
 //
 // scripts/check-sri.js closes that gap. The network fetch lives behind an
 // injectable seam so this suite never touches jsDelivr: every case below runs
@@ -254,7 +258,14 @@ describe("end to end over a directory of pages", () => {
     // Reads the committed HTML but never the network: proves the parser keeps
     // working as the pages change, without making `npm test` need jsDelivr.
     const refs = await checkSri({ parseOnly: true });
-    assert.ok(refs.refs.length >= 4, `expected the four committed pins, saw ${refs.refs.length}`);
+    // A check that silently finds nothing is worse than no check: if the last
+    // pin is ever removed or its tag reshaped past the parser, this fails loudly
+    // rather than reporting a cheerful "0 verified".
+    assert.ok(refs.refs.length >= 1, `the parser found no pins at all in public/`);
+    assert.ok(
+      refs.refs.some((r) => r.url === MERMAID_URL),
+      `expected the committed Mermaid pin, saw ${refs.refs.map((r) => r.url).join(", ") || "nothing"}`,
+    );
     for (const ref of refs.refs) {
       for (const h of ref.hashes) {
         assert.ok(["sha256", "sha384", "sha512"].includes(h.algorithm), `${ref.source}: ${h.algorithm}`);

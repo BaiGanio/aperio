@@ -11,6 +11,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Bootstrap Icons is served from Aperio, not from a CDN (#466).** This closes
+  the last hole Subresource Integrity could not cover. `index.html`,
+  `setup.html` and `codegraph-atlas.html` loaded the icon stylesheet from
+  jsDelivr behind an `integrity` hash — but SRI does not cascade, and that
+  stylesheet then requested `bootstrap-icons.woff2` with no integrity attribute
+  of its own. A compromised CDN could have served arbitrary font bytes while
+  the pinned stylesheet still verified cleanly. `bootstrap-icons` is now a
+  pinned dependency (`1.11.3`, the version the pages already used, so nothing
+  changes visually), served through two new `/vendor/bootstrap-icons/…` routes
+  in `lib/server/setupRoutes.js` — the same serve-from-`node_modules` pattern
+  Prism and D3 already use, with the font route's allowlist regex acting as the
+  path guard. The three pages lost their now-meaningless `integrity` and
+  `crossorigin` attributes, and the two pages that no longer touch the CDN at
+  all lost their `preconnect` hint. The Content-Security-Policy in
+  `lib/server.js` drops `https://cdn.jsdelivr.net` from `style-src` and
+  `font-src`; only `script-src` still needs it, for the Mermaid bundle — the
+  one CDN asset that remains. `npm run check:sri` now verifies that single pin,
+  and `SECURITY.md`'s Known Limitation is rewritten from "SRI does not extend
+  to CDN-fetched fonts" to what is actually left: a third-party network
+  dependency for diagram rendering.
+
 - **The allowed-paths read/write split is gone — there was never one to keep.**
   `APERIO_ALLOWED_PATHS_TO_READ` and `APERIO_ALLOWED_PATHS_TO_WRITE` named a
   distinction the running app did not enforce: their values were merged into a

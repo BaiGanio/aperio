@@ -286,18 +286,27 @@ and not with the sharp edges filed off.
   grants that make the connection useful, and do not point it at a database
   whose contents you would not send to your configured AI provider.
 
-- **Subresource Integrity does not extend to CDN-fetched fonts.** The two
-  remaining jsDelivr assets (the Bootstrap Icons stylesheet and the Mermaid
-  bundle) carry `integrity` hashes, and Prism is served from Aperio itself
-  precisely because its autoloader pulls unhashable grammar files at runtime.
-  Those hashes are themselves verified — `npm run check:sri`
-  (`scripts/check-sri.js`, run by `.github/workflows/ci.sri-pins.yml` on any
-  change to `public/*.html` and again weekly) fetches each pinned asset,
-  recomputes its digest, and rejects a hash that no longer matches the bytes or
-  that disagrees between pages. What remains unverified is one level down: the
-  icon font files that the Bootstrap Icons stylesheet requests are fetched
-  without integrity checking. They are font data rather than executable code,
-  but a fully offline or fully-verified deployment should vendor them.
+- **One CDN asset remains, and it is a network dependency as well as a
+  hash-pinned one.** The Mermaid bundle in `index.html` is now the only asset
+  Aperio loads from jsDelivr; Prism, D3 and Bootstrap Icons are all served from
+  Aperio itself out of their pinned npm packages. Prism and Bootstrap Icons were
+  vendored for the same reason: Subresource Integrity does not cascade, so a
+  hash on the thing you request says nothing about what that thing goes on to
+  request — `prism-autoloader` injects grammar `<script>` tags at runtime, and
+  the icon stylesheet fetches `.woff2` font files. Both sets of sub-resources
+  arrived unverified. Serving them locally removes the CDN from those paths
+  entirely, and the Content-Security-Policy now trusts `cdn.jsdelivr.net` in
+  `script-src` only — never in `style-src` or `font-src`.
+
+  Mermaid's own pin *is* verified: `npm run check:sri` (`scripts/check-sri.js`,
+  run by `.github/workflows/ci.sri-pins.yml` on any change to `public/*.html`
+  and again weekly) fetches each pinned asset, recomputes its digest, and
+  rejects a hash that no longer matches the bytes or that disagrees between
+  pages. What SRI cannot address is the request itself: rendering a page that
+  contains a Mermaid diagram still contacts a third-party CDN, which sees your
+  IP address, and a fully air-gapped install will not render those diagrams.
+  If that matters to you, vendor Mermaid the same way — it is a dependency add
+  and one route in `lib/server/setupRoutes.js`.
 
 ---
 
