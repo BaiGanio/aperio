@@ -9,6 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+
+- **`SECURITY.md` now describes the code-execution and database surfaces as they
+  actually are.** Four corrections, all documentation-only:
+  - The threat model warned about `run_shell` alone. `run_node_script` and
+    `run_python_script` execute code on the same host with the same privileges,
+    are **not** gated by `APERIO_ENABLE_SHELL` (the `SHELL_ENABLED` check lives
+    in `runShellHandler` only), are **not** in `CONFIRMABLE_TOOLS`, and ship in
+    the default `file-generate` tool profile. Because `write_file` also runs
+    without confirmation inside the allowed write paths on an untainted turn,
+    a model can write a `.js` file and execute it with the shell switch off.
+    `SECURITY.md` now states that arbitrary code execution as the Aperio user is
+    the baseline capability of a connected model, not something the shell switch
+    turns on.
+  - Confirming an `index_folder` proposal calls
+    `setAllowlist([...paths, path])`, and Aperio keeps one allowed-folders list
+    that is both the read ceiling and the write ceiling. The grant is therefore
+    persistent, app-wide read **and** write for every later tool call and
+    session, while the prompt says only "Authorize and index". Documented under
+    Known Limitations; the prompt string itself is unchanged.
+  - `db_query` / `db_execute` reach the user's own configured databases,
+    production included, and were absent from `SECURITY.md`. `db_execute` is
+    confirm-before-write; `db_query` and `db_schema` are not confirmed at all,
+    and their rows enter the conversation and the configured AI provider.
+  - The Supported Versions table said `0.68.x` while `package.json` is `0.69.0`.
+
 ### Added
 
 - **Every built-in provider loop now has a per-turn tool-step cap.** New

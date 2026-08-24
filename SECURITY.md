@@ -25,9 +25,10 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 0.68.x   | ✅ Yes    | Current stable — fully supported |
+| 0.69.x   | ✅ Yes    | Current stable — fully supported |
+| ≤ 0.68.x | ❌ No     | No security patches. Upgrade to 0.69.x. |
 
-> **Recommendation:** Always use the latest `0.68.x` release for the most recent features and security fixes.
+> **Recommendation:** Always use the latest `0.69.x` release for the most recent features and security fixes.
 
 ---
 
@@ -36,9 +37,34 @@ Only the versions below actively receive security patches:
 Aperio is **local-first**: by default the server binds to loopback (`127.0.0.1`)
 and is meant to run on a machine you trust.
 
-- **`run_shell` is not a sandbox.** When enabled, the model runs allow-listed
-  commands with your user's privileges. Only enable it for models and content
-  you trust.
+- **`run_shell` is not a sandbox.** When enabled (`APERIO_ENABLE_SHELL=1`), the
+  model runs allow-listed programs with your user's privileges. Only enable it
+  for models and content you trust.
+- **`run_shell` is not the only tool that executes code, and it is the only one
+  behind a switch.** `run_node_script` and `run_python_script`
+  (`mcp/tools/shell.js`) spawn `node` and `python3` on the same host with the
+  same privileges. Neither is gated by `APERIO_ENABLE_SHELL` — the
+  `SHELL_ENABLED` check exists in `runShellHandler` only. Neither appears in
+  `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`), so neither is
+  confirm-before-run. Both ship in the default `file-generate` tool profile
+  (`lib/agent/tool-profiles.js`), which loads on ordinary "make me a
+  deck/spreadsheet/document" requests. Their only boundaries are the file
+  extension (`.js` / `.py`) and the requirement that the script already exist
+  inside an allowed write path — there is no allowlist of what the script may
+  do. Once running, the script is a normal process: it can open sockets, read
+  any file the OS lets your user read, and spawn further programs.
+- **The model can create the script it then executes, with no confirmation.**
+  `write_file` / `edit_file` / `append_file` run directly for any target inside
+  the allowed write paths; the confirm flow (`mcp/tools/files/interrupt.js`)
+  fires only when the turn has already read untrusted content (the `__tainted`
+  path, INJECT-01). A clean turn can therefore write a `.js` file into the
+  session workspace and call `run_node_script` on it without a single confirm
+  click and with `APERIO_ENABLE_SHELL` unset. **Treat arbitrary code execution
+  as the Aperio user as the baseline capability of any model you connect, not
+  as something the shell switch turns on.** `APERIO_ENABLE_SHELL` widens that
+  surface to real binaries; it does not create it. The boundary that actually
+  matters is the allowed-paths list and the trust you place in the model and in
+  the content it reads.
 - **The Codex provider is a coding agent, not a secret boundary.** Keep
   `CODEX_SANDBOX=workspace-write` (or `read-only`) and use it only in trusted
   workspaces. The sandbox constrains writes, but Codex and code it runs can read
@@ -127,6 +153,38 @@ and not with the sharp edges filed off.
   a maintained sanitizer. The browser Content-Security-Policy (`APERIO_CSP=on`,
   the default) is the second layer here — do not turn it off on an instance that
   renders untrusted content.
+
+- **Confirming an `index_folder` request grants that folder permanent,
+  app-wide read *and* write access — the prompt does not say so.** The
+  confirmation text reads `Action: Authorize and index <path>`
+  (`lib/agent/host-tools/index-folder.js`). What the confirm actually does is
+  call `setAllowlist([...paths, path])`, and Aperio keeps **one** allowed-folders
+  list that serves as both the read ceiling and the write ceiling —
+  `getActivePaths()` returns the same array for `readPaths` and `writePaths`
+  (`lib/routes/paths.js`). `APERIO_ALLOWED_PATHS_TO_READ` and
+  `APERIO_ALLOWED_PATHS_TO_WRITE` only *seed* that list on first run; after
+  that the DB setting `allowed-paths` is authoritative and the read/write
+  distinction no longer exists. The grant is also persisted, not scoped to the
+  indexing job or the session: from the moment you click confirm, every tool in
+  every later conversation — `write_file`, `edit_file`, `delete_file`,
+  `run_node_script` — may write anywhere under that folder, until you remove it
+  in Settings → Allowed folders. Confirm `index_folder` on a folder only if you
+  would also hand the model write access to it.
+
+- **`db_query` and `db_execute` reach your real databases, and reads are not
+  confirmed.** The `db_*` tools (`mcp/tools/database.js`) are a generic SQL
+  client over the connections you configure in Settings → Database connections
+  — SQLite, Postgres, MySQL and SQL Server, including production systems on
+  your network. `db_execute` (writes and DDL) is confirm-before-write and
+  refuses read-only connections. `db_query` and `db_schema` are **not**
+  confirmed: the model may issue any `SELECT` / `WITH` / `EXPLAIN` / `PRAGMA` /
+  `SHOW` against any configured connection, at any time, without asking, and
+  the rows enter the conversation — and therefore whatever provider that
+  conversation runs on. The row cap (200 default, 1000 max) limits one call, not
+  how many calls a turn makes. Marking a connection read-only stops writes; it
+  does not stop reading. Give Aperio a database account with the narrowest
+  grants that make the connection useful, and do not point it at a database
+  whose contents you would not send to your configured AI provider.
 
 - **Subresource Integrity does not extend to CDN-fetched fonts.** The two
   remaining jsDelivr assets (the Bootstrap Icons stylesheet and the Mermaid
