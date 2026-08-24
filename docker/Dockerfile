@@ -35,6 +35,17 @@ COPY --chown=aperio:aperio . .
 RUN mkdir -p var/home var/cache/transformers var/llamacpp var/models \
     && chown -R aperio:aperio /app /app/var
 
+# The first-run setup wizard creates .env, and lib/helpers/envFile.js writes it
+# to <install dir>/.env — here /app. The production Compose file and the k8s
+# Deployment run this image with a read-only root filesystem, so that write
+# would fail with EROFS and /api/setup/config would 400 forever on a fresh
+# deployment. Point .env at the writable var/ volume instead: the symlink lives
+# on the read-only layer but the write lands on the volume, which also means the
+# file now survives container recreation. .dockerignore excludes .env, so this
+# shadows nothing, and a dangling symlink reads as absent to existsSync() — the
+# wizard's "never overwrite an existing .env" guard still behaves correctly.
+RUN ln -s var/.env .env
+
 USER aperio
 
 ENV NODE_ENV=production

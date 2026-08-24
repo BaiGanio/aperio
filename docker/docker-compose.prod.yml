@@ -29,6 +29,18 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    # Aperio's allowed-folders floor keeps the project root (here /app) on the
+    # list no matter what APERIO_ALLOWED_PATHS or the saved list says — see
+    # lib/routes/paths.js and the "Aperio's own source tree is always
+    # write-allowed" entry in SECURITY.md. A read-only root filesystem is the boundary that
+    # actually holds: write_file / edit_file / delete_file / run_node_script
+    # cannot modify the running application code, while /app/var stays writable
+    # through the volume below. Every runtime write target already lives under
+    # /app/var (sessions, scratch, logs, uploads, HOME, the caches the
+    # Dockerfile points there), so nothing legitimate needs the rest of /app.
+    read_only: true
+    tmpfs:
+      - /tmp
     ports:
       - "${PORT:-31337}:31337"
     environment:

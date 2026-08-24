@@ -435,6 +435,55 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Security
 
+- **The production container and the Kubernetes Deployment now run on a
+  read-only root filesystem, and `SECURITY.md` documents why they have to.**
+  `lib/routes/paths.js` merges a hard floor —
+  `FLOOR = [BASE_DIR, BASE_DIR/var/scratch]`, with `BASE_DIR = process.cwd()` —
+  into the allowed-folders list on every `loadAllowlist()` and
+  `setAllowlist()`. The merge happens *after* the DB setting and the env seed
+  are read, so neither can remove it. In a container `WORKDIR` is `/app`, so
+  `/app` is permanently on the list; since the one list grants read and write
+  alike, `write_file`, `edit_file`, `delete_file`, `run_node_script` and
+  `run_shell` could modify Aperio's own running application code. Narrowing
+  `APERIO_ALLOWED_PATHS` to `/app/var` would have been *inert*, not merely
+  redundant. Changes:
+  - `docker/docker-compose.prod.yml` sets `read_only: true` with a `tmpfs`
+    `/tmp`; `k8s/aperio.yaml` sets `securityContext.readOnlyRootFilesystem:
+    true` with an `emptyDir` `/tmp`. All runtime state already lives under
+    `/app/var`, which stays writable through its volume, so the application is
+    unaffected while writes to the source tree now fail at the kernel.
+  - `docker/Dockerfile` makes `/app/.env` a symlink into `var/`. The first-run
+    setup wizard creates `.env` through `lib/helpers/envFile.js`, which writes
+    to the install directory — on a read-only root filesystem that would fail
+    with `EROFS`, `POST /api/setup/config` would return 400, and a fresh
+    deployment could never finish setup, since `.dockerignore` excludes `.env`
+    and a new volume carries no `var/bootstrap.lock`. The symlink keeps the
+    write on the volume; as a side effect the file now survives container
+    recreation. A dangling symlink reads as absent to `existsSync()`, so the
+    wizard's "never overwrite an existing `.env`" guard is unchanged.
+  - `lib/agent/index.js` now reads identity files through a `var/id/` overlay
+    and writes edits there instead of into `id/`. `saveWhoamiContent()` wrote
+    straight to `<install dir>/id/whoami.md`, so under the read-only root
+    filesystem `PUT /api/identity/whoami` would fail with `EROFS` and return
+    400, breaking the "more…" identity modal. The overlay mirrors the existing
+    `var/skills/` shape defined a few lines below it: the bundled default stays
+    pristine, an override wins when present, and deleting it restores the
+    default. Edits also now survive container recreation, which they did not
+    when they landed on the ephemeral image layer.
+  - The floor itself is deliberately left alone. Bundled skill helpers live at
+    `BASE_DIR/skills/*/scripts` and `run_node_script` / `run_python_script`
+    admit a script only if it passes `isWritePathAllowed()`, so the source tree
+    must stay on the *write* list. Dropping `BASE_DIR` from the floor changes
+    no default (`DEFAULT_PATHS` still falls back to it) but would let an
+    operator narrow the list and silently break every script-backed skill.
+    Measured: the full suite is 6080/6082 with the floor reduced, and the one
+    substantive failure is exactly that skill-helper path.
+  - `SECURITY.md` gains **"Aperio's own source tree is always write-allowed,
+    and no setting can revoke that"**, recording the floor as a documented boundary,
+    the container mitigation, and its limits — it does not stop the model
+    *reading* the source, and it does not apply to a development checkout,
+    where writing the working tree is the intended co-pilot behaviour.
+
 - **The standalone terminal now enforces the saved allowed-folders list, not
   the `.env` seed.** `lib/terminal/standalone.js` never called
   `loadAllowlist()` — only `lib/server/hydrateRuntime.js` and the codegraph /

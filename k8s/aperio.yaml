@@ -49,6 +49,16 @@ spec:
           # Built in GitHub CI, pushed to ghcr.io
           image: ghcr.io/baiganio/aperio:latest
           imagePullPolicy: Always
+          # Aperio's allowed-folders floor keeps the project root (here /app)
+          # on the list no matter what APERIO_ALLOWED_PATHS or the saved list
+          # says — see lib/routes/paths.js and the "Aperio's own source tree is
+          # always write-allowed" entry in SECURITY.md. A read-only root filesystem
+          # is the boundary that actually holds: the model's file tools cannot
+          # modify the running application code, while /app/var stays writable
+          # through the PVC below. Every runtime write target already lives
+          # under /app/var, so nothing legitimate needs the rest of /app.
+          securityContext:
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 31337
               name: http
@@ -95,6 +105,9 @@ spec:
           volumeMounts:
             - name: var
               mountPath: /app/var
+            # readOnlyRootFilesystem also seals /tmp; give it a scratch mount.
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /
@@ -113,6 +126,8 @@ spec:
         - name: var
           persistentVolumeClaim:
             claimName: aperio-var
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

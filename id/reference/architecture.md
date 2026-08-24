@@ -64,7 +64,8 @@ aperio/
 ├── docker/                # Docker Compose files (dev + prod)
 ├── docs/                  # GitHub Pages site + docs assets
 ├── id/                    # Agent persona files (whoami.md, characters/, reference/)
-├── var/                   # Runtime data (sessions, session/run scratch, legacy uploads, logs, DB files, plans)
+├── var/                   # Runtime data (sessions, session/run scratch, legacy uploads, logs, DB files, plans,
+│                           # plus the writable overlays: var/skills/ and var/id/)
 ├── scripts/               # Build/utility scripts
 └── .github/               # CI/CD workflows, lite installer, contributor data
 ```
@@ -258,4 +259,4 @@ stale stores and leave the work to the server or the CLI.
 | `lib/providers/` | Provider/model resolution and shared schema helpers |
 | `public/index.html` | Web UI SPA shell |
 | `public/index.js` | Web UI main client script |
-| `id/whoami.md` | Primary agent persona definition |
+| `id/whoami.md` | Primary agent persona definition — bundled default; a UI edit is saved to the `var/id/whoami.md` overlay, which wins when present (delete it to restore the default) |

@@ -187,6 +187,56 @@ and not with the sharp edges filed off.
   writable from this version on. If you need a folder the model can read but not
   write, Aperio cannot express that — do not add it.
 
+- **Aperio's own source tree is always write-allowed, and no setting can
+  revoke that.** `lib/routes/paths.js` defines a hard floor —
+  `FLOOR = [BASE_DIR, BASE_DIR/var/scratch]`, where `BASE_DIR` is
+  `process.cwd()` — and `withFloor()` merges it into the allowed-folders list
+  on *every* `loadAllowlist()` and `setAllowlist()`. The merge happens after
+  the DB setting and the env seed are read, so neither can remove it. Removing
+  the project root in Settings → Allowed folders, or narrowing
+  `APERIO_ALLOWED_PATHS`, does not take it away. Because there is no read-only
+  tier (previous entry), the floor grants **write** as well as read: in every
+  deployment, `write_file`, `edit_file`, `delete_file`, `run_node_script` and
+  `run_shell` are *permitted by Aperio* to target its own application code.
+  Whether such a write actually lands is a separate question, answered by the
+  filesystem underneath — see the mitigation below. Treat this as an
+  application-layer grant that Aperio itself will not refuse, not as a
+  guarantee that the source tree is physically writable.
+  - **In a container this is the application directory.** `docker/Dockerfile`
+    sets `WORKDIR /app`, so `BASE_DIR = /app` and the running application code
+    is on the list. Setting `APERIO_ALLOWED_PATHS: /app/var` in
+    `docker/docker-compose.prod.yml` or `k8s/aperio.yaml` would be *inert*, not
+    merely redundant.
+  - **This is deliberate, not an oversight to route around at the app layer.**
+    Bundled skill helpers live at `BASE_DIR/skills/*/scripts`, and
+    `run_node_script` / `run_python_script` admit a script only if it passes
+    `isWritePathAllowed()` (`mcp/tools/shell.js`). Dropping `BASE_DIR` from the
+    floor changes no default — `DEFAULT_PATHS` still falls back to it — but it
+    lets an operator narrow the list and silently break every script-backed
+    skill (pdf, docx, pptx, xlsx, theme-factory, skill-creator,
+    webapp-testing) with a "Script not allowed" error.
+  - **The supported mitigation is a read-only root filesystem**, applied at the
+    container layer rather than the allowlist. `docker/docker-compose.prod.yml`
+    sets `read_only: true` with a `tmpfs` `/tmp`, and `k8s/aperio.yaml` sets
+    `securityContext.readOnlyRootFilesystem: true` with an `emptyDir` `/tmp`.
+    All runtime state already lives under `/app/var`, which stays writable
+    through its volume, so the application keeps working while writes to the
+    source tree fail at the kernel with `EROFS`. **On these two manifests the
+    application-layer grant above is therefore not exploitable against the
+    source tree** — the allowlist still permits the call, and the kernel still
+    refuses it. Two writable paths are preserved so supported flows keep
+    working: `/app/.env` is a symlink into `var/` (`docker/Dockerfile`) so the
+    first-run setup wizard can still create it, and identity edits from the
+    "more…" modal are written to the `var/id/` overlay rather than into `id/`
+    (`lib/agent/index.js`), matching how skill edits already overlay into
+    `var/skills/`.
+    Note the limits: this does not stop the model *reading* the source, it does
+    not protect anything else the allowlist covers, and it does not apply to a
+    development checkout, where `BASE_DIR` is the repository root and writing it
+    is the intended co-pilot behaviour. **If you run Aperio from a checkout you
+    care about, treat the working tree as writable by the model and keep it
+    under version control.**
+
 - **Fixed: the standalone terminal enforced the *env seed*, not the saved
   allowed-folders list.** Up to and including `0.69.0`,
   `lib/terminal/standalone.js` never called `loadAllowlist()` — only the server
