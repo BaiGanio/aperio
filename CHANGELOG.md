@@ -35,6 +35,159 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `db_execute` → `db_query`) is 5 passes, so a document flow runs one pass short
   of the cap and deeper workloads should raise the variable.
 
+- **Continuous audit: a triage gate (T8).** T6 says whether a whole audit wave
+  may be believed; this is the layer after it — what a confirmed finding is
+  allowed to become. It starts no process, calls no model and no network, and
+  touches the working tree in one place only — resolving a finding's file:line
+  anchors at the moment of publication, through the same injectable resolver T6
+  uses. **T8.1** requires every confirmed
+  finding to take exactly one outcome with an owner and a real calendar day, and
+  refuses to close a wave with anything still sitting at Confirmed or Candidate.
+  Outcomes are counted off the lifecycle *trail*, not off `status`, because
+  `status` shows only the last decision written and two merged decisions
+  otherwise look like one. **T8.2** blocks a high/critical finding from reaching
+  a public issue until its disclosure decision is recorded, then scans the
+  cleared summary for secret shapes, assigned credentials (at any length, in any
+  quoting — short is what weak credentials are, and the key may be quoted too, so
+  a pasted `{"password":"abc"}` is read as the credential it is — and under
+  compound key names such as `client_secret=` and `db_password=`, which is how
+  they are actually written), HTTP `Authorization` credentials at any scheme and
+  any token length — the scheme and the secret are two tokens, so an
+  assignment's value stopped at `Basic` and never read the part that logs you in
+  — bare JWTs (a summary quotes the token and leaves the header behind, and one
+  word is neither a runnable command nor an eight-word run), exploit-payload
+  shapes, its own runnable
+  reproduction (read through the prompt, bullet, numbered step, or backticks a
+  terminal or a markdown file writes it with, so `$ curl …`, `1. curl …`, and a
+  bare `curl …` are one line), and
+  eight-word verbatim runs out of its own evidence. Keys that are a credential
+  in one sentence and ordinary metadata in the next — `token`, `auth`, bare
+  `pass` — are filtered by their *value* rather than blocked outright, because
+  this repository's own writing is full of the metadata sense (`tokens: 500`,
+  `auth: required`, `pass: true`) and a gate that refuses honest text is a gate
+  someone switches off. A count or a config word is metadata; `access_token=abc`
+  is still the credential, and the exemption never reaches `password=`.
+  A command that needs no operand at all is now settled before any rule that
+  waits for one: `tcpdump` on its own starts capturing every packet on the wire,
+  and every tier waited for an argument that never comes. Two guards, because
+  "runs bare" and "is not a word" are different properties — a binary like
+  `tcpdump` or `mongosh` needs only the noun forms excluded ("a tcpdump
+  capture"), while `reboot`, `shutdown`, and `halt` are ordinary English and are
+  read only after a run verb, since "Reboot loops are common" opens a sentence
+  exactly the way a command would. A capitalized POSIX runner now has to be
+  carrying real shell syntax — a scheme, a flag, an operator — before it counts:
+  case folding was meant for the Windows names, which are binaries and never
+  words, and "Make /api reject unauthenticated requests" is a recommendation
+  while "Curl http://host/admin returns the file" is a working request. Lowercase
+  spellings keep every tier they had.
+  A never-prose executable followed by one plain word is a whole command on its
+  own — `rm uploads` and `sudo reboot` carry no flag, no path, and no number, so
+  every shape tier waited for punctuation those lines never contain. Two guards
+  keep that from swallowing prose: a determiner or preposition in FRONT of the
+  runner means the tool is being named ("the rm command", "written in
+  PowerShell"), and a function word after it means the sentence simply continued
+  ("runs powershell and never validates"). The prepositions of instrument — via,
+  using, with, through — are deliberately not in that list, since they introduce
+  a command rather than name a tool. A runner that is also an English word
+  (`make`, `curl`, `node`, `java`, `ruby`, `python`) no longer steps over a plain
+  word to reach an argument: that hop read "Make sure /api requires
+  authentication" as the command `make sure /api` and blocked a summary that
+  leaks nothing, and a real invocation of those six announces itself in the very
+  next slot.
+  A positional operand is now also read as a bare host,
+  a dotted quad, or an SSH target, because `curl attacker.example.com` and `ssh
+  root@host` carry no shell punctuation at all — no slash, no colon, no port —
+  so a summary that shortened the reproduction to its bare host, or wrote the
+  line fresh, published a working command with nothing left to catch it. A
+  dotted token ending in a data or config suffix stays prose, since
+  `config.json` and `example.com` are the same shape and "make config.json the
+  source of truth" is a sentence this gate exists to publish.
+  Single-token payloads match on word boundaries so a payload of `0`
+  cannot make every summary containing "500" unpublishable; punctuated ones keep
+  substring matching, where accidental collision does not exist. **T8.3** makes a
+  Planned/IssueFiled finding name a concrete test file — restricted to types an
+  assertion can actually run in, required to be a repository-relative path (no
+  `..` segments, no absolute or home-relative path, no URI scheme) so the
+  promised test is somewhere the suite will really run it — `npm run test:audit`
+  now hands `audit/tests` to the same `scripts/run-tests.js` collector the rest
+  of the suite uses instead of naming each file, so a new audit regression is
+  executed without a package.json edit anyone can forget, a nested location the
+  root's prefix match already accepted is descended into rather than blessed and
+  skipped, and the run exits non-zero rather than report green on an empty file
+  list. The collector enumerates in JS, so it also works on the Node 18 floor
+  `README.md` documents, where `node --test` does not expand a glob and would
+  open the pattern as a literal filename — and deliberately *not* required to
+  exist yet,
+  since a red regression test that already exists is not red — while
+  AcceptedRisk/DocumentationOnly must explain why no test applies.
+
+  `DocumentationOnly` and `IssueFiled` are now part of `schema.js`'s single
+  lifecycle graph rather than a private outcome list; the §3.4 stateDiagram
+  predates Step 8 and named neither. `IssueFiled` keeps Planned's `-> Fixed`
+  edge, because a filed issue is work still owed. Everything else is derived from
+  that graph — the five triage outcomes, which of them are code work, and which
+  statuses may be exported — so a sixth outcome teaches every gate at once. A
+  status is treated as a claim about a journey: the trail is required, validated
+  through `slice-execution.js`'s `historyErrors`, and must begin at `Candidate`
+  — the graph's only entry point, so a hand-authored `Confirmed -> Planned`
+  trail (legal, connected, ending where `status` says) no longer stands in for
+  the confirmation that never happened — and every record
+  past Candidate is put back through §7's Finding Exit Gate — the new exported
+  `confirmationFieldErrors`, which is the pure half of the same check T6 runs
+  before it will confirm anything. The record-level schema alone is not enough
+  there and was never meant to be: it tests *presence*, so `violatedInvariant:
+  "   "` and `line: 0` clear it, and §7's confirmation facts (revision, variants
+  weighed, duplicate search, model, tokens) are outside its field list because a
+  Candidate legitimately lacks them. Without that reuse, a truncated or
+  hand-merged ledger row carrying nothing but an id, a status, a legal history
+  and a triage decision earned full coverage credit at closeout, and a forged one
+  with a clean `Candidate -> Confirmed` trail could be authorized as a public
+  claim without ever having met the evidence gate. Publication additionally
+  resolves the anchors against the tree and fails closed if it cannot, because a
+  finding anchored at a file since moved or deleted is a stale claim and the
+  public issue is the most expensive place to find that out. Rejected stays
+  exempt from all of it — T6.2 rejects candidates cheaply on purpose.
+  `isBlank`/`isNonBlankString`/`comparableText`/
+  `RUNNABLE_COMMAND` moved to `audit/scripts/record-shapes.js` so T6 and T8
+  cannot drift on what counts as a real answer or a runnable command.
+  `RUNNABLE_COMMAND` matches the Windows runners case-insensitively — they are
+  typed and documented with capitals (`PowerShell -EncodedCommand …`, `CMD /c …`,
+  `CertUtil -urlcache …`) and each runs exactly as spelled, so a case-sensitive
+  match read all three as prose, refusing a real reproduction at T6 and letting
+  the same payload through T8.2 on its way to a public issue. The POSIX half
+  stays case-sensitive: it is full of English words, and a blanket flag would
+  make a sentence's opening capital enough to pass "Make sure the invariant is
+  checked" off as a reproduction.
+
+- **Continuous audit: a slice-execution gate (T6).** `audit/scripts/schema.js`
+  says whether one finding record is well formed; this is the layer that says
+  whether a whole audit wave may be believed. Four pure, injectable checks, none
+  of which starts a process or calls a model. **T6.1** holds every slice report
+  to Step 6's exit gate and counts a documented deferral as deferred rather than
+  complete, so a wave cannot report coverage it does not have; `manifestHash`
+  must be the digest `computeManifestHash()` emits, because a manifest identity
+  nobody can compare identifies no tree state. **T6.2** stops a candidate
+  becoming Confirmed on model agreement — a second model concurring is not
+  independent evidence — and holds the evidence itself to the same standard as
+  the finding: every anchor is resolved against the audited tree, must point at a
+  real line, and must name code the candidate itself claims is affected, so
+  `package.json:1` can no longer confirm a provider bug. A reproduction that is a
+  command is verified as a command: this module never runs one, so it counts only
+  once the record says when it was run and what it produced (a *failing* run is
+  the point), or a caller injects its own verifier. **T6.3** enforces §4's
+  budget — one primary cloud lens per slice, and any frontier-model use needs a
+  recorded human override naming a reason, an approver, and the finding IDs it
+  covers. A frontier call mislabeled as a cheap lens is reclassified rather than
+  waved through, and reconnaissance keeps its free pass only while nothing in the
+  record says the call left the machine: an entry naming a cloud provider is
+  budgeted as the cloud call it describes even when it names no model. **T6.4**
+  classifies a candidate as Duplicate on a shared invariant *and* a shared
+  affected file, keeping "same symptom, different root cause" a distinct linked
+  finding. Status transitions delegate to `schema.js`'s `transitionFinding()` so
+  the two never keep separate lifecycle graphs, and a status trail must be a path
+  through that graph: each entry a real edge, connected to its neighbours, ending
+  where the finding actually is.
+
 - **Continuous-audit runs now have a durable usage ledger.** Audit slices can
   append immutable JSONL run records under `audit/ledger/`, and the T3.3
   accounting gate reads that ledger by default. Persistence validates complete

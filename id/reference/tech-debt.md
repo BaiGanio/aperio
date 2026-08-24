@@ -54,8 +54,125 @@ housekeeping go in `A2D.md`, not here.
   no longer counts as independent proof, an unrecognized lens kind or a frontier
   model mislabeled `primary-cloud` now fails closed into the override requirement
   instead of skipping it, and a malformed (non-array) wave input is rejected instead
-  of silently passing as an empty wave. `npm run test:audit` is now 171 tests /
-  20 suites. T7–T9 (journeys, triage, closeout) are still open.
+  of silently passing as an empty wave. Four further review rounds closed the rest:
+  evidence must support the candidate it is attached to (real line, code the record
+  names) and a command must record its run; `manifestHash` must be a real digest and
+  expected/actual must differ as behavior, not as whitespace; the anchor cache is
+  keyed on file identity so a concurrent session's edit cannot confirm a finding
+  against stale state; model-free reconnaissance naming a cloud provider is budgeted
+  as cloud; and a status trail must be a real path through `schema.js`'s lifecycle
+  graph. 2026-08-23 T8 (triage) landed as `audit/scripts/triage.js` — T8.1 (one
+  outcome per confirmed finding, counted off the lifecycle trail rather than off
+  `status`, plus a wave closeout that leaves nothing at Confirmed), T8.2 (a
+  high/critical finding cannot reach a public issue until its disclosure decision
+  is recorded, and a cleared summary is scanned for secret shapes, assigned
+  credentials, its own runnable reproduction, and 8-word verbatim runs out of its
+  evidence), T8.3 (a Planned/IssueFiled finding names a concrete test file and an
+  assertion design; AcceptedRisk/DocumentationOnly explain why no test applies).
+  `DocumentationOnly` and `IssueFiled` were added to `schema.js`'s single
+  lifecycle graph rather than kept as a private outcome list — the §3.4
+  stateDiagram predates Step 8 and named neither. `isBlank`/`isNonBlankString`/
+  `comparableText`/`RUNNABLE_COMMAND` moved to `audit/scripts/record-shapes.js`
+  so T6 and T8 cannot drift on what counts as a real answer or a runnable
+  command. A review round then caught five gaps, all fixed before landing: the
+  export scanner accepted only an array `evidence` while `CONFIRMATION_STRING_FIELDS`
+  makes it a *string* on any confirmed finding, so no real finding could ever be
+  exported; short exploit payloads (`../../etc/passwd`, `' OR 1=1 --`) sat under
+  both the runnable-command and 8-word floors and are now matched as shapes in
+  their own right, alongside a declared `exploitPayload` at any length;
+  `checkPublicExport` never read the lifecycle status, so a Candidate could be
+  published (now gated on `EXPORTABLE_STATUSES`, computed by reachability from
+  Confirmed); the trail was never reconciled with the current status, which
+  `historyErrors` — now exported from `slice-execution.js` rather than restated —
+  settles; and disclosure records were validated only at high/critical, so a
+  low-severity `"privat"` typo fell through to the public default. A second round
+  closed four more, all of the same species — a status believed without the trail
+  behind it: `checkPublicExport` checked graph membership but not the journey, so
+  `status: "Planned"` written onto a record with no history and no triage record
+  exported as a confirmed public claim; a bare `{id, status: "Rejected"}` stub
+  counted as validly closed and gave a truncated ledger full coverage credit;
+  `isRecordedDate` validated only the first ten characters, so
+  `2026-08-21garbage` passed (it now requires the whole value to be `YYYY-MM-DD`
+  or a complete zoned ISO timestamp — an unzoned one means a different instant on
+  every machine); and `duplicateOf` could name the finding's own id, closing a
+  real finding as tracked by itself. Two rules proposed during these rounds were
+  **removed rather than kept** because no input could violate them: a
+  `Candidate -> Rejected` edge assertion (the trail rules already imply it, since
+  Candidate is the only source of an edge into Rejected) and a redundant severity
+  clause. A third round closed five more: the assigned-credential pattern needed
+  six non-space characters, so `password=abc` and `password="my secret pass"`
+  both scanned clean (the length floor is gone, quoted forms are parsed, and
+  redaction markers now need a run of 3+ so a lone `x` is a value, not a mask);
+  the export gate trusted the status trail as proof and never validated the
+  record, so a hand-written `Candidate -> Confirmed` history with no
+  `violatedInvariant`, reproduction, or evidence could publish (it now runs
+  `validateFinding`; §7's anchor-resolving gate stays out, since it reads the
+  tree); `duplicateOf` was checked only for self-reference, so a typo or an
+  A→B→A cycle closed real findings owned by nobody (`checkWaveTriage` now
+  resolves targets against the wave plus an injected `ledgerRecordIds`, and
+  detects cycles); `looksLikeTestFile` accepted `tests/README.md` on the
+  directory alone (extensions are now restricted to test source types); and
+  verbatim payload matching used bare `includes()`, so an `exploitPayload` of
+  `0` blocked the sentence "The endpoint returns 500" — a gate nobody can pass
+  gets switched off, so single-token payloads now match on word boundaries while
+  punctuated ones keep substring matching. A fourth round closed two more: the
+  runner match wanted a bare name, so `/bin/sh -c whoami` — the most explicit
+  spelling of a command there is — read as prose in both halves of T8.2 (the
+  runner is now read through its path and its Windows suffix, with the prefix
+  required to start like a path so ordinary `lib/routes/paths.js` prose still
+  publishes); and a `{ id }` ledger entry with no status was treated as
+  eligible, so a partial projection could close a Duplicate against a Candidate
+  (the object form now requires a status; a caller vouching for an external
+  record uses the bare-id form). A fifth round closed one leak and one false
+  positive: `cat` was recognized only after a shell metacharacter, so "Run cat
+  /etc/passwd to retrieve the file" exported clean (the file-read and archive
+  runners are now in the vocabulary, with `cat` and `tar` joining the
+  English-word runners so their ordinary senses still publish); and the two-word
+  rule read any plain word after a never-prose executable as its operand, so
+  "The worker runs PowerShell scripts" was refused (a tool-mention VERB plus a
+  category noun now reads as a mention, and both halves are required — "run rm
+  uploads" still blocks). A sixth round closed one more leak: `ssh` is not a
+  never-prose runner ("the SSH key", "SSH clients"), so `ssh victim` carried no
+  dot, port, `@`, or flag for any shape test to see and a whole intrusion
+  published — a remote-shell runner announced by a run verb now takes a
+  single-label host as its operand. A seventh round closed three leaks and one
+  false positive: both gates matched the BASENAME against the runner allowlist,
+  so `./exploit.sh --target victim` was neither re-runnable evidence nor a
+  command (a path-qualified file is now a command on its own terms — shell and
+  binary suffixes outright, source suffixes only while carrying shell syntax, so
+  naming `./lib/routes/paths.js` still publishes); `whoami` was in no vocabulary
+  at all (the no-argument binaries moved to record-shapes.js and grew, so T6 and
+  T8.2 read the same lone token); the ledger accepted any status reachable from
+  Confirmed, so an orphaned external Confirmed or a dangling external Duplicate
+  could own a closing Duplicate (the external form now needs a status that
+  carries a decision); and the summary was split on whitespace alone, so "…in
+  node. /api rejects…" was read as `node /api` (the walk no longer crosses a full
+  stop). An eighth round closed one leak and one miscount: `cp` was missing from
+  the runner vocabulary that already held `rm` and `mv`, so `cp /etc/passwd
+  /tmp/leak` — the quieter half of the same act — exported clean; and the triaged
+  return was unconditional, so a Planned record with no confirmation facts and no
+  decision landed in the wave's public `triaged` bucket while `ok` said no (a
+  record on that path now buckets by whether it holds up). Every surviving rule
+  was mutation-proved red before landing. `npm run test:audit` is now 462 tests /
+  26 suites. T7 (journeys) and T9 (closeout, deltas) are still open.
+
+- 2026-08-23 **`audit/tests` runs in no CI workflow.** `npm run test:audit` now
+  hands the directory to `scripts/run-tests.js`, so a new audit regression is
+  picked up locally with no package.json edit — but neither `npm test` nor `npm run
+  test:ci` includes `audit/tests`, and no workflow calls `test:audit`. T8.3's
+  gate tells an author their promised regression test is "somewhere the suite
+  will really run it", and on CI that is still not true. Wiring it needs a
+  decision about where: its own workflow, or a root added to
+  `scripts/run-tests.js`.
+
+- 2026-08-23 **`test:e2e` and `test:e2e:real` still pass a glob to `node --test`.**
+  `README.md` documents a Node 18 floor, and `node --test` gained glob expansion
+  only in Node 22 — below that the quoted pattern is opened as a literal
+  filename and the run fails. Every other suite goes through
+  `scripts/run-tests.js`, which enumerates in JS; these two were missed. CI runs
+  Node 26, so nothing is red today. Untouched here because the e2e scripts carry
+  concurrency and timeout flags that want checking against the collector's own
+  options before they move.
 
 ---
 

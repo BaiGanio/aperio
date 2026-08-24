@@ -31,6 +31,7 @@ import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { RUNNABLE_COMMAND, comparableText, isBlank, isNonBlankString } from "./record-shapes.js";
 import { SCHEMA, transitionFinding, validateFinding } from "./schema.js";
 
 // ── T6.1 — slice exit gate ───────────────────────────────────────────────
@@ -80,31 +81,14 @@ const DEFERRAL_FIELD_SHAPES = {
   slice: "string", reason: "string", owner: "string", trigger: "string",
 };
 
-// A whitespace-only string ("   ") is content-free the same way "" is: it
-// must not satisfy a required-field, evidence-detail, deferral, or approver
-// check just because it has a nonzero .length.
-function isBlank(value) {
-  if (value === undefined || value === null) return true;
-  if (typeof value === "string") return value.trim() === "";
-  return false;
-}
-
-// The positive form of isBlank: a value that is genuinely a non-empty string.
-// `{}` and `[]` are NOT blank (they are malformed), so anywhere the record
-// must carry human-readable content, this is the check — not !isBlank().
-function isNonBlankString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
+// isBlank / isNonBlankString / comparableText now live in record-shapes.js
+// (imported above) because triage.js asks the same three questions of the same
+// records. comparableText in particular has to mean ONE thing: T6's
+// confirmation gate uses it to require that `expected` and `actual` differ as
+// behavior, and T8.3 uses it to require that the promised red regression test
+// would actually be red.
 function isStringArray(value) {
   return Array.isArray(value) && value.every(isNonBlankString);
-}
-
-// One spelling per sentence, for the places where two record fields have to say
-// DIFFERENT things. Surrounding and repeated whitespace and letter case are
-// presentation; they never make two descriptions of behavior distinguishable.
-function comparableText(value) {
-  return String(value).trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 // computeManifestHash() returns a hex SHA-256 digest, and manifestHash is the
@@ -366,8 +350,10 @@ const MODEL_AGREEMENT_KIND = "model-agreement";
 const FILE_LINE_ANCHOR = /[^\s:]+\.[A-Za-z0-9_]+:\d+/;
 // A repo path — either slash-separated, or a bare filename with an extension.
 const hasPathReference = (detail) => /\S\/\S/.test(detail) || /\S\.[A-Za-z0-9_]{1,12}\b/.test(detail);
-// A reproduction may also be a command someone can actually re-run.
-const RUNNABLE_COMMAND = /^(npm|npx|pnpm|yarn|node|bash|sh|git|docker|curl|make)\s+\S/;
+// A reproduction may also be a command someone can actually re-run. The
+// pattern is shared with T8.2's public-summary scan (record-shapes.js): a
+// command form only one of them recognized would be evidence here and an
+// unrecognized payload on the way into a public issue.
 
 // aperio-continuous-audit.md §4.7: "A finding without a file/line reference,
 // violated invariant, and reproduction path is discarded before cross-review."
@@ -949,23 +935,48 @@ export function resolveAnchorInTree(file, { root = REPO_ROOT } = {}) {
  * the tree half off — a caller confirming findings against an OLD revision that
  * is no longer checked out is the one legitimate reason to do that.
  */
-function anchorErrors(finding, anchorResolver) {
+function anchorWellFormed(p) {
+  return {
+    file: isNonBlankString(p.file) && normalizeRepoPath(p.file) !== "",
+    line: Number.isInteger(p.line) && p.line >= 1,
+  };
+}
+
+/**
+ * The half of the anchor rule that needs no filesystem: an anchor has to NAME a
+ * file and a line before there is any point asking the tree about it.
+ *
+ * Split out from the tree half so triage.js — which validates records at
+ * closeout and at publication, long after the slice run — can apply it without
+ * dragging a working-tree read into a module that has none.
+ */
+function anchorShapeErrors(finding) {
+  if (!Array.isArray(finding.affectedPaths)) return [];  // validateFinding() reports this
+  const errors = [];
+  finding.affectedPaths.forEach((p, i) => {
+    if (!p || typeof p !== "object") return;             // validateFinding() reports this too
+    const wellFormed = anchorWellFormed(p);
+    if (!wellFormed.file) {
+      errors.push(`affectedPaths[${i}].file must name a file that can be opened, got ` +
+        `${JSON.stringify(p.file)} — a Confirmed finding's anchor has to point at current code`);
+    }
+    if (!wellFormed.line) {
+      errors.push(`affectedPaths[${i}].line must be a whole line number of 1 or more, got ` +
+        `${JSON.stringify(p.line)} — NaN, 0, and negative lines point at no line in any file`);
+    }
+  });
+  return errors;
+}
+
+export function anchorTreeErrors(finding, anchorResolver) {
   if (!Array.isArray(finding.affectedPaths)) return [];  // validateFinding() reports this
   const errors = [];
   finding.affectedPaths.forEach((p, i) => {
     if (!p || typeof p !== "object") return;             // validateFinding() reports this too
 
-    const wellFormedFile = isNonBlankString(p.file) && normalizeRepoPath(p.file) !== "";
-    const wellFormedLine = Number.isInteger(p.line) && p.line >= 1;
-
-    if (!wellFormedFile) {
-      errors.push(`affectedPaths[${i}].file must name a file that can be opened, got ` +
-        `${JSON.stringify(p.file)} — a Confirmed finding's anchor has to point at current code`);
-    }
-    if (!wellFormedLine) {
-      errors.push(`affectedPaths[${i}].line must be a whole line number of 1 or more, got ` +
-        `${JSON.stringify(p.line)} — NaN, 0, and negative lines point at no line in any file`);
-    }
+    const { file: wellFormedFile, line: wellFormedLine } = anchorWellFormed(p);
+    // Shape failures are anchorShapeErrors()' to report; here they only mean
+    // there is nothing to look up.
     if (!wellFormedFile) return;
 
     const resolved = anchorResolver(p.file);
@@ -994,6 +1005,12 @@ function anchorErrors(finding, anchorResolver) {
 }
 
 /**
+ * Exported because T8's triage gate needs the SAME trail rules at a later
+ * moment: by then the trail has grown an outcome edge, and a record whose
+ * `status` and whose trail disagree is exactly the ledger row a closeout would
+ * count two different ways. Restating these rules in triage.js would be a
+ * second copy of the lifecycle graph in all but name.
+ *
  * transitionFinding() builds the next record by SPREADING `finding.history`
  * (`[...(finding.history || [])]`), so any truthy non-iterable value there —
  * `{}` from a hand-edited ledger row, a half-decoded JSON column — throws a
@@ -1002,7 +1019,7 @@ function anchorErrors(finding, anchorResolver) {
  * transition, not only Confirmed: the cheap Rejected path is exactly the one a
  * malformed record is most likely to travel.
  */
-function historyErrors(finding) {
+export function historyErrors(finding) {
   const { history } = finding;
   if (history === undefined || history === null) return [];
 
@@ -1064,6 +1081,25 @@ function historyErrors(finding) {
       errors.push(`history[${i}] starts at ${from}, but history[${i - 1}] left the finding at ` +
         `${previous.to} — the trail has a gap, and nothing records how the status changed across it`);
     }
+
+    // A trail is a sequence in TIME, not merely a connected path. Checking only
+    // that each `at` parses leaves "Candidate -> Confirmed on the 22nd" sitting
+    // above "Confirmed -> Planned on the 21st" — a record that says triage
+    // decided the outcome before the evidence gate confirmed the finding.
+    // Nothing downstream can repair that: T8 dates a finding by its trail, so
+    // the record is credited to whichever wave the out-of-order stamp names,
+    // and the closeout counts a finding the wave never examined.
+    //
+    // Equal stamps pass. transitionFinding() writes millisecond ISO strings, so
+    // two transitions applied in one batch legitimately share a stamp; only
+    // going BACKWARDS is the impossible thing.
+    const at = Date.parse(entry.at);
+    const previousAt = Date.parse(previous?.at);
+    if (i > 0 && Number.isFinite(at) && Number.isFinite(previousAt) && at < previousAt) {
+      errors.push(`history[${i}] is stamped ${JSON.stringify(entry.at)}, before history[${i - 1}] at ` +
+        `${JSON.stringify(previous.at)} — a status trail runs forwards, and a transition recorded ` +
+        `before the one it follows dates the finding to a wave it was never examined in`);
+    }
   });
 
   // Where the trail ends IS the finding's status. If it is not, one of the two
@@ -1080,9 +1116,25 @@ function historyErrors(finding) {
   return errors;
 }
 
-/** §7's Finding Exit Gate: every applicable box, not just the record schema. */
-function confirmationGateErrors(finding, anchorResolver) {
-  const errors = [...validateFinding(finding).errors, ...anchorErrors(finding, anchorResolver)];
+/**
+ * §7's Finding Exit Gate, minus the one question a record cannot answer about
+ * itself: whether its anchors still point at code in the tree right now.
+ *
+ * Exported because confirmation is not the last moment these facts matter.
+ * T8 closes a wave and exports findings to public issues, and a record that
+ * merely CLAIMS to have been confirmed — a truncated ledger row, a hand-edited
+ * one, a replayed one — has to be measured against the same boxes the gate
+ * would have made it check. validateFinding() alone cannot do that job there:
+ * it tests presence, so `violatedInvariant: "   "` and `line: 0` clear it, and
+ * §7's confirmation facts (revision, variants, duplicate search, model, tokens)
+ * are outside its field list entirely by design.
+ *
+ * Pure: no filesystem, no clock, no network. The tree half is
+ * anchorTreeErrors(), which callers add when they can and must fail closed
+ * when they cannot.
+ */
+export function confirmationFieldErrors(finding) {
+  const errors = [...validateFinding(finding).errors, ...anchorShapeErrors(finding)];
 
   for (const field of CONFIRMATION_STRING_FIELDS) {
     if (finding[field] !== undefined && finding[field] !== null && !isNonBlankString(finding[field])) {
@@ -1131,6 +1183,11 @@ function confirmationGateErrors(finding, anchorResolver) {
   errors.push(...tokenErrors(finding.tokens));
 
   return errors;
+}
+
+/** §7's Finding Exit Gate: every applicable box, not just the record schema. */
+function confirmationGateErrors(finding, anchorResolver) {
+  return [...confirmationFieldErrors(finding), ...anchorTreeErrors(finding, anchorResolver)];
 }
 
 /**

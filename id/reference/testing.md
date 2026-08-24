@@ -76,10 +76,18 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   `REVIEWED_AUTH_EXEMPTIONS`, `REVIEWED_CAPABILITY_EXEMPTIONS`) and are honoured
   only while their stated reason still holds in the code — an exemption whose
   justification has gone stale fails the gate rather than passing quietly
-- 12 scripts: `inventory`, `schema`, `ledger`, `manifest`, `database-contract`,
+- 14 scripts: `inventory`, `schema`, `ledger`, `manifest`, `database-contract`,
   `config-contract`, `routes-contract`, `memory-contract`,
   `bootstrap-contract`, `provider-contract`, `registry-contract`,
-  `usage-accounting`
+  `usage-accounting`, `slice-execution`, `triage`
+- `record-shapes.js` is not a gate. It holds the handful of predicates more than
+  one gate depends on (`isBlank`, `isNonBlankString`, `comparableText`,
+  `RUNNABLE_COMMAND`), for the same reason `schema.js` owns the single lifecycle
+  graph: when two gates ask "is this field a real answer?" they must be asking
+  the same question. `RUNNABLE_COMMAND` is the sharpest case — T6 reads it as
+  "this reproduction can be re-run", T8.2 as "this line is a payload that must
+  not be published", and a command form only one list knew would be evidence
+  going in and an unrecognised leak going out
 - Two deliberate exceptions to "source-level by design":
   - `registry-contract` calls the real `mcp/tools/*.js` `register()` functions
     against a mock server to collect tool names, because `memory.js` registers
@@ -140,6 +148,58 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   bound. A cache-writing provider whose record omits the write count is also
   `unknown`. Which providers report cache writes is derived from the real loops,
   not hardcoded
+- `slice-execution` is the wave layer above the record schema (T6): whether a
+  whole audit wave may be believed, not whether one record parses. It never
+  starts a process or calls a model, and it is the one gate that reads the
+  audited working tree — only to answer §7's "file and line references point to
+  current code", through an injectable `anchorResolver` so every check stays pure
+  under test. Its four parts are the slice exit gate (T6.1), the evidence gate
+  (T6.2), the lens budget (T6.3), and duplicate search (T6.4)
+- Everything it checks fails closed. An anchor it could not resolve is an
+  unchecked box, never a passed one; evidence must point at code the candidate
+  itself names, at a line that exists; a reproduction that is a command counts
+  only once the record says when it ran and what it produced, because this module
+  never runs one; a frontier model labeled as a cheap lens is reclassified rather
+  than waved through, and reconnaissance keeps its free pass only while nothing
+  in the record says the call left the machine. Status transitions delegate to
+  `schema.js`'s `transitionFinding()` rather than restating the lifecycle graph,
+  and a status trail must be a real path through it
+- Its anchor cache stores a line count per file *version* (device/inode, size,
+  both timestamps), re-checked on every lookup. AGENTS.md expects concurrent
+  sessions in the same worktree, so a cache keyed on the path alone would confirm
+  later findings against a tree state another session already changed
+- `triage` is the layer after the wave (T8): what a confirmed finding is allowed
+  to become. Unlike `slice-execution` it reads nothing at all — every question is
+  answerable from the ledger record in front of it. Three parts: one outcome per
+  confirmed finding with an owner and a real date, and no wave closing with
+  anything still at Confirmed (T8.1); the public-disclosure gate (T8.2); and
+  regression-test ownership (T8.3)
+- It owns no vocabulary. `CONFIRMED_OUTCOMES` **is** `SCHEMA.TRANSITIONS.Confirmed`,
+  `CODE_FIX_OUTCOMES` is derived from which outcomes keep a `-> Fixed` edge, and
+  `EXPORTABLE_STATUSES` is computed by reachability from `Confirmed` — so adding
+  an outcome to the lifecycle graph teaches all three at once. `DocumentationOnly`
+  and `IssueFiled` were added to that graph rather than kept as a private list:
+  the §3.4 stateDiagram predates Step 8 and named neither
+- A status is a claim about a journey, and the trail is the only evidence for it.
+  Every status past Candidate is checked against `slice-execution.js`'s
+  `historyErrors` (exported for this) plus the requirement that the trail exists
+  at all — so `status: "Planned"` written onto a bare row is refused, and a
+  record whose `status` and trail disagree cannot read as triaged. Outcomes are
+  counted off the trail, not off `status`: two merged decisions look like one
+  otherwise, because `status` shows only the last one written
+- The export gate is the strictest thing here, and fails closed at every step: an
+  unreadable severity is disclosure-sensitive rather than low; a disclosure record
+  is validated wherever it is present, at any severity, so a mistyped `"privat"`
+  cannot fall through to the public default; the record itself must pass
+  `validateFinding`, because a hand-written trail is not evidence; and a cleared
+  summary is scanned for secret shapes, assigned credentials at any length or
+  quoting, exploit-payload shapes, its own runnable reproduction, and eight-word
+  verbatim runs out of its own evidence. A field present but unreadable blocks —
+  a scanner that skips a field cannot tell it from one that held nothing
+- Two rules proposed in review were **removed rather than kept**, because no input
+  could violate them (a `Candidate -> Rejected` edge assertion the trail rules
+  already imply, and a redundant severity clause). A rule no test can turn red is
+  not a guarantee, it is a comment that runs
 - Runs in ~2s total via `npm run test:audit`
 - The remaining unbuilt gates from the program's own test plan are tracked in
   `id/reference/tech-debt.md`

@@ -168,7 +168,11 @@ describe("audit/scripts/schema.js", () => {
 
   test("T5.1 red/green proof — every declared status has a reachable transition edge except " +
     "the documented terminal states", () => {
-    const terminal = ["Rejected", "Duplicate", "AcceptedRisk", "Reopened"];
+    // DocumentationOnly joins the terminal set for the reason recorded in
+    // schema.js: the decision is the whole outcome. IssueFiled deliberately
+    // does NOT — it keeps Planned's `-> Fixed` edge, because a filed issue is
+    // work that is still owed.
+    const terminal = ["Rejected", "Duplicate", "AcceptedRisk", "DocumentationOnly", "Reopened"];
     for (const status of SCHEMA.STATUSES) {
       if (terminal.includes(status)) {
         assert.strictEqual(SCHEMA.TRANSITIONS[status], undefined, `${status} should have no outgoing edge`);

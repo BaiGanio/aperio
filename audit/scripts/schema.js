@@ -12,19 +12,40 @@ const SEVERITIES = ["low", "medium", "high", "critical"];
 const CONFIDENCES = ["low", "medium", "high"];
 const STATUSES = [
   "Candidate", "Rejected", "Confirmed", "Duplicate",
-  "AcceptedRisk", "Planned", "Fixed", "Reopened",
+  "AcceptedRisk", "DocumentationOnly", "Planned", "IssueFiled",
+  "Fixed", "Reopened",
 ];
 
 // Finding lifecycle (aperio-continuous-audit.md §3.4 "Finding lifecycle"
 // stateDiagram). Only these transitions are valid — any other pair, including
-// any transition out of a terminal state (Rejected, Duplicate, AcceptedRisk),
-// is rejected. Reopened has no outgoing edge in the diagram; re-triaging a
-// Reopened finding is a new Planned decision made by a human, not a schema
-// transition, so it stays terminal here too.
+// any transition out of a terminal state (Rejected, Duplicate, AcceptedRisk,
+// DocumentationOnly), is rejected. Reopened has no outgoing edge in the
+// diagram; re-triaging a Reopened finding is a new Planned decision made by a
+// human, not a schema transition, so it stays terminal here too.
+//
+// DocumentationOnly and IssueFiled are NOT in the §3.4 stateDiagram, but Step 8
+// names six triage outcomes — "duplicate, rejected, accepted risk,
+// documentation-only, implementation plan, or immediate issue" — and
+// aperio-continuous-audit-tests.md T8.1 requires every confirmed finding to
+// carry exactly one of Duplicate/AcceptedRisk/DocumentationOnly/Planned/
+// IssueFiled. The diagram is the older of the two and simply predates the
+// triage step; the two missing outcomes are added HERE, to the one lifecycle
+// graph, rather than letting triage.js keep a private second outcome list that
+// would then disagree with this table about what a valid status even is.
+//
+// Their edges follow the outcomes they behave like:
+//   DocumentationOnly — terminal, like AcceptedRisk. The decision IS the
+//     outcome: the behavior stays, the documentation changes. Nothing about
+//     the finding is left to verify later.
+//   IssueFiled — NOT terminal, like Planned. An issue is filed so the work can
+//     happen; the finding is still open until that work is verified, so it
+//     keeps the same `-> Fixed` edge Planned has. Making it terminal would let
+//     a wave close with real work recorded as finished.
 const TRANSITIONS = {
   Candidate: ["Rejected", "Confirmed"],
-  Confirmed: ["Duplicate", "AcceptedRisk", "Planned"],
+  Confirmed: ["Duplicate", "AcceptedRisk", "DocumentationOnly", "Planned", "IssueFiled"],
   Planned: ["Fixed"],
+  IssueFiled: ["Fixed"],
   Fixed: ["Reopened"],
 };
 
