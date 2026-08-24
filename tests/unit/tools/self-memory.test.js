@@ -146,6 +146,34 @@ describe("selfUpdateHandler", () => {
     assert.equal(queued.id, "bbbbbbbb-0000-0000-0000-000000000001");
   });
 
+  // The other half of the F-R2-06 fix's condition: when the store's vec_meta
+  // gate refuses (a reindex owns this store, issue #340) the embed is
+  // `deferred`, not failed — the reindex driver already owns the row, so a
+  // retry here would only re-race the same gate.
+  test("does not queue a retry when the embed is deferred by the vec_meta gate", async () => {
+    let queued = false;
+    let receivedEmbedding = "not called";
+    const ctx = makeCtx({
+      // Makes supportsVecMeta() true so the gate is actually consulted, and
+      // reports the store as mid-reindex so embedForStore defers.
+      listVecMeta:   async () => [],
+      seedVecMeta:   async () => {},
+      updateVecMeta: async () => {},
+      getVecMeta:    async () => ({ status: "reindexing" }),
+      updateSelf: async (id, input, embedding) => {
+        receivedEmbedding = embedding;
+        return { ...makeSelf(), ...input, id };
+      },
+    });
+    ctx.selfEmbeddingQueue = { enqueue: () => { queued = true; } };
+
+    const out = text(await selfUpdateHandler(ctx, { id: "bbbbbbbb-0000-0000-0000-000000000001", content: "New content" }));
+
+    assert.ok(!receivedEmbedding, "a deferred embed must reach updateSelf as falsy");
+    assert.ok(out.includes("✅ Updated self-memory"));
+    assert.equal(queued, false, "a deferred embed belongs to the reindex driver, not the retry queue");
+  });
+
   test("does not queue a retry when the embed succeeds", async () => {
     let queued = false;
     const ctx = makeCtx();
