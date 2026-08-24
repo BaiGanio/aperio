@@ -317,6 +317,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Rate limiting on setup + indexing/import endpoints; Helmet headers; 256 kb JSON body cap
 - Opt-in TLS/HTTPS (`APERIO_TLS_CERT` + `APERIO_TLS_KEY`, fail-loud on partial config)
 - Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)
+- Frontend supply-chain gate (`npm run check:sri`) — fetches every CDN asset pinned with an `integrity` attribute in `public/*.html`, recomputes the digest, and rejects a stale hash or a URL pinned to two different hashes across pages; a fetch failure warns instead of failing, so a CDN outage never blocks a build
 - Crash breaker (sliding window → supervised restart); scrubbed terminal error handler with correlation id
 - DB access via table-name whitelist
 - Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)

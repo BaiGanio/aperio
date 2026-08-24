@@ -71,6 +71,7 @@
     "gen:agent-rules": "node scripts/gen-agent-rules.js",
     "gen:agent-rules:check": "node scripts/gen-agent-rules.js --check",
     "i18n:check": "node scripts/diff-locales.js && node scripts/check-docs-i18n.js",
+    "check:sri": "node scripts/check-sri.js",
     "config:sync": "node scripts/config-sync.js",
     "// 6  database": "── apply migrations (Postgres by default, or the sqlite bootstrap) ──",
     "migrate": "node db/migrate.js",

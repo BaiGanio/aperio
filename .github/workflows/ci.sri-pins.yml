@@ -1,0 +1,72 @@
+name: (ci) SRI pins
+
+# Verify the Subresource Integrity hashes hand-pinned in public/*.html (#466).
+#
+#   bootstrap-icons@1.11.3 CSS  → index.html, setup.html, codegraph-atlas.html
+#   mermaid@11.12.0 JS          → index.html
+#
+# Neither package is in node_modules or public/vendor — they are pure CDN, so
+# the check must fetch the real bytes. That makes this the one CI job here that
+# needs the network, which is why it is its own path-filtered workflow rather
+# than a step in ci.generated-artifacts.yml: a jsDelivr hiccup must not be able
+# to touch an unrelated lockstep gate.
+#
+# Two triggers, for two different failure modes:
+#   * path filter — catches the bump that forgets the hash, or updates two of
+#     the three pages that share the bootstrap-icons pin and leaves the third.
+#   * weekly schedule — a pinned version is *supposed* to be immutable, but the
+#     bytes behind it live on someone else's server. If jsDelivr ever serves
+#     different bytes under the same URL, no PR would touch these paths and the
+#     path filter would never fire; every page would just silently lose its
+#     icons. The schedule is the only trigger that notices.
+#
+# Network policy: the script exits 0 on a fetch failure (network error, timeout,
+# HTTP 5xx after retries) and prints a ::warning:: UNVERIFIED annotation. It
+# exits 1 only when bytes were actually fetched and the hash is wrong, when the
+# pinned URL is gone (HTTP 4xx), or when two pages disagree about one URL —
+# i.e. only when something in this repo needs a human.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays 06:20 UTC — off the hour, so it does not pile onto the rush.
+    - cron: "20 6 * * 1"
+  push:
+    branches: [master, dev]
+    paths:
+      - public/**.html
+      - scripts/check-sri.js
+      - tests/unit/security/sri-check.test.js
+      - .github/workflows/ci.sri-pins.yml
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - public/**.html
+      - scripts/check-sri.js
+      - tests/unit/security/sri-check.test.js
+      - .github/workflows/ci.sri-pins.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Pinned CDN assets still hash to their integrity attribute
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+
+      # No npm ci: the script is dependency-free (node:crypto + global fetch),
+      # which keeps the one network-dependent job as small as possible.
+      - name: Parsing and policy unit tests (no network)
+        run: NODE_ENV=test node --test tests/unit/security/sri-check.test.js
+
+      - name: Fetch each pinned asset and recompute its digest
+        run: npm run check:sri

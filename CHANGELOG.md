@@ -89,6 +89,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **The hand-pinned SRI hashes in `public/*.html` are now verified (#466).**
+  Three pages load CDN assets behind Subresource Integrity hashes written by
+  hand — `bootstrap-icons@1.11.3` (shared by `index.html`, `setup.html` and
+  `codegraph-atlas.html`) and `mermaid@11.12.0` (`index.html`). Nothing checked
+  them, so a version bump that forgot a hash failed *silently*: the browser
+  simply drops the asset, and the icons or the diagram disappear with no error
+  a user reads and no CI failure.
+  - New `scripts/check-sri.js` (`npm run check:sri`) parses every element
+    carrying an `integrity` attribute, fetches the bytes, recomputes the digest
+    for the declared algorithm, and compares. It also asserts that one URL never
+    carries two different hashes across files — the half-finished bump that
+    updates two of the three shared pins and leaves the third dead.
+  - **A CDN outage never reddens the build.** A network error, timeout or HTTP
+    5xx (after retries) exits 0 with a loud `UNVERIFIED` warning; only bytes
+    that were actually fetched and hash wrong, a pinned URL that has gone away
+    (HTTP 4xx), an unsupported algorithm, or a cross-file conflict exit 1.
+  - New `.github/workflows/ci.sri-pins.yml` runs it, path-filtered on
+    `public/**.html` and the script, **plus a weekly schedule**: a pinned
+    version is supposed to be immutable, but the bytes live on someone else's
+    server, and no PR would ever touch these paths to notice a change.
+  - The fetch sits behind an injectable seam, so
+    `tests/unit/security/sri-check.test.js` covers parsing, cross-file
+    conflicts, mismatches, and every could-not-fetch case against a fake fetch
+    without making `npm test` depend on the network.
+
 - **Every built-in provider loop now has a per-turn tool-step cap.** New
   `APERIO_TURN_MAX_TOOL_STEPS` (default 6, 0 disables) bounds how many
   tool-calling passes one reply may spend in the llama.cpp, DeepSeek, Anthropic

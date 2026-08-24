@@ -49,6 +49,18 @@ GitHub Actions workflows in `.github/workflows/`:
   `vms/docker/**`, `server.js`, `db/**`, `lib/**`, and the manifests.
 - `ci.e2e-real.yml` — manual only (`workflow_dispatch`): runs
   `npm run test:e2e:real`, the real-app end-to-end suite, on `ubuntu-latest`.
+- `ci.sri-pins.yml` — verifies the hand-pinned Subresource Integrity hashes in
+  `public/*.html` (#466): fetches each `integrity=` asset from jsDelivr,
+  recomputes the digest, and asserts one URL never carries two different hashes
+  (the bootstrap-icons pin is duplicated across three pages). Path-filtered to
+  `public/**.html` + `scripts/check-sri.js`, **plus a weekly cron** — a pinned
+  version is supposed to be immutable, but the bytes sit on someone else's
+  server and no PR would touch these paths to notice a change. The one job here
+  that needs the network, which is why it is standalone: `npm run check:sri`
+  exits 0 with an `UNVERIFIED` warning on a fetch failure (network error,
+  timeout, 5xx) and exits 1 only on a real hash mismatch, a vanished pinned URL
+  (4xx), or a cross-file conflict, so a jsDelivr outage cannot redden an
+  unrelated PR. Dependency-free, so it skips `npm ci`.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit

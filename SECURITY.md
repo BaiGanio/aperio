@@ -290,9 +290,14 @@ and not with the sharp edges filed off.
   remaining jsDelivr assets (the Bootstrap Icons stylesheet and the Mermaid
   bundle) carry `integrity` hashes, and Prism is served from Aperio itself
   precisely because its autoloader pulls unhashable grammar files at runtime.
-  The icon font files that the Bootstrap Icons stylesheet requests are still
-  fetched without integrity checking. They are font data rather than executable
-  code, but a fully offline or fully-verified deployment should vendor them.
+  Those hashes are themselves verified — `npm run check:sri`
+  (`scripts/check-sri.js`, run by `.github/workflows/ci.sri-pins.yml` on any
+  change to `public/*.html` and again weekly) fetches each pinned asset,
+  recomputes its digest, and rejects a hash that no longer matches the bytes or
+  that disagrees between pages. What remains unverified is one level down: the
+  icon font files that the Bootstrap Icons stylesheet requests are fetched
+  without integrity checking. They are font data rather than executable code,
+  but a fully offline or fully-verified deployment should vendor them.
 
 ---
 
