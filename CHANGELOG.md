@@ -592,9 +592,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `agent.getActiveTurnCount()`; `createWatchdog()`'s `onIdle()`
   (`lib/helpers/shutdownGuard.js`) checks it at fire time via a new `isBusy`
   option and defers (rearming for another full window) instead of tearing
-  down while a turn is still active. `IDLE_SHUTDOWN`'s default stays `off`
-  (the mitigation already shipped for this issue) pending a live validation
-  run of the fix.
+  down while a turn is still active.
+
+  Two defects in that defer path are fixed with it. An explicit **"Quit
+  Aperio" press was swallowed whenever the model was generating**: `quit()`
+  routes through the same `onIdle()`, so the busy check deferred the user's
+  own request and the button silently did nothing — `quit()` now forces the
+  teardown, because a deliberate request is not a starved heartbeat. And a
+  deferred call **armed an idle timer even when the idle guard was disabled**
+  (`quit()` runs regardless of `enabled`), installing a dead-man's switch on
+  an install that had opted out; `arm()` now refuses to start a timer unless
+  the guard is enabled.
+
+  `IDLE_SHUTDOWN`'s default stays `off` deliberately. The mid-turn kill is
+  fixed, but a backgrounded tab with **no turn running** still has its
+  heartbeat throttled, and `HEARTBEAT_INTERVAL_SECONDS`/`IDLE_TIMEOUT_SECONDS`
+  default to 60/180 — one missed ping is fatal. Re-enabling by default needs a
+  liveness signal the browser cannot throttle; the config help text now says
+  this instead of citing the fixed bug.
 
 - **A MySQL/Postgres connection running the non-default backslash-escaping
   mode could have a valid write wrongly rejected.** `db_execute`'s

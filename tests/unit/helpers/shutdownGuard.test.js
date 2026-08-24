@@ -370,3 +370,54 @@ describe("createWatchdog — isBusy defers shutdown (issue #454)", () => {
     assert.equal(exitCalled, true, "default isBusy (false) must not change existing idle-shutdown behavior");
   });
 });
+
+// =============================================================================
+describe("createWatchdog — explicit quit outranks isBusy (issue #454 follow-up)", () => {
+
+  test("quit tears down immediately even while a turn is active", async () => {
+    // The isBusy defer exists so a STARVED HEARTBEAT never kills a live turn.
+    // An explicit "Quit Aperio" press is not a starved heartbeat — it is the
+    // user asking, and it must be obeyed at once. Deferring it made the button
+    // silently do nothing whenever the model was generating.
+    let exitCalled = false;
+    const httpServer = makeMockHttpServer();
+
+    const { quit } = createWatchdog({
+      enabled: false,
+      httpServer,
+      isBusy: () => true,
+      _exit: () => { exitCalled = true; },
+    });
+
+    await quit();
+
+    assert.equal(httpServer.closed, true, "HTTP server should be closed on an explicit quit");
+    assert.equal(exitCalled, true, "an explicit quit must not be deferred by a busy turn");
+  });
+
+  test("a deferred idle shutdown does not rearm when the idle guard is disabled", async (t) => {
+    // quit() works even when enabled=false. If such a call were ever deferred,
+    // the rearm would install an idle timer on an install that opted OUT of idle
+    // shutdown — later killing the server with no heartbeat contract at all.
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    let exitCalled = false;
+    let busy = true;
+    const { quit } = createWatchdog({
+      enabled: false,
+      timeoutMs: 500,
+      httpServer: makeMockHttpServer(),
+      isBusy: () => busy,
+      _exit: () => { exitCalled = true; },
+    });
+
+    await quit();
+    exitCalled = false;
+    busy = false;
+
+    t.mock.timers.tick(5000);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "no idle timer may be armed when the guard is disabled");
+  });
+});
