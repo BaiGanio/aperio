@@ -181,19 +181,25 @@ Extra capabilities, all off or at their default until you turn them on. These ar
 
 ### File path safety
 
-Seed-only: these populate the allowed-folders list on first run, then it's edited in the UI and persisted in the DB.
+Seed-only: these populate the allowed-folders list on first run, then it's edited in the UI and persisted in the DB. There is ONE list and it grants read AND write — Aperio has no read-only tier.
+
+#### `APERIO_ALLOWED_PATHS`
+
+list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Seed only. Comma-separated absolute paths that populate the allowed-folders list on first run; edited in the UI thereafter. There is ONE list and it grants BOTH read and write: the model may write, edit and delete anywhere under a folder you list here. Aperio has no read-only tier. Project dir + session scratch are always allowed.
 
 #### `APERIO_ALLOWED_PATHS_TO_READ`
 
 list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
-Seed only. Comma-separated absolute paths that populate the allowed read-folders list on first run; edited in the UI thereafter. Project dir + session scratch are always allowed.
+DEPRECATED alias for APERIO_ALLOWED_PATHS, kept so existing .env files keep working. It never granted read-only access — Aperio has a single allowed-folders list covering read and write alike, so anything listed here is merged into that one list. Use APERIO_ALLOWED_PATHS instead.
 
 #### `APERIO_ALLOWED_PATHS_TO_WRITE`
 
 list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
-Seed only. As above, for write access.
+DEPRECATED alias for APERIO_ALLOWED_PATHS, kept so existing .env files keep working. Merged into the same single list as the other two. Use APERIO_ALLOWED_PATHS instead.
 
 ### Shell execution (run_shell tool)
 

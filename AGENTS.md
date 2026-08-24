@@ -86,7 +86,8 @@ Critical env vars:
 - `APERIO_ENABLE_SHELL` — off by default; set `on` to enable
 - `APERIO_CODEGRAPH` / `APERIO_DOCGRAPH` — `on` to enable indexing
 - `APERIO_DB_ENCRYPT` — AES-256-GCM, key in OS keychain
-- `APERIO_ALLOWED_PATHS_TO_READ` / `APERIO_ALLOWED_PATHS_TO_WRITE` — gate file access
+- `APERIO_ALLOWED_PATHS` — seeds the one allowed-folders list, which grants read AND
+  write alike (no read-only tier); `_TO_READ` / `_TO_WRITE` are deprecated aliases
 
 Config registry: `lib/config.js`. Run `npm run gen:env` after adding keys,
 `npm run gen:env:check` before pushing (CI gate).

@@ -39,8 +39,10 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-voyage}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY}
-      APERIO_ALLOWED_PATHS_TO_READ: /app
-      APERIO_ALLOWED_PATHS_TO_WRITE: /app/var
+      # One list, and it grants read AND write — Aperio has no read-only tier.
+      # This was already the effective grant: the old _TO_READ=/app +
+      # _TO_WRITE=/app/var pair was merged into a single /app list at startup.
+      APERIO_ALLOWED_PATHS: /app
     volumes:
       - aperio_var:/app/var
     depends_on:

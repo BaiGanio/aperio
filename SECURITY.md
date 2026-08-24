@@ -167,21 +167,36 @@ and not with the sharp edges filed off.
   the default) is the second layer here — do not turn it off on an instance that
   renders untrusted content.
 
+- **There is no read-only tier. One allowed-folders list grants read *and*
+  write.** Aperio keeps a single app-wide list (`settings['allowed-paths']`,
+  `lib/routes/paths.js`) that serves as both the read ceiling and the write
+  ceiling: `isReadPathAllowed()` and `isWritePathAllowed()` consult the same
+  array, and `getActivePaths()` returns it for both `readPaths` and
+  `writePaths`. Any folder on that list is fully writable — `write_file`,
+  `edit_file`, `delete_file` and `run_node_script` may all act anywhere under
+  it. `APERIO_ALLOWED_PATHS` only *seeds* the list on first run; afterward the
+  DB setting is authoritative and is edited in Settings → Allowed folders.
+  `APERIO_ALLOWED_PATHS_TO_READ` and `APERIO_ALLOWED_PATHS_TO_WRITE` are
+  deprecated aliases that seed the same single list. In the web app they never
+  enforced a read/write split, in any version. One exception, now removed: up to
+  and including `0.69.0` the **standalone terminal** (`lib/terminal/standalone.js`)
+  did pass the two seeds as separate read and write lists, so a terminal-only
+  deployment that set the two variables to *different* values really did refuse
+  writes outside `_TO_WRITE`. It now uses the same single list as everything
+  else. If you are assessing such a configuration, treat those folders as
+  writable from this version on. If you need a folder the model can read but not
+  write, Aperio cannot express that — do not add it.
+
 - **Confirming an `index_folder` request grants that folder permanent,
-  app-wide read *and* write access — the prompt does not say so.** The
-  confirmation text reads `Action: Authorize and index <path>`
-  (`lib/agent/host-tools/index-folder.js`). What the confirm actually does is
-  call `setAllowlist([...paths, path])`, and Aperio keeps **one** allowed-folders
-  list that serves as both the read ceiling and the write ceiling —
-  `getActivePaths()` returns the same array for `readPaths` and `writePaths`
-  (`lib/routes/paths.js`). `APERIO_ALLOWED_PATHS_TO_READ` and
-  `APERIO_ALLOWED_PATHS_TO_WRITE` only *seed* that list on first run; after
-  that the DB setting `allowed-paths` is authoritative and the read/write
-  distinction no longer exists. The grant is also persisted, not scoped to the
-  indexing job or the session: from the moment you click confirm, every tool in
-  every later conversation — `write_file`, `edit_file`, `delete_file`,
-  `run_node_script` — may write anywhere under that folder, until you remove it
-  in Settings → Allowed folders. Confirm `index_folder` on a folder only if you
+  app-wide read *and* write access.** The confirm calls
+  `setAllowlist([...paths, path])`
+  (`lib/agent/host-tools/index-folder.js`), which appends to the single list
+  described above. The grant is persisted, not scoped to the indexing job or
+  the session: from the moment you click confirm, every tool in every later
+  conversation may write anywhere under that folder, until you remove it in
+  Settings → Allowed folders. The confirmation text says so in full — `Action:
+  Allow Aperio to read AND write anything under <path> (permanent, all future
+  sessions), then index it`. Confirm `index_folder` on a folder only if you
   would also hand the model write access to it.
 
 - **`db_query` and `db_execute` reach your real databases, and reads are not

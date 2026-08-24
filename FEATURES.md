@@ -48,7 +48,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Synthetic per-file nodes with persisted import edges and file-level import-cycle detection
 - Deterministic community detection (seeded Louvain), computed lazily per graph revision and cached
 - Bounded UI graph payload for visualization (`GET /api/codegraph/graph`)
-- Multi-repo support, honors `APERIO_ALLOWED_PATHS_TO_READ`
+- Multi-repo support, honors the allowed-folders list (`APERIO_ALLOWED_PATHS`)
 - Backends: Postgres and SQLite
 
 ## Doc Graph
@@ -295,7 +295,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - SSRF egress guard on `fetch_url` + image fetch — blocks loopback/link-local/private addresses, opt-outs `APERIO_ALLOW_INTERNAL_FETCH` / `APERIO_EGRESS_ALLOWLIST`; egress logging
 - Shell allowlist hardening — rejects node/python inline-eval, `find -exec`, non-read-only git, file args outside the allowlist; `curl` removed; `run_shell` is explicitly **not a sandbox**
 - Prompt-injection defense — output of external/read tools fenced as `UNTRUSTED EXTERNAL CONTENT`; per-turn taint flag; tainted-turn writes routed through the confirm gate
-- Confirm-on-write gate — `write_file` / `edit_file` / `append_file` execute directly for any target already inside `APERIO_ALLOWED_PATHS_TO_WRITE`; two-phase token-confirmed only when the turn is tainted by untrusted content (edit shows a capped unified diff); `delete_file` always uses the same durable approval path regardless of taint
+- Confirm-on-write gate — `write_file` / `edit_file` / `append_file` execute directly for any target already inside the allowed-folders list (`APERIO_ALLOWED_PATHS`, which grants read and write alike); two-phase token-confirmed only when the turn is tainted by untrusted content (edit shows a capped unified diff); `delete_file` always uses the same durable approval path regardless of taint
 - Durable interrupt persistence — the store and service layer can preserve pending sensitive actions across restart, validate decisions, expire stale descriptors, and atomically claim approved/edited actions before execution; file write/delete confirmations and `db_execute` database writes use it now, with API/UI decisions for approve, edit, reject, and respond
 - Secret deny-list — `read_file` / `edit_file` / attachments refuse `.env*`, `id_rsa`, `.pem`/`.key`, and known credential files before any extension check
 

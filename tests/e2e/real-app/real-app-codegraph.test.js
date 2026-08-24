@@ -45,9 +45,9 @@ test("Code graph smoke tests", async (t) => {
       APERIO_DOCGRAPH: "off",
       IDLE_SHUTDOWN: "off",
       APERIO_CONFIG_PRECEDENCE: "env",
-      // Folder indexing requires the target under the read allowlist —
+      // Folder indexing requires the target on the allowed-folders list —
       // the fixture's own runtimeRoot floor doesn't cover the repo tree.
-      APERIO_ALLOWED_PATHS_TO_READ: INDEX_TARGET,
+      APERIO_ALLOWED_PATHS: INDEX_TARGET,
     },
   });
 

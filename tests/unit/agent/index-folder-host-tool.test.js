@@ -70,7 +70,12 @@ test("index_folder confirmation authorizes an outside path and immediately start
   });
 
   const proposal = await tool.handler({ path: "/Users/me/outside-repo", target: "code" });
-  assert.match(proposal, /Authorize and index/);
+  // Pinned deliberately: the confirm grants permanent app-wide read AND write,
+  // so the prompt must say that, not just "authorize and index".
+  assert.match(
+    proposal,
+    /Action: Allow Aperio to read AND write anything under \/Users\/me\/outside-repo \(permanent, all future sessions\), then index it/,
+  );
   assert.match(proposal, /Token: idx_confirm123/);
   assert.deepEqual(authorized, [], "the first call must not silently widen Allowed Paths");
 

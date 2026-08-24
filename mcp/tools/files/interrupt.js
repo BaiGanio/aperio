@@ -1,7 +1,7 @@
 // mcp/tools/files/interrupt.js — write/edit/append/delete confirm-before-write
 // (WRITE-01). Mirrors delete_file's two-phase commit, but only for the
 // untrusted-content case. write_file / edit_file / append_file run directly for
-// any target already inside APERIO_ALLOWED_PATHS_TO_WRITE (isWritePathAllowed()
+// any target already inside the allowed-folders list (isWritePathAllowed()
 // is a hard gate the caller has already checked by the time needsWriteConfirm()
 // runs — a write outside the allowlist is rejected outright, never offered a
 // confirm flow). The one case that still stashes the write under a token for the

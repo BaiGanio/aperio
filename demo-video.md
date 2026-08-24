@@ -77,7 +77,7 @@ is always `aperio-main` (`lib/helpers/llamacppAliases.js`), not the raw repo id:
 
 **Isolation (v3, CRITICAL; v4 adds a second landmine)**: run the server with
 **cwd inside the scratchpad** (`cd <scratchpad>/approot && node <repo>/server.js`)
-AND pass `APERIO_ALLOWED_PATHS_TO_READ`/`_TO_WRITE=<scratchpad>/approot`
+AND pass `APERIO_ALLOWED_PATHS=<scratchpad>/approot`
 explicitly. The repo `.env`'s real allowlist otherwise seeds the fresh demo
 DB, and with `APERIO_DOCGRAPH=on` the watcher indexes the user's REAL
 projects — v3 leaked a real repo into the index this way, and the

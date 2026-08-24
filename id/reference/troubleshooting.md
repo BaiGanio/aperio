@@ -14,7 +14,7 @@
 | Symptom | Check |
 |---------|-------|
 | Shell tool returns "not allowed" | `APERIO_ENABLE_SHELL` defaults to `off`. Set it to `on` |
-| File reads/writes fail with path errors | `APERIO_ALLOWED_PATHS_TO_READ` / `APERIO_ALLOWED_PATHS_TO_WRITE` gate access. Default: project root only |
+| File reads/writes fail with path errors | The single allowed-folders list gates access (read and write alike); seeded by `APERIO_ALLOWED_PATHS`, edited in Settings → Allowed folders. Default: project root only |
 | `recall()` / vector search returns nothing | Embeddings may not be generated yet. Run bootstrap or check `EMBEDDING_PROVIDER` |
 | Code graph returns empty | `APERIO_CODEGRAPH` must be `on` and the repo must be indexed |
 

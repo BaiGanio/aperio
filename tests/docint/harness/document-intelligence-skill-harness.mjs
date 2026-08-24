@@ -251,7 +251,7 @@ async function indexCorpus(primary, secondary, dbPath) {
   process.env.DB_BACKEND = "sqlite";
   process.env.SQLITE_PATH = dbPath;
   process.env.APERIO_CONFIG_PRECEDENCE = "env";
-  process.env.APERIO_ALLOWED_PATHS_TO_READ = `${primary},${secondary}`;
+  process.env.APERIO_ALLOWED_PATHS = `${primary},${secondary}`;
   const { SqliteStore } = await import("../../../db/sqlite.js");
   const { indexRepo } = await import("../../../lib/docgraph/indexer.js");
   const store = await SqliteStore.init();
@@ -565,8 +565,7 @@ async function runModelPhase({ primary, secondary, dbPath }) {
   Object.assign(process.env, {
     PORT: String(webPort), APERIO_CONFIG_PRECEDENCE: "env", DB_BACKEND: "sqlite",
     SQLITE_PATH: dbPath,
-    APERIO_ALLOWED_PATHS_TO_READ: `${primary},${secondary}`,
-    APERIO_ALLOWED_PATHS_TO_WRITE: scratch,
+    APERIO_ALLOWED_PATHS: `${primary},${secondary},${scratch}`,
     APERIO_DOCGRAPH: "off", APERIO_CODEGRAPH: "off",
     IDLE_SHUTDOWN: "off",
     APERIO_CLAUDE_CODE_CWD: scratch,

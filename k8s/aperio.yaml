@@ -69,10 +69,12 @@ spec:
                   name: aperio-secrets
                   key: postgres-password
             # ---- Security / Paths ----
-            - name: APERIO_ALLOWED_PATHS_TO_READ
+            # One list, and it grants read AND write — Aperio has no
+            # read-only tier. This was already the effective grant: the old
+            # _TO_READ=/app + _TO_WRITE=/app/var pair was merged into a single
+            # /app list at startup.
+            - name: APERIO_ALLOWED_PATHS
               value: "/app"
-            - name: APERIO_ALLOWED_PATHS_TO_WRITE
-              value: "/app/var"
             # Let DB-saved UI settings override env vars (default is "env")
             - name: APERIO_CONFIG_PRECEDENCE
               value: "db"

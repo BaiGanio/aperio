@@ -11,6 +11,43 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The allowed-paths read/write split is gone — there was never one to keep.**
+  `APERIO_ALLOWED_PATHS_TO_READ` and `APERIO_ALLOWED_PATHS_TO_WRITE` named a
+  distinction the running app did not enforce: their values were merged into a
+  single seed (`DEFAULT_PATHS`), `loadAllowlist()` persisted one setting
+  (`allowed-paths`), `getActivePaths()` returned that one array for both
+  `readPaths` and `writePaths`, and `isReadPathAllowed()` / `isWritePathAllowed()`
+  consulted the same list. Two env vars therefore advertised a security control
+  that did not exist. Changes:
+  - New `APERIO_ALLOWED_PATHS` is the documented name for the one list. The two
+    old names remain as **deprecated aliases**; all three are merged into the
+    same seed, so no existing `.env`, container or install changes behaviour and
+    no install loses access. Nothing needs migrating.
+  - `SECURITY.md`, `AGENTS.md`, `FEATURES.md`, `id/whoami.md`,
+    `id/reference/troubleshooting.md`, the `lib/config.js` help text (and the
+    generated `.env.example` / `docs/config-reference.md`) now all state the
+    real rule: **one list, granting read and write alike, with no read-only
+    tier.** `SECURITY.md` adds it as a Known Limitation in its own right, and
+    says plainly that a read-but-not-write folder is something Aperio cannot
+    express.
+  - `index_folder`'s confirmation line now says what confirming actually grants:
+    `Action: Allow Aperio to read AND write anything under <path> (permanent,
+    all future sessions), then index it` — previously `Action: Authorize and
+    index <path>`, which understated a permanent, app-wide read+write grant at
+    the exact point where the user decides.
+  - `docker/docker-compose.prod.yml` and `k8s/aperio.yaml` set the single
+    `APERIO_ALLOWED_PATHS: /app`. Their previous `_TO_READ=/app` plus
+    `_TO_WRITE=/app/var` pair already resolved to exactly that at startup (the
+    union drops `/app/var` as a child of `/app`), so the containers' effective
+    grant is unchanged — it is now simply visible in the manifest.
+  - The one place the split was live, the standalone terminal
+    (`lib/terminal/standalone.js`), passed `DEFAULT_READ_PATHS` and
+    `DEFAULT_WRITE_PATHS` as separate lists and now passes the single
+    `DEFAULT_PATHS` for both. **Behaviour change, standalone terminal only:** if
+    you set the two old env vars to *different* values, the terminal previously
+    refused writes to a read-only-listed folder and now allows them, matching
+    the web app.
+
 - **Leaving `run_node_script` / `run_python_script` ungated is now recorded as a
   decision, not a gap.** Both tools execute code on the host with the user's
   privileges and remain outside `APERIO_ENABLE_SHELL` and `CONFIRMABLE_TOOLS`,
@@ -42,8 +79,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
     `setAllowlist([...paths, path])`, and Aperio keeps one allowed-folders list
     that is both the read ceiling and the write ceiling. The grant is therefore
     persistent, app-wide read **and** write for every later tool call and
-    session, while the prompt says only "Authorize and index". Documented under
-    Known Limitations; the prompt string itself is unchanged.
+    session. Documented under Known Limitations; the confirmation prompt was
+    reworded to match (see the allowed-paths entry below).
   - `db_query` / `db_execute` reach the user's own configured databases,
     production included, and were absent from `SECURITY.md`. `db_execute` is
     confirm-before-write; `db_query` and `db_schema` are not confirmed at all,
