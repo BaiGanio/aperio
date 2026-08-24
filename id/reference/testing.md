@@ -200,7 +200,13 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   could violate them (a `Candidate -> Rejected` edge assertion the trail rules
   already imply, and a redundant severity clause). A rule no test can turn red is
   not a guarantee, it is a comment that runs
-- Runs in ~2s total via `npm run test:audit`
+- Runs in ~2s total via `npm run test:audit`, and is a root of `npm test`
+- On CI it is its own workflow, `ci.audit.yml`, with **no path filter** — the
+  contract gates assert against the real current source, so a change in `lib/`,
+  `mcp/`, or `db/` can turn them red and a filter on `audit/**` would miss
+  exactly the changes they exist to catch. Kept out of `test:ci` so the audit
+  gates stay out of the product coverage figure and the unit/integration
+  dashboards
 - The remaining unbuilt gates from the program's own test plan are tracked in
   `id/reference/tech-debt.md`
 

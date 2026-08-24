@@ -18,6 +18,16 @@ GitHub Actions workflows in `.github/workflows/`:
   data itself is generated unconditionally inside `ci.codecov.yml`'s
   `coverage-tests` job instead (so the Pages site stays fresh even when this
   workflow doesn't fire).
+- `ci.audit.yml` — the continuous-audit gates (`audit/tests`, T1–T9 of
+  `aperio-continuous-audit-tests.md`). Deliberately **not** path-filtered,
+  unlike `ci.agent-harness.yml`: the contract gates assert against the real
+  current source (`config-contract` reads `lib/config.js`, `registry-contract`
+  calls the real `mcp/tools/*.js` `register()` functions, `provider-contract`
+  reads the provider loops), so a change anywhere in `lib/`, `mcp/`, or `db/`
+  can turn them red — a filter on `audit/**` would miss exactly what they exist
+  to catch. Pure, no model, no network, ~1 s. Kept out of `test:ci` so the audit
+  gates stay out of the product coverage figure and the unit/integration
+  dashboards.
 - `ci.lite-smoke.yml` — lite install-path boot gate. On every push/PR touching the
   server boot path (`server.js`, `bootstrap.js`, `lib/**`, `db/**`, `mcp/**`) or
   the launchers under `.github/lite/**`, across Linux, macOS, and Windows:

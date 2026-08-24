@@ -1,0 +1,49 @@
+name: (ci) continuous-audit gates
+
+# The T1–T9 gates from aperio-continuous-audit-tests.md, under `audit/tests`.
+# They are not self-contained: every contract gate asserts against the REAL
+# current source (`config-contract` reads lib/config.js, `registry-contract`
+# calls the real mcp/tools/*.js register() functions, `provider-contract` reads
+# the provider loops), so a change anywhere in lib/, mcp/, or db/ can turn them
+# red. That is why this workflow carries NO path filter, unlike
+# ci.agent-harness.yml — a filter on audit/** would miss exactly the changes
+# these gates exist to catch. The whole suite is pure and finishes in ~1s.
+#
+# Its own workflow rather than a root added to `test:ci`, so the audit gates
+# stay out of the product coverage figure and out of the unit/integration
+# dashboards, and a failure names itself on the checks list.
+#
+# T8.3 refuses a triage outcome whose promised regression test is not somewhere
+# the suite will really run it. This workflow is what makes that true of the
+# audit gates themselves.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the continuous-audit gates
+        run: npm run test:audit

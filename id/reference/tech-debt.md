@@ -156,15 +156,6 @@ housekeeping go in `A2D.md`, not here.
   was mutation-proved red before landing. `npm run test:audit` is now 462 tests /
   26 suites. T7 (journeys) and T9 (closeout, deltas) are still open.
 
-- 2026-08-23 **`audit/tests` runs in no CI workflow.** `npm run test:audit` now
-  hands the directory to `scripts/run-tests.js`, so a new audit regression is
-  picked up locally with no package.json edit — but neither `npm test` nor `npm run
-  test:ci` includes `audit/tests`, and no workflow calls `test:audit`. T8.3's
-  gate tells an author their promised regression test is "somewhere the suite
-  will really run it", and on CI that is still not true. Wiring it needs a
-  decision about where: its own workflow, or a root added to
-  `scripts/run-tests.js`.
-
 - 2026-08-23 **`test:e2e` and `test:e2e:real` still pass a glob to `node --test`.**
   `README.md` documents a Node 18 floor, and `node --test` gained glob expansion
   only in Node 22 — below that the quoted pattern is opened as a literal

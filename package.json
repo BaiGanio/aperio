@@ -27,7 +27,7 @@
     "test:only": "NODE_ENV=test node --test --test-name-pattern",
     "test:harness": "node scripts/run-tests.js tests/harness",
     "test:docint": "node scripts/run-tests.js tests/docint",
-    "test": "node scripts/run-tests.js --agent-quiet tests/unit tests/integration tests/e2e tests/harness tests/docint",
+    "test": "node scripts/run-tests.js --agent-quiet tests/unit tests/integration tests/e2e tests/harness tests/docint audit/tests",
     "test:unit": "node scripts/run-tests.js --agent-quiet tests/unit",
     "test:integration": "node scripts/run-tests.js --concurrency=1 --agent-quiet tests/integration",
     "test:e2e": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 'tests/e2e/**/*.test.js'",

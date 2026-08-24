@@ -35,6 +35,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `db_execute` → `db_query`) is 5 passes, so a document flow runs one pass short
   of the cap and deeper workloads should raise the variable.
 
+- **The continuous-audit gates now run on CI.** New `ci.audit.yml` runs
+  `npm run test:audit` (462 tests / 26 suites, ~1 s) on every push and pull
+  request to `master` and `dev`, and `audit/tests` joins the roots of `npm test`
+  so a local full run covers it too. Until now nothing on CI executed them,
+  which made T8.3 — the gate that refuses a triage outcome whose promised
+  regression test is not "somewhere the suite will really run it" — a rule the
+  repository did not keep about its own gates. Deliberately **not**
+  path-filtered, unlike `ci.agent-harness.yml`: the contract gates assert
+  against the real current source, so a change in `lib/`, `mcp/`, or `db/` can
+  turn them red and a filter on `audit/**` would miss exactly the changes they
+  exist to catch. Its own workflow rather than a root added to `test:ci`, so
+  the audit gates stay out of the product coverage figure and out of the
+  unit/integration dashboards, and a failure names itself on the checks list.
+
 - **Continuous audit: a triage gate (T8).** T6 says whether a whole audit wave
   may be believed; this is the layer after it — what a confirmed finding is
   allowed to become. It starts no process, calls no model and no network, and
