@@ -435,6 +435,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Security
 
+- **The standalone terminal now enforces the saved allowed-folders list, not
+  the `.env` seed.** `lib/terminal/standalone.js` never called
+  `loadAllowlist()` — only `lib/server/hydrateRuntime.js` and the codegraph /
+  docgraph indexers did — so the CLI ran on `DEFAULT_PATHS`, the list derived
+  from `APERIO_ALLOWED_PATHS` at module-import time. Folders added in
+  Settings → Allowed folders, or granted by confirming an `index_folder`
+  request, were invisible to it; and, the direction that matters, a folder
+  **removed** there stayed readable and writable in the terminal, so revoking
+  access did not revoke it for the CLI. A DB-stored `APERIO_ALLOWED_PATHS`
+  never reached the terminal at all: `DEFAULT_PATHS` is a module-level constant
+  frozen when `lib/routes/paths.js` is first imported, which the terminal's
+  static import graph did — transitively, through `lib/handlers/attachments` —
+  before `applyConfigToEnv()` ran. Both halves are fixed: config and allowlist
+  hydration moved into a new `lib/terminal/runtime.js` that has no static
+  imports of its own and is called first in `runStandalone()`, and the two
+  `runWithPaths()` call sites now pass the live `getAllowlist()`. That last
+  change also fixes a third defect — they previously passed `DEFAULT_PATHS`,
+  which carries **no hard floor**, so an allowed-folders list pointing outside
+  the project locked the terminal out of its own `var/scratch` session
+  workspace. Hydration is deliberately non-fatal: an unreachable database falls
+  back to the `.env` seed plus the floor with a visible warning, because the
+  terminal is the tool you use to repair a broken database. Regression cover in
+  `tests/integration/terminal/runtime.test.js`, including a child-process probe
+  that fails if any future static import re-freezes the seed.
+
 - **The SQLite database is now created `0600` and repaired to `0600` on open.**
   `.sqlite/aperio.db` holds provider API keys since the settings overlay landed,
   but better-sqlite3 creates the file itself, so the process umask decided its

@@ -187,6 +187,28 @@ and not with the sharp edges filed off.
   writable from this version on. If you need a folder the model can read but not
   write, Aperio cannot express that — do not add it.
 
+- **Fixed: the standalone terminal enforced the *env seed*, not the saved
+  allowed-folders list.** Up to and including `0.69.0`,
+  `lib/terminal/standalone.js` never called `loadAllowlist()` — only the server
+  (`lib/server/hydrateRuntime.js`) and the two graph indexers did. The terminal
+  therefore enforced `DEFAULT_PATHS`, the list derived from
+  `APERIO_ALLOWED_PATHS` at module-import time, and two divergences followed.
+  Folders added in Settings → Allowed folders, or granted by confirming an
+  `index_folder` request, were invisible to it. And — the direction that
+  matters for an assessment — a folder **removed** in Settings stayed fully
+  readable and writable in the terminal, so revoking access there did not
+  revoke it for the CLI. A DB-stored `APERIO_ALLOWED_PATHS` never reached the
+  terminal at all: `DEFAULT_PATHS` is a module-level constant evaluated when
+  `lib/routes/paths.js` is first imported, which happened before the terminal
+  hydrated config from the DB. The terminal now hydrates the same list as
+  everything else (`lib/terminal/runtime.js`, called first in
+  `runStandalone()`), and the hydration is deliberately non-fatal: if the
+  database is unreachable it falls back to the `.env` seed plus the hard floor
+  with a visible warning, rather than locking you out of the tool you would use
+  to repair the database. **If you are assessing an installation at `0.69.0` or
+  earlier, audit `APERIO_ALLOWED_PATHS` in `.env` as well as the saved list —
+  in the terminal, the env value is the one that was enforced.**
+
 - **Confirming an `index_folder` request grants that folder permanent,
   app-wide read *and* write access.** The confirm calls
   `setAllowlist([...paths, path])`
