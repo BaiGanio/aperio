@@ -421,3 +421,113 @@ describe("createWatchdog — explicit quit outranks isBusy (issue #454 follow-up
     assert.equal(exitCalled, false, "no idle timer may be armed when the guard is disabled");
   });
 });
+
+// =============================================================================
+describe("createWatchdog — hasLiveClients defers shutdown (issue #454)", () => {
+
+  test("an open browser socket defers the kill even with no turn running", async (t) => {
+    // The HTTP heartbeat is a browser timer, and Chrome throttles background
+    // timers to ~1/min before freezing them outright — with 60 s/180 s defaults
+    // exactly one missed ping was fatal. The open WebSocket is a liveness signal
+    // the browser cannot throttle: pong frames are answered by the network stack
+    // even when the page's JS is frozen.
+    let exitCalled = false;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 1000,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+      hasLiveClients: () => true,   // a tab is still connected
+    });
+
+    heartbeat();
+    t.mock.timers.tick(1001);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "must not kill the server while a browser is connected");
+  });
+
+  test("shuts down once the last browser socket is gone", async (t) => {
+    let exitCalled = false;
+    let connected = true;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 1000,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+      hasLiveClients: () => connected,
+    });
+
+    heartbeat();
+    t.mock.timers.tick(1001);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+    assert.equal(exitCalled, false, "deferred while the tab is open");
+
+    connected = false; // last tab closed (or the ping sweep reaped a dead socket)
+    t.mock.timers.tick(1001);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+    assert.equal(exitCalled, true, "shuts down once no client is left");
+  });
+
+  test("explicit quit is not deferred by a connected browser", async () => {
+    let exitCalled = false;
+    const httpServer = makeMockHttpServer();
+
+    const { quit } = createWatchdog({
+      enabled: false,
+      httpServer,
+      hasLiveClients: () => true,
+      _exit: () => { exitCalled = true; },
+    });
+
+    await quit();
+
+    assert.equal(exitCalled, true, "an explicit quit must outrank a connected client");
+    assert.equal(httpServer.closed, true, "HTTP server should be closed on an explicit quit");
+  });
+
+  test("default hasLiveClients (false) leaves existing idle behavior unchanged", async (t) => {
+    let exitCalled = false;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled: true,
+      timeoutMs: 500,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+    });
+
+    heartbeat();
+    t.mock.timers.tick(501);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, true, "no client signal wired = behave exactly as before");
+  });
+
+  test("a client-deferred shutdown does not arm a timer when the guard is disabled", async (t) => {
+    // Same trap as the isBusy defer: quit() runs with enabled=false, so a defer
+    // that rearmed would install a dead-man's switch on an opted-out install.
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    let exitCalled = false;
+    const { quit } = createWatchdog({
+      enabled: false,
+      timeoutMs: 500,
+      httpServer: makeMockHttpServer(),
+      hasLiveClients: () => true,
+      _exit: () => { exitCalled = true; },
+    });
+
+    await quit();
+    exitCalled = false;
+
+    t.mock.timers.tick(5000);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "no idle timer may be armed when the guard is disabled");
+  });
+});

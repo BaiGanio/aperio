@@ -236,3 +236,88 @@ describe("broadcastToClients", () => {
     assert.doesNotThrow(() => result.broadcastToClients({ type: "test" }));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Liveness: ping/pong sweep + live-client count (issue #454)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Minimal ws-client stand-in that records what the sweep did to it. */
+function mockClient({ readyState = 1 } = {}) {
+  const listeners = {};
+  return {
+    readyState,
+    pings: 0,
+    terminated: 0,
+    on(event, fn) { (listeners[event] ??= []).push(fn); },
+    emit(event, ...args) { for (const fn of listeners[event] ?? []) fn(...args); },
+    ping() { this.pings++; },
+    terminate() { this.terminated++; },
+  };
+}
+
+describe("ws liveness sweep", () => {
+  test("a fresh connection starts alive and a pong refreshes it", () => {
+    const result = createWsServer(defaultOpts());
+    const client = mockClient();
+
+    result.wss.emit("connection", client, { url: "/" });
+    result.wss.clients.add(client);
+    assert.strictEqual(client.isAlive, true, "a new socket is alive");
+
+    result._pingSweep();                       // marks it pending and pings
+    assert.strictEqual(client.isAlive, false);
+    assert.strictEqual(client.pings, 1);
+
+    client.emit("pong");                       // the browser's network stack replies
+    assert.strictEqual(client.isAlive, true, "pong restores liveness");
+
+    result._pingSweep();
+    assert.strictEqual(client.terminated, 0, "a responsive socket is never terminated");
+  });
+
+  test("a socket that never pongs is terminated on the next sweep", () => {
+    // Laptop sleep or a dropped network leaves a socket that looks connected
+    // forever. Without this reaping, the liveness signal would keep the server
+    // alive indefinitely — the failure mode opposite to the false idle kill.
+    const result = createWsServer(defaultOpts());
+    const client = mockClient();
+
+    result.wss.emit("connection", client, { url: "/" });
+    result.wss.clients.add(client);
+
+    result._pingSweep();  // ping sent, no pong answered
+    assert.strictEqual(client.terminated, 0, "one missed sweep is not fatal");
+
+    result._pingSweep();  // still no pong → reap
+    assert.strictEqual(client.terminated, 1, "an unresponsive socket is terminated");
+  });
+
+  test("liveClientCount counts only OPEN sockets", () => {
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set([
+      mockClient({ readyState: 1 }),  // OPEN
+      mockClient({ readyState: 1 }),  // OPEN
+      mockClient({ readyState: 2 }),  // CLOSING
+      mockClient({ readyState: 3 }),  // CLOSED
+    ]);
+
+    assert.strictEqual(result.liveClientCount(), 2);
+  });
+
+  test("liveClientCount is 0 with no clients — the watchdog may shut down", () => {
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set();
+    assert.strictEqual(result.liveClientCount(), 0);
+  });
+
+  test("the sweep timer does not hold the event loop open and stops on wss close", () => {
+    const result = createWsServer(defaultOpts());
+    assert.ok(result._pingTimer, "a sweep timer is installed");
+    assert.strictEqual(result._pingTimer.hasRef(), false, "the timer must be unref'd");
+
+    result.wss.emit("close");
+    assert.strictEqual(result._pingTimer.hasRef(), false);
+    // Sweeping after close must not throw
+    assert.doesNotThrow(() => result._pingSweep());
+  });
+});

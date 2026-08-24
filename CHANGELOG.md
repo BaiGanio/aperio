@@ -604,12 +604,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
   an install that had opted out; `arm()` now refuses to start a timer unless
   the guard is enabled.
 
-  `IDLE_SHUTDOWN`'s default stays `off` deliberately. The mid-turn kill is
-  fixed, but a backgrounded tab with **no turn running** still has its
-  heartbeat throttled, and `HEARTBEAT_INTERVAL_SECONDS`/`IDLE_TIMEOUT_SECONDS`
-  default to 60/180 — one missed ping is fatal. Re-enabling by default needs a
-  liveness signal the browser cannot throttle; the config help text now says
-  this instead of citing the fixed bug.
+- **A backgrounded browser tab with no turn running was still killed as idle
+  (#454, the other half).** Fixing the mid-turn kill left the underlying
+  conflation in place: the watchdog treated "no `/api/heartbeat` ping arrived"
+  as "nobody is here". That ping is a page timer, and Chrome throttles
+  background timers to roughly once a minute before freezing them outright —
+  with `HEARTBEAT_INTERVAL_SECONDS`/`IDLE_TIMEOUT_SECONDS` at 60/180, exactly
+  one missed ping killed a perfectly live tab.
+
+  The server now takes its liveness from the open WebSocket instead. A ping
+  frame is answered by the browser's network stack rather than by page JS, so
+  it survives throttling and freezing. `lib/server/ws.js` gained a ping/pong
+  sweep — there was none anywhere in the codebase — which marks each socket
+  `isAlive` on connect, refreshes it on every `pong`, and terminates any socket
+  that misses two consecutive sweeps; the interval is `unref`'d and cleared when
+  the WS server closes. It exposes `liveClientCount()`, which
+  `createWatchdog()` consults through a new `hasLiveClients` option as a second
+  veto alongside `isBusy`. An explicit `quit()` still outranks both.
+
+  The sweep is what keeps the new signal honest in the opposite direction: a
+  socket orphaned by laptop sleep or a dropped network stays "open" forever and
+  would otherwise pin the server up indefinitely. Its interval derives from
+  `IDLE_TIMEOUT_SECONDS / 3` (clamped to 5-60 s) so both sweeps needed to reap a
+  dead socket fit inside one idle window.
+
+  `createWatchdog()` is now built **after** `createWsServer()` in
+  `lib/server.js` so it can actually receive `wss`. It never had been: `onIdle`'s
+  step 1 (terminate ws clients, close the WS server) was unreachable code, and
+  sockets only died as collateral of `httpServer.closeAllConnections()`.
+
+  `IDLE_SHUTDOWN`'s default stays `off` — a deliberate call, not a limitation of
+  the fix. Windows lite installs are covered either way, since
+  `.github/lite/assets/start.ps1` and `launch-hidden.ps1` force it `on` and that
+  path now gets the veto.
 
 - **A MySQL/Postgres connection running the non-default backslash-escaping
   mode could have a valid write wrongly rejected.** `db_execute`'s
