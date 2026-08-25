@@ -7,11 +7,17 @@ import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from '../lib/helpers/logger.js';
+import { rewriteVec0Tables, hasUnrewritableVec0 } from './sqlite/vecSupport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const MIGRATIONS_DIR = path.join(path.dirname(__filename), 'migrations-sqlite');
 
-export async function runSqliteMigrations(db) {
+// `vectorSupported: false` means sqlite-vec could not be loaded on this
+// platform. Every vec0 declaration is then rewritten into an ordinary table of
+// the same name and shape so the rest of the schema — triggers referencing the
+// sidecars, LEFT JOIN recall queries, embedding writes — applies unchanged.
+// See db/sqlite/vecSupport.js for why that is safe.
+export async function runSqliteMigrations(db, { vectorSupported = true } = {}) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version    TEXT PRIMARY KEY,
@@ -34,7 +40,19 @@ export async function runSqliteMigrations(db) {
   // failure doesn't leave the DB half-applied.
   const recordApplied = db.prepare(`INSERT INTO schema_migrations (version) VALUES (?)`);
   for (const file of pending) {
-    const sql = await readFile(path.join(MIGRATIONS_DIR, file), 'utf8');
+    let sql = await readFile(path.join(MIGRATIONS_DIR, file), 'utf8');
+    if (!vectorSupported) {
+      sql = rewriteVec0Tables(sql);
+      // A vec0 declaration this rewriter does not recognise would otherwise be
+      // executed as-is and fail with a bare "no such module: vec0". Name the
+      // migration instead — the fix is to teach vecSupport.js the new shape.
+      if (hasUnrewritableVec0(sql)) {
+        throw new Error(
+          `Migration ${file} declares a vec0 table in a shape db/sqlite/vecSupport.js `
+          + `cannot rewrite, and sqlite-vec is unavailable on this platform.`
+        );
+      }
+    }
     const tx  = db.transaction(() => {
       db.exec(sql);
       recordApplied.run(file);

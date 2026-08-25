@@ -189,7 +189,16 @@ describe("memory-compact-baseline script (G0-5)", () => {
     // that also writes into the shared var/memory-compaction/ dir.
     rmSync(LEDGER_FILE, { force: true });
     const before = existsSync(join(REPO_ROOT, "var")) ? readdirSync(join(REPO_ROOT, "var")) : [];
-    execFileSync("npm", ["run", "memory:baseline"], {
+    // `npm` is `npm.cmd` on Windows and execFileSync spawns without a shell or
+    // PATHEXT lookup, so spawning it by name fails there with ENOENT. Under
+    // `npm run test:integration` npm_execpath points at its own npm-cli.js;
+    // running that with this Node binary is platform-independent. Same reason
+    // and same shape as npmInvocation() in scripts/npm-audit-gate.js.
+    const npmCli = process.env.npm_execpath;
+    const [file, prefix] = npmCli && /(^|[\\/])npm-cli\.[cm]?js$/i.test(npmCli)
+      ? [process.execPath, [npmCli]]
+      : [process.platform === "win32" ? "npm.cmd" : "npm", []];
+    execFileSync(file, [...prefix, "run", "memory:baseline"], {
       cwd: REPO_ROOT,
       env: { ...process.env, MEMORY_COMPACT_EXAM_PATH: examPath, MEMORY_COMPACT_CORPUS_PATH: corpusPath },
       encoding: "utf8",

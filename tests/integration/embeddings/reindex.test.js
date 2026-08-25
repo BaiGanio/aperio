@@ -1265,3 +1265,66 @@ describe("issue #340 — write-time signature gate", () => {
     assert.equal(await isVectorSearchable(store, "memories"), true);
   });
 });
+
+// =============================================================================
+// A platform without sqlite-vec must not pay for embeddings it cannot use
+// =============================================================================
+describe("no vector support — stale is preserved, nothing is embedded", () => {
+  let store;
+
+  before(async () => {
+    store = await freshStore();
+    await ensureVecMeta(store, { signature: SIG_A, dims: 1024 });
+    for (let i = 0; i < 5; i++) {
+      await store.insert({ type: "fact", title: `unsupported ${i}`, content: `body ${i}` }, null);
+    }
+    // What SqliteStore.init() records on win32-arm64, where sqlite-vec has no
+    // prebuilt extension: the sidecars exist as ordinary tables, so writes and
+    // joins work and only `embedding MATCH ?` is impossible.
+    store._vectorSupported = false;
+  });
+  after(async () => { await store?.close?.(); });
+
+  test("runReindex costs zero embedding calls and leaves the store stale", async () => {
+    await store.updateVecMeta("memories", { status: VEC_STATUS.STALE });
+    const pendingBefore = (await store.listWithoutEmbeddings()).length;
+    assert.ok(pendingBefore > 0, "the fixture must actually have rows to embed");
+
+    const embedder = countingEmbedder();
+    const { supported, results } = await runReindex(store, {
+      generateEmbedding: embedder, signature: SIG_A, dims: 1024, stores: ["memories"],
+    });
+
+    assert.equal(embedder.calls, 0, "an unsearchable store must never be embedded");
+    assert.equal(supported, false);
+    assert.deepEqual(results, []);
+
+    // The marker is the record that this store owes a rebuild once the database
+    // is opened where the extension loads — the guard must preserve it, not
+    // clear it, and must not have taken the destructive clear step either.
+    const row = await store.getVecMeta("memories");
+    assert.equal(row.status, VEC_STATUS.STALE, "the stale marker must survive the skip");
+    assert.equal(
+      (await store.listWithoutEmbeddings()).length, pendingBefore,
+      "no row may have been cleared or embedded"
+    );
+    assert.equal(await isVectorSearchable(store, "memories"), false);
+  });
+
+  test("the CLI refuses with a non-zero exit instead of silently doing nothing", async () => {
+    await store.updateVecMeta("memories", { status: VEC_STATUS.STALE });
+
+    const { main } = await import("../../../scripts/embeddings-reindex.js");
+    const lines = [];
+    const code = await main([], {
+      log: (m) => lines.push(String(m)),
+      error: (m) => lines.push(String(m)),
+      store,
+    });
+    const out = lines.join("\n");
+
+    assert.equal(code, 1, out);
+    assert.match(out, /Vector search is unavailable/i);
+    assert.equal((await store.getVecMeta("memories")).status, VEC_STATUS.STALE);
+  });
+});

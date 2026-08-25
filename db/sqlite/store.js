@@ -27,12 +27,13 @@
 //     "higher = better" matches Postgres' ts_rank.
 
 import Database from 'better-sqlite3';
-import * as sqliteVec from 'sqlite-vec';
+import { loadVectorExtension, fallbackVecTableSql, reconcileVecSidecars } from './vecSupport.js';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { runSqliteMigrations } from '../migrate-sqlite.js';
 import logger, { logError } from '../../lib/helpers/logger.js';
+import { recordRebuiltVectorStores } from '../../lib/helpers/vecMeta.js';
 import { getOrCreateKey, prepareDatabase, finalizeDatabase, isEncryptionEnabled, isPlaintextSqlite } from '../encrypt.js';
 import { WIKI_SEED } from '../wiki-seed.js';
 import { MEMORY_SEED } from '../memory-seed.js';
@@ -92,8 +93,28 @@ export class SqliteStore {
     this.wiki     = new SqliteWiki(db);
     this.selfWiki = new SqliteWiki(db, SELF_WIKI_TABLES);
     this.cache = [];   // in-memory snapshot of current memories
+    // Whether sqlite-vec loaded. Assumed true until SqliteStore.init() says
+    // otherwise, so a directly-constructed store (tests, advanced callers)
+    // behaves exactly as it did before this flag existed.
+    this._vectorSupported = true;
+    this._rebuiltVectorStores = [];
     // PostgresStore exposes .pool; we don't, but expose .db for advanced
     // callers (e.g. codegraph handlers in Phase 2).
+  }
+
+  // Read by lib/helpers/vecMeta.js to serve every store FTS-only when the
+  // platform has no sqlite-vec extension. PostgresStore has no equivalent —
+  // pgvector is a server-side extension that is either installed or the
+  // migrations fail outright — so the gate treats `undefined` as supported.
+  get vectorSupported() {
+    return this._vectorSupported !== false;
+  }
+
+  // Logical store names whose vector storage was physically rebuilt at open
+  // time, destroying their embeddings. lib/helpers/embeddings.js marks these
+  // stale so the reindex driver refills them; empty on every ordinary boot.
+  get rebuiltVectorStores() {
+    return this._rebuiltVectorStores ?? [];
   }
 
   static async init() {
@@ -136,14 +157,42 @@ export class SqliteStore {
     // chmod after the fact cannot revoke a descriptor another local user grabbed
     // during that window. No-ops when the database already exists.
     if (!memory) precreateSecureFile(openPath);
+
+    // SECRET-02, pre-flight pass — precreateSecureFile only creates; it no-ops on
+    // a database that already exists, so a legacy 0644 install (and its 0644
+    // WAL/SHM) is still wide open at this point. The reconciliation below opens
+    // and, on a platform transition, writes those exact files, so they have to be
+    // tightened before it touches them rather than after.
+    if (!memory) _hardenDbFiles(openPath, dbPath);
+
+    // Pre-flight: a database whose sidecars were built on the *other* kind of
+    // machine has to be reconciled before anything queries it — a surviving
+    // vec0 table fails every read here with "no such module: vec0", and a
+    // surviving plain table silently breaks KNN back on a supported one.
+    // Its own connection, because deleting a schema row does not invalidate
+    // the deleting connection's cached schema. Skipped for :memory: and for a
+    // brand-new file, which have no sidecars yet.
+    let rebuiltVectorStores = [];
+    try {
+      if (!memory && !isFresh && existsSync(openPath)) {
+        rebuiltVectorStores = reconcileVecSidecars(openPath).rebuilt;
+      }
+    } finally {
+      // The pre-flight connection can materialise -wal/-shm sidecars of its own,
+      // carrying the same rows as the database file. In `finally` because a
+      // reconciliation that throws still leaves them behind, and that boot must
+      // not hand a legacy install to other local users on its way out.
+      if (!memory) _hardenDbFiles(openPath, dbPath);
+    }
+
     const db = new Database(openPath);
     // SECRET-02, first pass — tighten everything that exists the instant the
     // handle is open, before anything that can throw. better-sqlite3 creates the
     // file under the process umask (0644 by default) and it holds every memory
     // and, since #252, the provider API keys in the settings overlay. Everything
-    // between here and the second pass below can fail hard — sqliteVec.load() and
-    // runSqliteMigrations() both throw uncaught — and a boot that never finished
-    // must not leave a legacy install readable. The sidecars are included because
+    // between here and the second pass below can fail hard — runSqliteMigrations()
+    // still throws uncaught — and a boot that never finished must not leave a
+    // legacy install readable. The sidecars are included because
     // an unclean exit leaves them on disk (a clean close checkpoints them away),
     // so a pre-#466 database can arrive here with 0644 WAL/SHM already present
     // holding the same rows. restrictFileMode no-ops on the ones not yet created,
@@ -157,11 +206,11 @@ export class SqliteStore {
     db.pragma('synchronous = NORMAL');
     db.pragma('busy_timeout = 5000');
 
-    // Load sqlite-vec extension. allow_load_extension is required for ext APIs.
-    db.loadExtension = db.loadExtension.bind(db);   // safety: ensure presence
-    sqliteVec.load(db);
+    // Load sqlite-vec. A platform with no prebuilt extension (win32-arm64) is
+    // a supported degraded mode, not a fatal error — see db/sqlite/vecSupport.js.
+    const vectorSupported = loadVectorExtension(db);
     // Sanity check the dim — vec0 tables encode it at CREATE time.
-    if (!isFresh) {
+    if (!isFresh && vectorSupported) {
       try {
         const probe = db.prepare(`SELECT vec_length(?) AS d`).get(vecBuf(new Array(EMBED_DIMS).fill(0)));
         if (probe.d !== EMBED_DIMS) {
@@ -173,12 +222,28 @@ export class SqliteStore {
       }
     }
 
-    await runSqliteMigrations(db);
+    await runSqliteMigrations(db, { vectorSupported });
     // SECRET-02, second pass — sidecars the first pass could not have seen: the
     // WAL, SHM and journal files this boot materialised itself, which appear only
     // once the journal-mode pragma and the migrations start writing.
     if (!memory) _hardenDbFiles(openPath, dbPath);
     const store = new SqliteStore(db);
+    store._vectorSupported = vectorSupported;
+    // Read by lib/helpers/embeddings.js: these stores lost their vectors to the
+    // pre-flight above and need reindexing.
+    store._rebuiltVectorStores = rebuiltVectorStores;
+    // …and recorded in the database as well, because the property alone dies
+    // with the process. Only the server and the MCP entrypoint run
+    // checkEmbeddingProvider(); scripts/config-sync.js, the terminal runtime and
+    // both graph indexers open a store and exit without it. Any of those can be
+    // the first process to open a database after a platform transition, and the
+    // reconciliation above has already destroyed the vectors by then. The next
+    // server boot would find correctly-shaped, empty sidecars, an empty rebuilt
+    // list, and vec_meta still reading `current` — semantic search silently
+    // enabled over nothing. The marker is consumed and cleared by
+    // checkEmbeddingProvider(), which is also the first point where vec_meta
+    // rows are guaranteed to have been seeded.
+    if (rebuiltVectorStores.length) await recordRebuiltVectorStores(store, rebuiltVectorStores);
     await store.refreshCache();
     // Persist encryption state so close() can re-encrypt and clean up.
     store._encrypted        = encrypted;
@@ -940,7 +1005,14 @@ export class SqliteStore {
       const table = tables[i];
       try {
         this.db.prepare(`DROP TABLE IF EXISTS ${table}`).run();
-        this.db.prepare(`CREATE VIRTUAL TABLE ${table} USING vec0(rowid INTEGER PRIMARY KEY, embedding FLOAT[${dims}])`).run();
+        // Without the extension the sidecar is an ordinary table of the same
+        // name and width, so the resize keeps the schema self-consistent (and
+        // getVectorDims() readable) even though nothing will KNN-query it.
+        this.db.prepare(
+          this.vectorSupported
+            ? `CREATE VIRTUAL TABLE ${table} USING vec0(rowid INTEGER PRIMARY KEY, embedding FLOAT[${dims}])`
+            : fallbackVecTableSql(table, dims)
+        ).run();
       } catch (err) {
         const done = tables.slice(0, i);
         const notDone = tables.slice(i);

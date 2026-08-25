@@ -9,7 +9,92 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **Aperio no longer crashes on platforms without a prebuilt `sqlite-vec`
+  (win32-arm64).** `sqliteVec.load(db)` sat uncaught in `SqliteStore.init()`,
+  so on a Windows-on-ARM machine the first thing that opened the database threw
+  `Unsupported platform for sqlite-vec` and took the boot with it — the lite
+  smoke check never caught it because `/api/bootstrap/state` answers before the
+  store is opened. The load now degrades instead of throwing (new
+  `db/sqlite/vecSupport.js`): when the extension is unavailable, every `vec0`
+  sidecar in `db/migrations-sqlite/*.sql` is applied as an ordinary table of the
+  same name and declared width, so the cleanup triggers still resolve, the
+  `LEFT JOIN vec_*` recall and list queries still run, embedding writes still
+  land, and `getVectorDims()` still reads its width. Only KNN
+  (`embedding MATCH ? AND k = ?`) is impossible, and `isVectorSearchable()` in
+  `lib/helpers/vecMeta.js` now consults `store.vectorSupported` and serves every
+  store full-text-only on such a platform. A migration declaring a `vec0` table
+  in a shape the rewriter does not recognise fails loudly and names itself
+  rather than being silently mangled. A database carried *between* the two kinds
+  of machine is reconciled at open time (`reconcileVecSidecars`): a surviving
+  `vec0` sidecar is removed by deleting its schema row and dropping vec0's
+  shadow tables — `DROP TABLE` calls into the missing module and fails the same
+  way everything else does — and recreated as a plain table, while a sidecar
+  left plain by such a machine is rebuilt as `vec0` when it returns to a
+  supported one. Both directions destroy the stored vectors, which is
+  unavoidable and recoverable: the affected stores are reported through
+  `store.rebuiltVectorStores` and marked stale, so the reindex driver refills
+  them. An interrupted rebuild is recoverable too — every statement involved
+  autocommits (`vec0` does not participate in rollback at all), so a crash
+  between a `DROP` and its `CREATE` leaves a sidecar absent, and a sidecar that
+  is absent while its declaring migration is already recorded is now detected
+  and recreated on the next open instead of failing every later write with
+  "no such table". Sidecars that disagree about their *width* are detected the
+  same way and rebuilt to one authoritative dimension — `resizeVectorStorage()`
+  replaces the five one at a time and cannot be made atomic, so an interruption
+  leaves the early tables at the new width and the rest at the old one; every
+  table is then the right kind, and `getVectorDims()` reads only `vec_memories`,
+  so nothing downstream could see the split and the stores left behind could
+  never finish a reindex. The list of stores whose storage was rebuilt is now
+  also written into `settings`, not just carried on the store object: the first
+  process to open a database after a platform transition is often not the server
+  (`scripts/config-sync.js`, the terminal runtime, either graph indexer), and it
+  destroys the vectors and exits without ever running the provider check, which
+  used to leave the next boot with empty sidecars and `vec_meta` still reading
+  `current` — semantic search silently enabled over nothing. The marker
+  accumulates across such openings and is cleared only once the stores have
+  actually been marked stale. The stores whose storage was rebuilt are marked stale in
+  `vec_meta` before the disabled-provider early return, so the signal survives a
+  boot with `EMBEDDING_PROVIDER=none` instead of being lost with the process —
+  it is discovered only at open, and a later re-enabled boot at the same
+  signature would otherwise read `current` over empty tables and schedule no
+  reindex. Reindexing is refused outright while vector storage is unsupported:
+  `runReindex()` is the one choke point, so both the boot-time background driver
+  and `npm run embeddings:reindex` (which now exits non-zero with the reason
+  instead of no-opping) stop there. The stale markers are preserved untouched,
+  and the machine spends no local inference or paid API call per row producing
+  blobs that no query can `MATCH` and that reconciliation discards the moment the
+  database is opened where the extension loads. Database hardening also moved ahead of the reconciliation and into a
+  `finally`: `precreateSecureFile()` no-ops on a database that already exists,
+  so a legacy 0644 install was being opened and written by the pre-flight before
+  anything tightened it. This also unblocks the nightly
+  `(ci) install matrix` full suite on `windows-11-arm`, where this single throw
+  accounted for 160 direct failures and most of the 339 cascaded ones.
+
 ### Changed
+
+- **The npm audit gate accepts dated, justified exceptions instead of sitting
+  red.** `(ci) npm audit` ran `npm audit --omit=dev --audit-level=high`
+  directly, which meant a single high advisory with no upstream fix at all
+  failed the check on every PR and drowned out real findings. It now runs
+  `scripts/npm-audit-gate.js` (`npm run audit:gate`), which applies the same
+  high/critical verdict but lets a specific advisory be accepted with a written
+  reason and a `reviewBy` date. The acceptance cannot rot: once the date passes,
+  or once the advisory stops appearing in the audit at all, the gate fails and
+  names the stale entry. It also refuses to read a report npm could not
+  actually produce: an unreachable registry or a missing lockfile makes `npm
+  audit --json` print `{"error": …}` and exit zero, which would otherwise have
+  looked like an audit with no findings. Two `image-size` advisories are accepted for now —
+  every published version is affected (last release 2.0.2, April 2025) and the
+  package reaches Aperio only through `pptxgenjs`, whose only npm-suggested
+  "fix" is a three-major downgrade. The `adm-zip` advisory reaching Aperio
+  through `onnxruntime-node` needed no exception: a new `overrides` entry pins
+  that transitive copy to the `^0.6.0` already used directly, which also
+  deduplicates it. The gate starts npm through `npm_execpath` (or `npm.cmd` when
+  run outside npm) rather than spawning `npm` as a native executable, which
+  `execFileSync` cannot resolve on Windows — the same fix the
+  `memory:baseline` integration test needed.
 
 - **Bootstrap Icons is served from Aperio, not from a CDN (#466).** This closes
   the last hole Subresource Integrity could not cover. `index.html`,

@@ -5,6 +5,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { generateEmbedding, initEmbeddings, checkEmbeddingProvider, getEmbeddingSignature, validateVoyageDims, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
 import { getEmbeddingBacklogSize } from "../../../lib/helpers/embedding-backlog.js";
+import { recordRebuiltVectorStores, readRebuiltVectorStores } from "../../../lib/helpers/vecMeta.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 function withMockFetch(mockFn, testFn) {
@@ -544,4 +545,144 @@ describe("validateVoyageDims", () => {
       });
     })
   );
+});
+
+// ─── rebuilt vector storage (sqlite-vec platform transition) ──────────────────
+//
+// SqliteStore rebuilds its vec_* sidecars at open time when a database moves
+// between a machine with the sqlite-vec extension and one without it. The
+// tables come back the right kind but EMPTY, while the embedding signature and
+// dimensions are untouched — so nothing in the ordinary configuration-change
+// path would ever notice, and vec_meta would keep reporting `current` over
+// storage with nothing in it.
+//
+// The signal is discovered exactly once, at open, and lives only on the store
+// object. That is why it has to be persisted above the disabled-provider early
+// return: a boot with EMBEDDING_PROVIDER=none would otherwise consume nothing
+// and drop it, and a later boot with the provider re-enabled at the same
+// signature would find `current` and schedule no reindex at all.
+
+function makeVecMetaStore({ rebuiltVectorStores = [], dims = 1024, signature = "transformers:mixedbread-ai/mxbai-embed-large-v1:1024", settings: initialSettings = {} } = {}) {
+  const rows = new Map(
+    ["memories", "wiki", "self_memories", "codegraph", "docgraph"].map(name => [
+      name,
+      { store_name: name, signature, dims, status: "current", vectors_cleared: false, reindex_owner: null, reindex_expires_at: null },
+    ])
+  );
+  const settings = new Map(Object.entries(initialSettings));
+  return {
+    rebuiltVectorStores,
+    settings,
+    getSetting: async (key) => settings.get(key) ?? null,
+    setSetting: async (key, value) => { settings.set(key, value); return value; },
+    deleteSetting: async (key) => settings.delete(key),
+    getVectorDims: async () => dims,
+    resizeVectorStorage: async () => {},
+    listVecMeta: async () => [...rows.values()],
+    getVecMeta: async (name) => rows.get(name) ?? null,
+    seedVecMeta: async () => false,
+    updateVecMeta: async (name, patch) => { Object.assign(rows.get(name), patch); },
+    statusOf: (name) => rows.get(name).status,
+    staleNames: () => [...rows.values()].filter(r => r.status === "stale").map(r => r.store_name).sort(),
+  };
+}
+
+describe("checkEmbeddingProvider — rebuilt vector storage", () => {
+  test("marks rebuilt stores stale even when the embedding provider is disabled", () =>
+    withEnv({ EMBEDDING_PROVIDER: "none" }, async () => {
+      const store = makeVecMetaStore({ rebuiltVectorStores: ["memories", "wiki"] });
+      await checkEmbeddingProvider(store);
+      // Persisted, not merely noted for this process — a disabled boot is
+      // exactly the one that used to lose the signal.
+      assert.deepEqual(store.staleNames(), ["memories", "wiki"]);
+    })
+  );
+
+  test("marks only the stores that were rebuilt, leaving the rest current", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: undefined }, async () => {
+      const store = makeVecMetaStore({ rebuiltVectorStores: ["codegraph"] });
+      await checkEmbeddingProvider(store);
+      assert.deepEqual(store.staleNames(), ["codegraph"]);
+      assert.equal(store.statusOf("memories"), "current", "an untouched store keeps its vectors");
+    })
+  );
+
+  test("a boot with nothing rebuilt leaves every store alone", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: undefined }, async () => {
+      const store = makeVecMetaStore();
+      await checkEmbeddingProvider(store);
+      assert.deepEqual(store.staleNames(), []);
+    })
+  );
+
+  test("ignores a store name that is not a known vector store", () =>
+    withEnv({ EMBEDDING_PROVIDER: "none" }, async () => {
+      const store = makeVecMetaStore({ rebuiltVectorStores: ["memories", "not_a_store"] });
+      await checkEmbeddingProvider(store);
+      assert.deepEqual(store.staleNames(), ["memories"]);
+    })
+  );
+
+  // The property alone dies with the process, and the process that first opens
+  // a database after a platform transition is very often not the server —
+  // scripts/config-sync.js, the terminal runtime and both graph indexers all
+  // open a store and exit without ever calling checkEmbeddingProvider. The
+  // vectors are already destroyed by then, so the durable marker written in
+  // SqliteStore.init() is the only thing that reaches the next server boot.
+  test("marks stores stale from the durable marker left by a process that never got here", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: undefined }, async () => {
+      const store = makeVecMetaStore({
+        rebuiltVectorStores: [],                       // a fresh open: nothing rebuilt now
+        settings: { vec_rebuilt_pending: ["memories", "codegraph"] },
+      });
+      await checkEmbeddingProvider(store);
+      assert.deepEqual(store.staleNames(), ["codegraph", "memories"]);
+      assert.equal(
+        store.settings.has("vec_rebuilt_pending"), false,
+        "the marker must be cleared once it has been acted on, not replayed forever"
+      );
+      assert.equal(store.statusOf("wiki"), "current", "an untouched store keeps its vectors");
+    })
+  );
+
+  test("the marker and this open's own rebuild are unioned, not one or the other", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: undefined }, async () => {
+      const store = makeVecMetaStore({
+        rebuiltVectorStores: ["wiki"],
+        settings: { vec_rebuilt_pending: ["wiki", "docgraph"] },
+      });
+      await checkEmbeddingProvider(store);
+      assert.deepEqual(store.staleNames(), ["docgraph", "wiki"]);
+    })
+  );
+});
+
+describe("the durable rebuilt-store marker", () => {
+  test("accumulates across openings instead of overwriting", async () => {
+    const store = makeVecMetaStore();
+    await recordRebuiltVectorStores(store, ["memories"]);
+    // A second process opens the same database before any server boot consumes
+    // the first one's marker. Losing "memories" here would leave it silently
+    // current over empty storage.
+    await recordRebuiltVectorStores(store, ["codegraph"]);
+    assert.deepEqual(
+      (await readRebuiltVectorStores(store)).sort(),
+      ["codegraph", "memories"]
+    );
+  });
+
+  test("drops names that are not known vector stores, and writes nothing for an empty list", async () => {
+    const store = makeVecMetaStore();
+    await recordRebuiltVectorStores(store, ["not_a_store"]);
+    await recordRebuiltVectorStores(store, []);
+    assert.equal(store.settings.has("vec_rebuilt_pending"), false);
+    assert.deepEqual(await readRebuiltVectorStores(store), []);
+  });
+
+  test("survives a store with no settings surface at all", async () => {
+    // PostgresStore never rebuilds sidecars, and test doubles need not carry
+    // the settings methods — neither may throw here.
+    assert.deepEqual(await recordRebuiltVectorStores({}, ["memories"]), []);
+    assert.deepEqual(await readRebuiltVectorStores({}), []);
+  });
 });

@@ -34,6 +34,7 @@ process.env.APERIO_DB_ENCRYPT = "0";
 
 const { SqliteStore, _hardenDbFiles } = await import("../../../db/sqlite.js");
 const { restrictFileMode, precreateSecureFile } = await import("../../../lib/helpers/secureFile.js");
+const { loadVectorExtension } = await import("../../../db/sqlite/vecSupport.js");
 
 // Mode bits only, stripping the file-type bits statSync reports.
 const modeOf = (p) => statSync(p).mode & 0o777;
@@ -145,6 +146,42 @@ describe("SqliteStore file permissions", () => {
 
     store = await SqliteStore.init();
     assert.equal(modeOf(dbPath), 0o600);
+  });
+
+  // The vec-sidecar reconciliation runs on its own connection *before* the
+  // store's handle is opened, so it is the earliest thing that can touch — and
+  // write to — a legacy 0644 database. Hardening therefore has to happen before
+  // it, and again if it throws.
+  test("a pre-flight reconciliation that dies still leaves the file 0600", { skip: !POSIX }, async () => {
+    await store.close?.();
+    store = null;
+
+    const raw = new Database(dbPath);
+    // The sidecar is a vec0 virtual table wherever the extension exists, and
+    // dropping one needs its module loaded.
+    loadVectorExtension(raw);
+    // 001_core.sql stays recorded while vec_memories disappears, so the
+    // pre-flight reads it as an interrupted rebuild and tries to recreate it —
+    // onto a name a view now occupies, which throws before init() opens
+    // anything of its own.
+    raw.exec("DROP TABLE IF EXISTS vec_memories");
+    raw.exec("CREATE VIEW vec_memories AS SELECT 1 AS rowid, NULL AS embedding");
+    raw.close();
+
+    chmodSync(dbPath, 0o644);            // a legacy install, mid-repair
+    assert.equal(modeOf(dbPath), 0o644);
+
+    await assert.rejects(() => SqliteStore.init());
+    assert.equal(modeOf(dbPath), 0o600, "the pre-flight must not be reached before hardening");
+
+    // Undo the sabotage. The sidecar is genuinely missing now, which is the
+    // interrupted-rebuild case the reconciliation recovers — so this also shows
+    // the next boot repairing itself.
+    const repair = new Database(dbPath);
+    repair.exec("DROP VIEW IF EXISTS vec_memories");
+    repair.close();
+    store = await SqliteStore.init();
+    assert.ok(store.db.prepare(`SELECT 1 FROM vec_memories`), "the sidecar should be back");
   });
 
   // Must run last: it leaves the database deliberately unopenable.

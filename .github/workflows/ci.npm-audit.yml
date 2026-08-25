@@ -3,6 +3,11 @@ name: (ci) npm audit
 # DEP-02 — surface known-vulnerable dependencies on every PR/push and weekly.
 # Fails the check only on high/critical advisories so a low-severity transitive
 # bump doesn't block merges; Dependabot handles the routine upgrades.
+#
+# The gate runs through scripts/npm-audit-gate.js rather than `npm audit
+# --audit-level=high` directly, so a high advisory with no upstream fix at all
+# can be accepted explicitly, with a reason and an expiry date, instead of
+# leaving the whole check permanently red. See that file for the current list.
 
 on:
   workflow_dispatch:
@@ -29,5 +34,5 @@ jobs:
         with:
           node-version: 26
 
-      - name: npm audit (high+ severity)
-        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (high+ severity, with dated exceptions)
+        run: node scripts/npm-audit-gate.js

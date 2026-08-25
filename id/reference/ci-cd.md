@@ -63,7 +63,14 @@ GitHub Actions workflows in `.github/workflows/`:
   unrelated PR. Dependency-free, so it skips `npm ci`.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
-- `ci.npm-audit.yml` — dependency audit
+- `ci.npm-audit.yml` — dependency audit. Runs `scripts/npm-audit-gate.js`
+  (`npm run audit:gate`) rather than `npm audit --audit-level=high` directly, so a
+  high/critical advisory with no upstream fix can be accepted explicitly with a written
+  reason and a `reviewBy` date instead of leaving the check permanently red. The
+  acceptance expires: once that date passes, or once the advisory stops appearing in the
+  audit at all, the gate fails and names the stale entry. It also refuses to read a
+  report npm could not produce — an unreachable registry makes `npm audit --json` print
+  `{"error": …}` and exit zero, which would otherwise look like a clean audit.
 - `ci.pr-guard.yml` / `ci.pr-lint-feedback.yml` — PR validation
 
 ## Local installation executors

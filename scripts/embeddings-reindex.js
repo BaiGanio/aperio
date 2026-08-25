@@ -73,7 +73,7 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
 
     const { getEmbeddingSignature, generateEmbedding, checkEmbeddingProvider, isEmbeddingDisabled } =
       await import("../lib/helpers/embeddings.js");
-    const { signatureString, supportsVecMeta, VEC_STATUS } = await import("../lib/helpers/vecMeta.js");
+    const { signatureString, supportsVecMeta, vectorStorageSupported, VEC_STATUS } = await import("../lib/helpers/vecMeta.js");
     const { runReindex, listPendingStores } = await import("../lib/embeddings/reindex.js");
 
     if (!supportsVecMeta(store)) {
@@ -120,6 +120,17 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
     // nothing else stands between it and runReindex.
     if (isEmbeddingDisabled()) {
       error("EMBEDDING_PROVIDER is disabled — refusing to reindex. Reindexing would clear each selected store's vectors and then be unable to rebuild them; enable embeddings first.");
+      return 1;
+    }
+
+    // No sqlite-vec on this machine: the vec_* sidecars are ordinary tables,
+    // so a reindex would pay for one embedding per row and write blobs that no
+    // query can MATCH — and that reconciliation destroys as soon as the
+    // database is opened where the extension loads. runReindex refuses too;
+    // this is here so the operator gets the reason instead of a silent no-op.
+    // `--status` above still reports, so the stale stores stay visible.
+    if (!vectorStorageSupported(store)) {
+      error("Vector search is unavailable on this platform (sqlite-vec has no prebuilt extension) — refusing to reindex. The embeddings would be unsearchable here and discarded on the next machine that can load the extension; the stores stay marked stale and will be rebuilt there.");
       return 1;
     }
 

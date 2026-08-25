@@ -47,6 +47,10 @@ aperio/
 ├── db/
 │   ├── index.js           # Store factory (auto-detects SQLite vs Postgres)
 │   ├── sqlite.js          # SQLite adapter (better-sqlite3 + sqlite-vec + FTS5)
+│   ├── sqlite/            # SQLite internals
+│   │   ├── store.js       # The store class itself
+│   │   └── vecSupport.js  # sqlite-vec availability + plain-table fallback and
+│   │                      # sidecar reconciliation for platforms with no prebuilt build
 │   ├── postgres.js        # Postgres adapter (pg + pgvector)
 │   ├── migrate.js         # Postgres migration runner
 │   ├── migrate-sqlite.js  # SQLite migration runner

@@ -25,6 +25,23 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Windows-on-ARM — the test suite still assumes POSIX paths
+
+- 2026-08-25 The nightly `(ci) install matrix` full suite on `windows-11-arm` failed 290
+  tests. Two thirds of that (160 direct + 297 cancelled of 704 failure blocks) was one
+  bug — `sqliteVec.load()` throwing uncaught because sqlite-vec ships no win32-arm64
+  build — and that is now fixed (`db/sqlite/vecSupport.js`, plain-table fallback). What
+  remains is ~247 blocks across ~40 test files that are genuinely Windows-hostile, not
+  product bugs: tests asserting on `/`-separated paths against `path.join` output,
+  memfs doubles rooted at `/mem/...` that Windows resolves to `C:\mem\...`, and a few
+  `spawn`/venv/`ENOENT` assumptions. Worst offenders by count:
+  `tests/integration/helpers/sessions.test.js` (60), `tests/integration/mcp/tools/files.test.js`
+  (30), `tests/integration/scripts/gen-agent-rules.test.js` (15). Until these are
+  normalized the nightly stays red on that one matrix leg — the other two legs
+  (`ubuntu-24.04-arm`, `macos-latest`) are green, and `(ci) lite smoke` boots on
+  `windows-11-arm` fine. Full per-file breakdown is reproducible from
+  `gh run view <id> --log-failed` on any nightly run.
+
 ## Continuous-audit program — the mandated verify-first test suite was never built
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially

@@ -161,7 +161,10 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Sub-agent spawn/delegation (`lib/agent/spawn.js`) — `spawnChild()`/`spawnParallel()` let an agent delegate a task to child agents built from its own `AgentSpec`, running the same `createAgent()`/`runAgentLoop()` path as any other agent. Every child spec is strictly narrower than its parent: `recursionDepth` decrements by one per hop (a spec with none left refuses to spawn further, without throwing) and `toolAllowlist` can never widen, enforced by reusing `lib/agent/bundle.js`'s administrator-narrowing checks via a new `narrowAgentSpec()` export. Each child's events are tagged with a distinct `agent_id` and forwarded into the parent's emitter; a failed or budget-exhausted child resolves as `{ ok: false }` instead of rejecting, so `spawnParallel()` always returns every sibling's result. `lib/workers/roundtable.js`'s hard-coded two-agent mode is not yet built on top of this (tracked in `A2D.md`).
 
 ## Storage
-- SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
+- SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`. On a platform
+  with no prebuilt `sqlite-vec` extension (win32-arm64 today) the vector sidecars are created as
+  ordinary tables instead: everything keeps working and recall serves full-text results only.
+  A database carried between the two kinds of machine is reconciled at open time
 - Postgres + pgvector — Docker, for multi-agent/production
 - Auto-detect backend (Postgres if Docker running, else SQLite)
 - SQLite at-rest encryption — AES-256-GCM, key stored in OS keychain (`APERIO_DB_ENCRYPT=1`)
