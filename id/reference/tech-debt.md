@@ -68,7 +68,22 @@ housekeeping go in `A2D.md`, not here.
   or an allowlist floor built from cwd will not match a resolved path. Do NOT stamp a
   `C:` drive letter: tests that mock `process.cwd()` supply a driveless path and win32
   `resolve` inherits the drive from cwd, so a real Windows run produces driveless paths
-  there — stamping one makes the simulation stricter than the machine.
+  there — stamping one makes the simulation stricter than the machine. (4) The one thing
+  the simulation CANNOT judge: a test that spawns a REAL child process. The child runs
+  without the loader, so a driveless backslash path it is handed is not absolute to it,
+  and it fails in a way real Windows (where `C:\…` is absolute) never would. Treat any
+  file matching `spawnSync|execFileSync|execSync|spawn\(|fork\(` as unmeasurable here —
+  its count must come from the nightly.
+- 2026-08-25 Measured worklist for the next batch, from a full simulated run of
+  `tests/unit` + `tests/integration` (298 files): 174 failing blocks + 56 cancelled, in
+  ~40 files. Highest-value files with NO child-spawn blind spot, in order:
+  `routes/config-schema.test.js` 22, `handlers/database-confirm.test.js` 14,
+  `routes/config-shadow-warning.test.js` 10, `handlers/data/dataHandlers.test.js` 10,
+  `unit/db/sqlite-file-mode.test.js` 9, `unit/helpers/capabilities.test.js` 7,
+  `terminal/runtime.test.js` 7, `routes/paths.test.js` 7 — the last is a Fragile Zone,
+  so verify any change there against the path-traversal tests rather than the count
+  alone. `scripts/gen-agent-rules.test.js` 14 and `scripts/model-tier-bench.test.js` 13
+  both spawn real children and are seam (4) above, not real work.
 
 ## Continuous-audit program — the mandated verify-first test suite was never built
 
