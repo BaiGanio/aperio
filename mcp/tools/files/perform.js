@@ -4,12 +4,13 @@
 
 import { existsSync } from "fs";
 import fs from "fs/promises";
+import { dirname } from "path";
 import { textOut } from "./helpers.js";
 
 export async function performWrite({ path: resolved, content, create_dirs = true, existedAtProposal = false, existingSize = null }) {
   try {
     if (create_dirs) {
-      const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+      const dir = dirname(resolved);
       if (dir) await fs.mkdir(dir, { recursive: true });
     }
 

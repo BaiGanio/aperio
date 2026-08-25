@@ -140,8 +140,13 @@ function makeStore(initialConns = []) {
 // =============================================================================
 
 describe("sampleDbPath", () => {
+  // sampleDbPath() builds its answer with path.join, so on Windows it comes back
+  // as "\\mem\\test\\sample-shop.db". Fold the separators once here and keep the
+  // expectations POSIX, like the SQLITE_PATH fixtures they are derived from.
+  const pos = (p) => p.replaceAll("\\", "/");
+
   test("resolves based on SQLITE_PATH env var", () => {
-    const path = sampleDbMod.sampleDbPath();
+    const path = pos(sampleDbMod.sampleDbPath());
     assert.ok(path.startsWith("/mem/test"));
     assert.ok(path.endsWith("sample-shop.db"));
   });
@@ -149,7 +154,7 @@ describe("sampleDbPath", () => {
   test("changes when SQLITE_PATH changes", () => {
     process.env.SQLITE_PATH = "/other/aperio.db";
     try {
-      const path = sampleDbMod.sampleDbPath();
+      const path = pos(sampleDbMod.sampleDbPath());
       assert.ok(path.startsWith("/other"));
     } finally {
       process.env.SQLITE_PATH = "/mem/test/aperio.db";

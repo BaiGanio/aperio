@@ -7,8 +7,17 @@
 
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { installMemfs } from "../../helpers/memfs.js";
+
+// lib/codegraph/indexer.js's walk() yields repo-relative paths in the HOST's
+// separator (path.relative), and the import resolver does path.join math on
+// them — so on Windows the whole graph is keyed "pkg\\a.js", self-consistently.
+// Fixtures and assertions here stay POSIX: nat() spells a POSIX fixture the way
+// the walker would on this platform, pos() folds a stored key back for
+// comparison. Two helpers at the boundary, no platform branch at any assertion.
+const nat = (p) => p.split("/").join(sep);
+const pos = (p) => p.replaceAll("\\", "/");
 
 const mem = installMemfs({ root: "/mem/cg" });
 let backend, extractTs;
@@ -16,7 +25,7 @@ let repoDir, oldPath, oldDims, store;
 
 async function* filesOf(root, rels) {
   for (const rel of rels) {
-    yield { abs: join(root, rel), rel, ext: { fn: extractTs, lang: "js" } };
+    yield { abs: join(root, rel), rel: nat(rel), ext: { fn: extractTs, lang: "js" } };
   }
 }
 
@@ -73,7 +82,7 @@ describe("codegraph intelligence — file nodes, confidence, revision", () => {
     const files = store.db.prepare(
       `SELECT qualified, name, kind FROM cg_symbols WHERE kind = 'file' ORDER BY qualified`
     ).all();
-    assert.deepEqual(files.map(f => f.qualified), ["pkg/a.js", "pkg/b.js", "pkg/util.js"]);
+    assert.deepEqual(files.map(f => pos(f.qualified)), ["pkg/a.js", "pkg/b.js", "pkg/util.js"]);
     assert.deepEqual(files.map(f => f.name), ["a.js", "b.js", "util.js"]);
   });
 
@@ -84,10 +93,10 @@ describe("codegraph intelligence — file nodes, confidence, revision", () => {
         FROM cg_edges e
         JOIN cg_symbols src ON src.id = e.src_symbol_id
         JOIN cg_symbols dst ON dst.id = e.dst_symbol_id
-       WHERE e.kind = 'imports' AND src.qualified = 'pkg/a.js' AND dst.kind = 'file'
-    `).all();
-    assert.ok(edge.some(r => r.dst === "pkg/b.js"), "a.js should import b.js");
-    const ab = edge.find(r => r.dst === "pkg/b.js");
+       WHERE e.kind = 'imports' AND src.qualified = ? AND dst.kind = 'file'
+    `).all(nat("pkg/a.js"));
+    assert.ok(edge.some(r => pos(r.dst) === "pkg/b.js"), "a.js should import b.js");
+    const ab = edge.find(r => pos(r.dst) === "pkg/b.js");
     assert.equal(ab.confidence, "INFERRED");
     assert.equal(ab.provenance, "import-resolver");
   });
@@ -97,8 +106,8 @@ describe("codegraph intelligence — file nodes, confidence, revision", () => {
       SELECT e.dst_symbol_id, e.dst_unresolved, e.confidence, e.confidence_score
         FROM cg_edges e
         JOIN cg_symbols src ON src.id = e.src_symbol_id
-       WHERE e.kind = 'imports' AND src.qualified = 'pkg/a.js' AND e.dst_unresolved = 'express'
-    `).get();
+       WHERE e.kind = 'imports' AND src.qualified = ? AND e.dst_unresolved = 'express'
+    `).get(nat("pkg/a.js"));
     assert.ok(row, "express import edge exists");
     assert.equal(row.dst_symbol_id, null);
     assert.equal(row.confidence, "EXTRACTED");
@@ -145,29 +154,29 @@ describe("codegraph traversal handlers (neighbors, path)", () => {
   const json = (r) => { assert.ok(!r.isError, r.content?.[0]?.text); return JSON.parse(r.content[0].text); };
 
   test("neighbors of a file node span imports in both directions", async () => {
-    const r = json(await handlers.neighborsHandler(ctx(), { qualified: "pkg/b.js", direction: "both", depth: 1 }));
-    const quals = r.nodes.map(n => n.qualified).sort();
+    const r = json(await handlers.neighborsHandler(ctx(), { qualified: nat("pkg/b.js"), direction: "both", depth: 1 }));
+    const quals = r.nodes.map(n => pos(n.qualified)).sort();
     assert.deepEqual(quals, ["pkg/a.js", "pkg/util.js"]); // a.js imports b.js; b.js imports util.js
-    assert.equal(r.seed.qualified, "pkg/b.js");
+    assert.equal(pos(r.seed.qualified), "pkg/b.js");
   });
 
   test("directed import path follows importer → imported", async () => {
-    const r = json(await handlers.pathHandler(ctx(), { from: "pkg/a.js", to: "pkg/util.js", directed: true, kinds: ["imports"] }));
+    const r = json(await handlers.pathHandler(ctx(), { from: nat("pkg/a.js"), to: nat("pkg/util.js"), directed: true, kinds: ["imports"] }));
     assert.equal(r.found, true);
     assert.equal(r.hop_count, 2);
-    assert.deepEqual(r.nodes.map(n => n.qualified), ["pkg/a.js", "pkg/b.js", "pkg/util.js"]);
+    assert.deepEqual(r.nodes.map(n => pos(n.qualified)), ["pkg/a.js", "pkg/b.js", "pkg/util.js"]);
   });
 
   test("directed path has no reverse route; undirected does", async () => {
-    const directed = json(await handlers.pathHandler(ctx(), { from: "pkg/util.js", to: "pkg/a.js", directed: true }));
+    const directed = json(await handlers.pathHandler(ctx(), { from: nat("pkg/util.js"), to: nat("pkg/a.js"), directed: true }));
     assert.deepEqual(directed, { found: false });
-    const undirected = json(await handlers.pathHandler(ctx(), { from: "pkg/util.js", to: "pkg/a.js", directed: false }));
+    const undirected = json(await handlers.pathHandler(ctx(), { from: nat("pkg/util.js"), to: nat("pkg/a.js"), directed: false }));
     assert.equal(undirected.found, true);
     assert.equal(undirected.hop_count, 2);
   });
 
   test("unknown symbol surfaces a resolution error, not found:false", async () => {
-    const r = await handlers.neighborsHandler(ctx(), { qualified: "pkg/nope.js::ghost" });
+    const r = await handlers.neighborsHandler(ctx(), { qualified: nat("pkg/nope.js") + "::ghost" });
     assert.equal(r.isError, true);
     assert.match(r.content[0].text, /No indexed symbol/);
   });

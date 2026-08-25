@@ -39,7 +39,7 @@ export function formatPathError(action, filePath) {
   // Guess a corrected path: strip any leading prefix that looks like a wrong
   // root alias and re-anchor to the actual primary allowed path.
   // Handles: /aperio/…, /home/user/projects/aperio/…, /project/…, etc.
-  const projectName = primary.split("/").pop();
+  const projectName = basename(primary);
   const projectRe  = new RegExp(`^.*?/${projectName}(?=/|$)`);
   const tail = filePath.replace(projectRe, "")    // strip up to and including /aperio
                         .replace(/^\/project\b/, ""); // /project/… → /…

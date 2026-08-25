@@ -20,6 +20,14 @@
 //
 // Paths NOT under the configured root fall through to the REAL fs, so the
 // module graph (winston, native bindings, etc.) still loads normally.
+//
+// The VFS is keyed POSIX-style. Code under test builds its paths with
+// path.resolve/join, so on Windows it asks for "C:\\mem\\a.md" where the fixture
+// was stored as "/mem/a.md". toKey() folds that spelling back at the mock
+// boundary — drop the drive the resolver stamped on, then swap the separators —
+// which keeps fixtures and assertions POSIX with no per-call platform branches.
+// Only VFS lookups are folded; the real-fs fall-through gets the caller's
+// original path, so a genuine "C:\\Users\\..." read still works on Windows.
 
 import { mock } from "node:test";
 import { createRequire } from "node:module";
@@ -52,26 +60,33 @@ export function installMemfs({ root = "/mem" } = {}) {
   // path -> { type: "file"|"dir", content: Buffer, mode: number, mtimeMs: number }
   const vfs = new Map();
   let clock = 1;
-  const inRoot = (p) => typeof p === "string" && (p === root || p.startsWith(root + "/"));
+  const toKey = (p) =>
+    typeof p === "string" ? p.replace(/^[A-Za-z]:/, "").replaceAll("\\", "/") : p;
+  const inRoot = (p) => {
+    const k = toKey(p);
+    return typeof k === "string" && (k === root || k.startsWith(root + "/"));
+  };
 
   const enoent = (op, p) => Object.assign(new Error(`ENOENT: ${op} '${p}'`), { code: "ENOENT", path: p });
   const eacces = (op, p) => Object.assign(new Error(`EACCES: ${op} '${p}'`), { code: "EACCES", path: p });
 
-  function mkdirp(p) {
+  function mkdirp(rawPath) {
+    const p = toKey(rawPath);
     p.split("/").filter(Boolean).reduce((acc, part) => {
       const cur = `${acc}/${part}`;
       if (!vfs.has(cur)) vfs.set(cur, { type: "dir", content: Buffer.alloc(0), mode: 0o755, mtimeMs: clock++ });
       return cur;
     }, "");
-    return p;
+    return rawPath;
   }
 
-  function writeFile(p, data) {
+  function writeFile(rawPath, data) {
+    const p = toKey(rawPath);
     const parent = p.slice(0, p.lastIndexOf("/"));
     if (parent && !vfs.has(parent)) throw enoent("open", p);
     const buf = Buffer.isBuffer(data) ? Buffer.from(data) : Buffer.from(String(data));
     vfs.set(p, { type: "file", content: buf, mode: 0o644, mtimeMs: clock++ });
-    return p;
+    return rawPath;
   }
 
   function makeStat(e) {
@@ -95,7 +110,8 @@ export function installMemfs({ root = "/mem" } = {}) {
     };
   }
 
-  function readEntry(op, p) {
+  function readEntry(op, rawPath) {
+    const p = toKey(rawPath);
     const e = vfs.get(p);
     if (!e || e.type !== "file") throw enoent(op, p);
     if (e.mode === 0) throw eacces(op, p);  // chmod 000 → unreadable
@@ -107,7 +123,8 @@ export function installMemfs({ root = "/mem" } = {}) {
     return enc ? buf.toString(enc) : Buffer.from(buf);
   }
 
-  function listDir(op, p) {
+  function listDir(op, rawPath) {
+    const p = toKey(rawPath);
     const e = vfs.get(p);
     if (!e || e.type !== "dir") throw enoent(op, p);
     const names = new Set();
@@ -121,17 +138,17 @@ export function installMemfs({ root = "/mem" } = {}) {
   }
 
   // ─── Sync ──────────────────────────────────────────────────────────────────
-  mock.method(fsSync, "existsSync", (p) => inRoot(p) ? vfs.has(p) : real.existsSync(p));
+  mock.method(fsSync, "existsSync", (p) => inRoot(p) ? vfs.has(toKey(p)) : real.existsSync(p));
 
   mock.method(fsSync, "statSync", (p, ...a) => {
     if (!inRoot(p)) return real.statSync(p, ...a);
-    const e = vfs.get(p);
+    const e = vfs.get(toKey(p));
     if (!e) throw enoent("stat", p);
     return makeStat(e);
   });
   mock.method(fsSync, "lstatSync", (p, ...a) => {
     if (!inRoot(p)) return real.lstatSync(p, ...a);
-    const e = vfs.get(p);
+    const e = vfs.get(toKey(p));
     if (!e) throw enoent("lstat", p);
     return makeStat(e);
   });
@@ -141,8 +158,9 @@ export function installMemfs({ root = "/mem" } = {}) {
 
   mock.method(fsSync, "readdirSync", (p, opts) => {
     if (!inRoot(p)) return real.readdirSync(p, opts);
-    const names = listDir("scandir", p);
-    return opts?.withFileTypes ? names.map((n) => makeDirent(n, vfs.get(`${p}/${n}`))) : names;
+    const key   = toKey(p);
+    const names = listDir("scandir", key);
+    return opts?.withFileTypes ? names.map((n) => makeDirent(n, vfs.get(`${key}/${n}`))) : names;
   });
 
   mock.method(fsSync, "writeFileSync", (p, data) => {
@@ -152,25 +170,28 @@ export function installMemfs({ root = "/mem" } = {}) {
   mock.method(fsSync, "mkdirSync", (p, opts) => {
     if (!inRoot(p)) throw new Error(`memfs: refusing real mkdirSync outside ${root}: ${p}`);
     if (opts?.recursive) return mkdirp(p);
-    const parent = p.slice(0, p.lastIndexOf("/"));
+    const key    = toKey(p);
+    const parent = key.slice(0, key.lastIndexOf("/"));
     if (parent && !vfs.has(parent)) throw enoent("mkdir", p);
-    vfs.set(p, { type: "dir", content: Buffer.alloc(0), mode: 0o755, mtimeMs: clock++ });
+    vfs.set(key, { type: "dir", content: Buffer.alloc(0), mode: 0o755, mtimeMs: clock++ });
   });
   mock.method(fsSync, "chmodSync", (p, mode) => {
-    const e = vfs.get(p);
+    const e = vfs.get(toKey(p));
     if (!e) throw enoent("chmod", p);
     e.mode = mode;
   });
-  mock.method(fsSync, "unlinkSync", (p) => { if (inRoot(p)) vfs.delete(p); });
+  mock.method(fsSync, "unlinkSync", (p) => { if (inRoot(p)) vfs.delete(toKey(p)); });
   mock.method(fsSync, "rmSync", (p, opts) => {
     if (!inRoot(p)) return;
-    if (opts?.recursive) { for (const k of [...vfs.keys()]) if (k === p || k.startsWith(p + "/")) vfs.delete(k); }
-    else vfs.delete(p);
+    const key = toKey(p);
+    if (opts?.recursive) { for (const k of [...vfs.keys()]) if (k === key || k.startsWith(key + "/")) vfs.delete(k); }
+    else vfs.delete(key);
   });
   mock.method(fsSync, "appendFileSync", (p, data) => {
-    const e = vfs.get(p);
+    const key = toKey(p);
+    const e   = vfs.get(key);
     const add = Buffer.isBuffer(data) ? data : Buffer.from(String(data));
-    vfs.set(p, { type: "file", content: e ? Buffer.concat([e.content, add]) : add, mode: e?.mode ?? 0o644, mtimeMs: clock++ });
+    vfs.set(key, { type: "file", content: e ? Buffer.concat([e.content, add]) : add, mode: e?.mode ?? 0o644, mtimeMs: clock++ });
   });
 
   // ─── Promises ────────────────────────────────────────────────────────────────
@@ -178,23 +199,25 @@ export function installMemfs({ root = "/mem" } = {}) {
     inRoot(p) ? decode(readEntry("open", p).content, opts) : real.readFile(p, opts));
   mock.method(fsProm, "stat", async (p, ...a) => {
     if (!inRoot(p)) return real.stat(p, ...a);
-    const e = vfs.get(p);
+    const e = vfs.get(toKey(p));
     if (!e) throw enoent("stat", p);
     return makeStat(e);
   });
   mock.method(fsProm, "readdir", async (p, opts) => {
     if (!inRoot(p)) return real.readdir(p, opts);
-    const names = listDir("scandir", p);
-    return opts?.withFileTypes ? names.map((n) => makeDirent(n, vfs.get(`${p}/${n}`))) : names;
+    const key   = toKey(p);
+    const names = listDir("scandir", key);
+    return opts?.withFileTypes ? names.map((n) => makeDirent(n, vfs.get(`${key}/${n}`))) : names;
   });
   mock.method(fsProm, "writeFile", async (p, data) => { if (!inRoot(p)) throw new Error(`memfs: refusing real writeFile outside ${root}`); writeFile(p, data); });
-  mock.method(fsProm, "mkdir", async (p, opts) => { if (inRoot(p)) (opts?.recursive ? mkdirp(p) : vfs.set(p, { type: "dir", content: Buffer.alloc(0), mode: 0o755, mtimeMs: clock++ })); });
+  mock.method(fsProm, "mkdir", async (p, opts) => { if (inRoot(p)) (opts?.recursive ? mkdirp(p) : vfs.set(toKey(p), { type: "dir", content: Buffer.alloc(0), mode: 0o755, mtimeMs: clock++ })); });
   mock.method(fsProm, "rm", async (p, opts) => {
     if (!inRoot(p)) return;
-    if (opts?.recursive) { for (const k of [...vfs.keys()]) if (k === p || k.startsWith(p + "/")) vfs.delete(k); }
-    else vfs.delete(p);
+    const key = toKey(p);
+    if (opts?.recursive) { for (const k of [...vfs.keys()]) if (k === key || k.startsWith(key + "/")) vfs.delete(k); }
+    else vfs.delete(key);
   });
-  mock.method(fsProm, "unlink", async (p) => { if (inRoot(p)) vfs.delete(p); });
+  mock.method(fsProm, "unlink", async (p) => { if (inRoot(p)) vfs.delete(toKey(p)); });
 
   mkdirp(root);
 
@@ -209,10 +232,11 @@ export function installMemfs({ root = "/mem" } = {}) {
     fsp: fsProm,
     mkdirp,
     writeFile,
-    chmod: (p, mode) => { const e = vfs.get(p); if (e) e.mode = mode; },
-    rm: (p) => vfs.delete(p),
-    exists: (p) => vfs.has(p),
-    read: (p) => vfs.get(p)?.content,
+    chmod: (p, mode) => { const e = vfs.get(toKey(p)); if (e) e.mode = mode; },
+    rm: (p) => vfs.delete(toKey(p)),
+    exists: (p) => vfs.has(toKey(p)),
+    read: (p) => vfs.get(toKey(p))?.content,
+    toKey,
     reset: () => { vfs.clear(); mkdirp(root); },
     restore: () => { mock.restoreAll(); vfs.clear(); },
   };

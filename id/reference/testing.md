@@ -222,6 +222,18 @@ implementations. "External" includes:
   modules that transitively use `"fs"` via dynamic `await import(...)`
   inside `before()`, never via static `import`, so the memfs patch is
   installed before ESM bindings snapshot.
+  The VFS is keyed **POSIX-style** and folds `\` to `/` in one `toKey()` at
+  the mock boundary, so a fixture written as `/mem/a.md` still answers the
+  `C:\mem\a.md` that `path.join` produces on Windows. Keep fixtures and
+  assertions POSIX and let the fold do the work — do not branch on
+  `process.platform` at each assertion. Only VFS lookups are folded; the
+  real-fs fall-through for out-of-root paths gets the caller's original
+  spelling, and `mem.writeFile()` / `mem.mkdirp()` echo back the path you
+  gave them rather than the internal key. A double that does its own path
+  math must match what the code under test would really be handed on that
+  platform — a double feeding POSIX paths to a product that joins them with
+  `path.join` hides genuine Windows behavior (see the Windows-on-ARM entry
+  in `id/reference/tech-debt.md`).
 - **Network**: mock `fetch` / `WebSocket` / `child_process.spawn` /
   HTTP requests. Never connect to a real service.
 - **AI providers**: mock `complete()` or inject a stub via DI

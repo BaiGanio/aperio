@@ -44,26 +44,31 @@ housekeeping go in `A2D.md`, not here.
   stays red on that one matrix leg — the other two legs (`ubuntu-24.04-arm`,
   `macos-latest`) are green, and `(ci) lite smoke` boots on `windows-11-arm` fine. Full
   per-file breakdown is reproducible from `gh run view <id> --log-failed` on any nightly
-  run. A Windows run can be reproduced on a POSIX host with an ESM loader that re-exports
-  `node:path`'s win32 half under the plain `"path"` specifier — it matched the nightly's
-  per-file counts exactly.
-
-## `write_file` never creates parent directories on Windows
-
-- 2026-08-25 `mcp/tools/files/perform.js:12` derives the parent directory with
-  `resolved.substring(0, resolved.lastIndexOf("/"))`. On Windows `resolved` is
-  `C:\\Users\\me\\aperio\\reports\\q3\\summary.md` — no forward slash — so `lastIndexOf`
-  returns `-1`, `substring(0, -1)` returns `""`, and the `if (dir)` guard skips the
-  `fs.mkdir` entirely. `create_dirs: true` (the default) is therefore a no-op on Windows,
-  and every `write_file` into a not-yet-existing directory fails with ENOENT. Same class of
-  bug as `mcp/tools/files/helpers.js:42`, where `primary.split("/").pop()` makes the
-  `🗂️ Project:` label render the whole path instead of the folder name (cosmetic).
-  The fix is `dirname()` from `node:path` in both places.
-  `tests/integration/mcp/tools/files.test.js` did not catch this because its VFS double
-  computed the parent with the *same* hardcoded `/`, so mock and product agreed on the
-  wrong answer. The double now uses proper path handling, and the three write tests
-  ("creates parent directories when create_dirs is true", plus the two outside-scratch
-  write-gate tests) fail under a Windows-path simulation until the product is fixed.
+  run.
+- 2026-08-25 Second batch normalized (~73 of those blocks, 9 files): the `toKey()` fold
+  went into the SHARED `tests/helpers/memfs.js` rather than into each test, which cleared
+  six of them at once (`docgraph/backends/sqlite.test.js`,
+  `docgraph/incremental.test.js`, `workers/skills.test.js`,
+  `workers/session-prune.test.js`, `mcp/tools/image.test.js`,
+  `handlers/attachments/imageHandler.test.js`) — only VFS lookups are folded, so the
+  real-fs fall-through still gets the caller's original path. Two needed their own
+  boundary helper (`codegraph/intelligence.test.js`, `db-connect/sample-db.test.js`) and
+  `mcp/tools/shell.test.js` needed nothing — its nightly count was the sqlite-vec
+  cascade. `codegraph/intelligence.test.js` was NOT a product bug: `lib/codegraph/
+  indexer.js`'s `walk()` yields repo-relative paths in the host separator, so the whole
+  graph is keyed `pkg\a.js` on Windows, self-consistently; the test was feeding POSIX
+  `rel` values the walker never produces. ~69 blocks across ~28 files remain.
+- **Reproducing a Windows run on a POSIX host.** An ESM loader that re-exports
+  `node:path`'s win32 half under the plain `"path"` specifier matches the nightly's
+  per-file counts, but only once three seams are calibrated — without them it invents
+  failures the real machine does not have. (1) Real Windows accepts BOTH `\` and `/` in
+  `fs` paths; macOS accepts only `/`, so fold `\` to `/` on every real-`fs` path
+  argument. (2) Windows `realpath` answers in backslashes; leave `node_modules` alone or
+  Node's own CJS loader breaks. (3) Windows `process.cwd()` answers in backslashes too,
+  or an allowlist floor built from cwd will not match a resolved path. Do NOT stamp a
+  `C:` drive letter: tests that mock `process.cwd()` supply a driveless path and win32
+  `resolve` inherits the drive from cwd, so a real Windows run produces driveless paths
+  there — stamping one makes the simulation stricter than the machine.
 
 ## Continuous-audit program — the mandated verify-first test suite was never built
 

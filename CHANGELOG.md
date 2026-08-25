@@ -11,6 +11,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`write_file` now creates parent directories on Windows.**
+  `mcp/tools/files/perform.js` derived the parent with
+  `resolved.substring(0, resolved.lastIndexOf("/"))`. A Windows path has no
+  forward slash, so `lastIndexOf` returned `-1`, `substring(0, -1)` returned
+  `""`, and the `if (dir)` guard skipped the `fs.mkdir` — making
+  `create_dirs: true` (the default) a silent no-op and failing every write into
+  a not-yet-existing folder with `ENOENT`. Both this and the same class of bug
+  in `mcp/tools/files/helpers.js` (where `primary.split("/").pop()` made the
+  `🗂️ Project:` label print the whole path instead of the folder name) now use
+  `dirname()` / `basename()` from `node:path`.
+
 - **Aperio no longer crashes on platforms without a prebuilt `sqlite-vec`
   (win32-arm64).** `sqliteVec.load(db)` sat uncaught in `SqliteStore.init()`,
   so on a Windows-on-ARM machine the first thing that opened the database threw
