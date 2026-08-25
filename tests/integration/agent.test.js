@@ -70,14 +70,14 @@ function createMockResponseStream(chunks) {
 
 const stubMcpTransport = (t) => {
   // Prevent StdioClientTransport from spawning anything
-  t.mock.method(StdioClientTransport.prototype, "start", async () => {});
-  t.mock.method(StdioClientTransport.prototype, "close", async () => {});
+  const start = t.mock.method(StdioClientTransport.prototype, "start", async () => {});
+  const close = t.mock.method(StdioClientTransport.prototype, "close", async () => {});
 
   // Make Client.connect() a no-op
   t.mock.method(Client.prototype, "connect", async () => {});
 
   // Make Client.listTools() return a predictable tool list with proper schema
-  t.mock.method(Client.prototype, "listTools", async () => ({
+  const listTools = t.mock.method(Client.prototype, "listTools", async () => ({
     tools: [
       {
         name: "test_tool",
@@ -102,6 +102,7 @@ const stubMcpTransport = (t) => {
   t.mock.method(Client.prototype, "callTool", async () => ({
     content: [{ type: "text", text: "No memories found." }],
   }));
+  return { start, close, listTools };
 };
 
 // ---------------------------------------------------------------------------
@@ -243,6 +244,51 @@ describe("createAgent initialization", () => {
     });
 
     assert.ok(agent, "Should still create agent even without prompts");
+  });
+
+  test("compatible agents reuse one MCP connection and only its owner closes it", async (t) => {
+    const transport = stubMcpTransport(t);
+    const closeClient = t.mock.method(Client.prototype, "close", async () => {});
+    const first = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "model-x" },
+    });
+    const connection = first.getMcpConnection();
+    const second = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "model-y" },
+      mcpConnection: connection,
+    });
+
+    assert.strictEqual(second.getMcpConnection(), connection);
+    assert.strictEqual(transport.listTools.mock.callCount(), 1);
+
+    await second.close();
+    assert.strictEqual(closeClient.mock.callCount(), 0);
+    await first.close();
+    await first.close();
+    assert.strictEqual(closeClient.mock.callCount(), 1);
+  });
+
+  test("rejects MCP sharing across the local/cloud privacy boundary", async (t) => {
+    stubMcpTransport(t);
+    const localAgent = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "model-x" },
+    });
+
+    await assert.rejects(
+      createAgent({
+        root: FAKE_ROOT,
+        version: "1.0.0",
+        providerConfig: { name: "anthropic", model: "cloud-model" },
+        mcpConnection: localAgent.getMcpConnection(),
+      }),
+      /local\/cloud privacy boundary/,
+    );
   });
 
   test("generated files execute in-process and inherit the active session scratch", async (t) => {
@@ -1827,6 +1873,39 @@ describe("persistAnswerArtifacts()", () => {
     const bigMd = "# Title\n\n" + Array.from({ length: 30 }, (_, i) => `- item ${i}`).join("\n");
     assert.equal(persistAnswerArtifacts("Here:\n```md\n" + bigMd + "\n```", missing).length, 1);
     assert.match(fs.readdirSync(missing)[0], /^[0-9a-f]{8}-build-1\.md$/);
+  });
+
+  // A plan document routinely carries its own ```mermaid block. The old regex
+  // paired the outer ```markdown fence with that inner opener, so the file on
+  // disk stopped at the diagram and the rest stayed in the chat bubble.
+  test("a markdown deliverable keeps a nested mermaid block instead of truncating there", () => {
+    const doc = [
+      "# Email Notification Service",
+      "",
+      "## Route",
+      "```mermaid",
+      "flowchart LR",
+      'T1["Choose Email Provider"] --> T3["Implement Rate Limiter"]',
+      "```",
+      "",
+      "## Frontier",
+      ...Array.from({ length: 25 }, (_, i) => `- [ticket-${i}](tickets/ticket-${i}.md)`),
+    ].join("\n");
+    const written = persistAnswerArtifacts("Here is the plan:\n```markdown\n" + doc + "\n```", dir);
+    assert.equal(written.length, 1);
+    const content = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), "utf8");
+    assert.ok(content.includes("flowchart LR"), content);
+    assert.ok(content.includes("- [ticket-24](tickets/ticket-24.md)"), content);
+  });
+
+  // An info string opens a block; it never closes one. Pairing on it cut the
+  // block in two and wrote only the half above the inner fence.
+  test("an info-string line does not close an earlier fence", () => {
+    const text = "```html\n" + bigHtml + "\n```js\nconsole.log(1)\n```";
+    const written = persistAnswerArtifacts(text, dir);
+    assert.equal(written.length, 1);
+    const content = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), "utf8");
+    assert.ok(content.includes("console.log(1)"), content);
   });
 });
 

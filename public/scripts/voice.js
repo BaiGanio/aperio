@@ -1,4 +1,34 @@
 (function () {
+  // Web Speech emits results in indexed chunks. After a pause the browser
+  // finalizes a chunk and the next event's `resultIndex` jumps past it, so
+  // reading only from `resultIndex` yields just the newest chunk. Keep every
+  // chunk by index (an index can go interim -> final and must be overwritten)
+  // and rebuild the full sentence on each event.
+  function createTranscriptAccumulator(baseText) {
+    const base  = typeof baseText === 'string' ? baseText : '';
+    const parts = [];
+    return {
+      text() {
+        const spoken = parts.join('');
+        if (!base) return spoken;
+        return base.replace(/\s*$/, '') + ' ' + spoken.replace(/^\s+/, '');
+      },
+      push(event) {
+        let sawFinal = false;
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          parts[i] = (result[0] && result[0].transcript) || '';
+          if (result.isFinal) sawFinal = true;
+        }
+        return { text: this.text(), isFinal: sawFinal };
+      },
+    };
+  }
+
+  // Exposed for unit tests; must stay above the capability guard below.
+  const g = typeof globalThis !== 'undefined' ? globalThis : window;
+  g.AperioVoiceTranscript = { createTranscriptAccumulator };
+
   const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Speech) return;
 
@@ -30,7 +60,10 @@
   let silenceTimer    = null;
   let continuousMode  = localStorage.getItem('aperio-voice-continuous') === 'true';
   let _pendingRestart = false;
-  const SILENCE_MS    = 1500;
+  let accumulator     = null;
+  // How long a pause must last before we treat the sentence as finished and
+  // send it. Short enough to feel snappy, long enough to survive a think-pause.
+  const SILENCE_MS    = 3000;
 
   function getLang() {
     const short = window.Aperio?.getCurrentLang?.() || 'en';
@@ -79,12 +112,8 @@ function buildRecognition() {
     r.onaudioend = () => console.log('[voice] onaudioend — mic closed');
 
     r.onresult = (e) => {
-      let transcript = '';
-      let isFinal    = false;
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        transcript += e.results[i][0].transcript;
-        if (e.results[i].isFinal) isFinal = true;
-      }
+      if (!accumulator) accumulator = createTranscriptAccumulator(chatInput.value);
+      const { text: transcript, isFinal } = accumulator.push(e);
       console.log('[voice] onresult — transcript:', JSON.stringify(transcript), '| isFinal:', isFinal);
       chatInput.value = transcript;
       chatInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -123,6 +152,7 @@ function buildRecognition() {
   function startListening() {
     if (isListening) return;
     console.group('[voice] startListening');
+    accumulator = createTranscriptAccumulator(chatInput.value);
     recognition = buildRecognition();
     try {
       recognition.start();
@@ -139,6 +169,7 @@ function buildRecognition() {
 
   function stopListening() {
     if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    accumulator = null;
     if (recognition) {
       try { recognition.stop(); } catch {}
       recognition = null;

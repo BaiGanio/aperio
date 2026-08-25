@@ -238,6 +238,20 @@
       border-radius: 0 !important;
     }
 
+    /* A ```markdown fence is rendered as a document (see renderMarkdown), so it
+       carries no box of its own — it reads as the answer, because it is. */
+    .md-doc > :first-child { margin-top: 0; }
+    .md-doc > :last-child { margin-bottom: 0; }
+
+    /* Should a markdown block ever fall back to a code box (nested too deep to
+       render), it is still prose: soft-wrap it rather than cut its sentences at
+       the right edge behind a scrollbar. pre-wrap keeps the leading spaces. */
+    .code-block pre code.language-markdown,
+    .code-block pre code.language-md {
+      white-space: pre-wrap !important;
+      overflow-wrap: anywhere;
+    }
+
     .code-toolbar {
       display: flex;
       align-items: center;

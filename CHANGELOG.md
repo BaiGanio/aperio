@@ -11,6 +11,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Voice input no longer loses everything said before a pause.** The Web Speech
+  handler rebuilt the textarea from `event.resultIndex` onward only. After a
+  pause the browser finalizes a chunk and advances `resultIndex`, so the next
+  event carried just the newest words — which then overwrote the whole input,
+  and the half-sentence was what got sent. Transcript chunks are now accumulated
+  by result index (an index that goes interim then final overwrites in place)
+  and the full sentence is rebuilt on every event. Text already typed in the box
+  is kept and appended to instead of being wiped. The pause that ends a dictated
+  turn and auto-sends it was also raised from 1.5s to 3s, so a think-pause no
+  longer cuts the turn short.
+
+- **Discuss no longer starts duplicate MCP tool-server processes.** Round-table
+  agents are now created lazily on the first Discuss turn and reuse an existing
+  MCP connection when they share its local/cloud privacy class. The normal
+  all-local configuration therefore keeps one `mcp/index.js` child before and
+  after Discuss instead of three; mixed local/cloud configurations retain one
+  connection per privacy class so local-only memories remain isolated. Agent
+  MCP ownership is explicit, concurrent first-use initialization is
+  single-flight, partial initialization is cleaned up, and graceful shutdown
+  closes every owned connection.
+
+- **Agent filesystem permissions no longer collapse to default-deny on Windows.**
+  `lib/security/agentPermissions.js`'s `pathIsUnder()` tested containment with a
+  hardcoded `"/"` separator, while `normalizePathResource()` builds both the rule
+  and the request path with `resolve()` — which answers `\repo\x` on Windows.
+  The prefix test could therefore never match, so every `read`/`write`/`execute`
+  rule degraded to exact-string equality and `evaluatePermission()` fell through
+  to `default-deny` for any real path. The delegation narrowing check failed the
+  same way, rejecting every child policy with `no-parent-allow`. Both failed
+  CLOSED, so no permission was ever wrongly granted. Containment is now anchored
+  on `path.sep`; sibling-prefix (`/repo/private-stuff` vs `/repo/private`) and
+  `..`-traversal behaviour is unchanged on both separators.
+
 - **`write_file` now creates parent directories on Windows.**
   `mcp/tools/files/perform.js` derived the parent with
   `resolved.substring(0, resolved.lastIndexOf("/"))`. A Windows path has no

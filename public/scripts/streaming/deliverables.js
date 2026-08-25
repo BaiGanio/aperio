@@ -51,17 +51,25 @@ function _scheduleStreamRender() {
 }
 
 function updateStreamingBubble(ref, text) {
-  const fenceCount = (text.match(/```/g) || []).length;
-  const hasOpenFence = fenceCount % 2 !== 0;
+  // Which block is still being typed is a pairing question, not a counting one.
+  // Counting ``` marks and splitting at the LAST one put the split inside a
+  // finished ```mermaid pair nested in an open ```markdown document: the chat
+  // showed a closed "markdown" box plus a second "code · streaming…" box for
+  // the same document. Ask the scanner instead — the block still open is the
+  // last part, and only if it never found its closing fence.
+  const parts = scanFences(text);
+  const last = parts.length ? parts[parts.length - 1] : null;
+  // A markdown document renders live, like prose — it IS the answer, and the
+  // diagram inside it should appear the moment its fence closes. Only a real
+  // code block still shows the raw "streaming…" box while it arrives.
+  const open = last && last.fence && !last.closed && !/^(?:markdown|md)$/i.test(last.lang)
+    ? last
+    : null;
 
-  if (hasOpenFence) {
-    const lastFence = text.lastIndexOf("```");
-    const before = text.slice(0, lastFence);
-    const inProgress = text.slice(lastFence + 3);
-
-    const firstNewline = inProgress.indexOf("\n");
-    const lang = firstNewline > 0 ? inProgress.slice(0, firstNewline).trim() : "";
-    const codeContent = firstNewline > 0 ? inProgress.slice(firstNewline + 1) : inProgress;
+  if (open) {
+    const before = parts.slice(0, -1).map(p => (p.fence ? p.raw : p.value)).join("\n");
+    const lang = open.lang;
+    const codeContent = open.code;
 
     // Render everything before the open fence (any completed deliverables there
     // stripped to cards), then handle the in-progress block. Nodes are reused
@@ -74,9 +82,10 @@ function updateStreamingBubble(ref, text) {
       textEl.dataset.markup = markup;
     }
 
-    if (_isDeliverable(lang, codeContent)) {
-      // A build deliverable streaming in shows a live building card, never
-      // raw source — the file is saved and surfaced as a card on completion.
+    if (_isHiddenDeliverable(lang, codeContent)) {
+      // An HTML/SVG build streaming in shows a live building card, never raw
+      // source — the file is saved and surfaced as a card on completion.
+      // Markdown falls through and streams in visibly, like any other block.
       files.push({ name: _deliverableName(lang, codeContent), content: codeContent });
       _syncDeliverableCards(ref.bubble, files, true, cursor);
       ref.bubble.querySelector(":scope > .streaming-code-block")?.remove();
@@ -101,7 +110,7 @@ function updateStreamingBubble(ref, text) {
   } else {
     ref.bubble.querySelector(":scope > .streaming-code-block")?.remove();
     _renderWithDeliverables(ref.bubble, text, true);
-    highlightAll();
+    highlightAll(ref.bubble);
   }
   scrollToBottom();
 }
@@ -128,8 +137,9 @@ function _makeCodeBtn(iconClass, label) {
 // A build request ("make me a page") shouldn't dump the file's source into the
 // chat at all. The server persists such blocks to the workspace (see
 // persistAnswerArtifacts) and emits a download/preview card; the chat just shows
-// a "Building …" placeholder where the code would be. Criteria mirror the server
-// so the client hides exactly what the server saved.
+// a "Building …" placeholder where the code would be. Classification mirrors the
+// server so the two agree on what a deliverable IS — but the server saves all
+// three kinds while the chat only HIDES html/svg (see _isHiddenDeliverable).
 // Classify a fenced block as a deliverable, sniffing CONTENT (not just the fence
 // label) because weak models routinely emit a bare ``` fence — the exact case
 // where the code leaked into the bubble and no card appeared. Mirrors the
@@ -147,6 +157,14 @@ function _classifyDeliverable(lang, code) {
 function _isDeliverable(lang, text) {
   if (!_classifyDeliverable(lang, text)) return false;
   return text.length >= 1000 || text.split("\n").length >= 20;
+}
+// Markdown is chat content, not source code. A plan or a report IS the answer
+// the user asked to read, so it stays in the bubble and ALSO gets saved with a
+// card; hiding it left an empty bubble next to a lone download button. Only
+// HTML/SVG — source that reads as noise in a conversation — is hidden.
+function _isHiddenDeliverable(lang, text) {
+  const kind = _classifyDeliverable(lang, text);
+  return (kind === "html" || kind === "svg") && _isDeliverable(lang, text);
 }
 function _deliverableName(lang, text) {
   const kind = _classifyDeliverable(lang, text);
@@ -166,13 +184,21 @@ function _stripDeliverables(text) {
   const files = [];
   let out = text;
 
-  // Fenced blocks whose content classifies as a deliverable.
-  out = out.replace(/```(\w*)[ \t]*\r?\n?([\s\S]*?)```/g, (full, lang, code) => {
-    const body = code.replace(/\s+$/, "");
-    if (!_isDeliverable(lang, body)) return full;
-    files.push({ name: _deliverableName(lang, body), content: body });
-    return "";
-  });
+  // Fenced blocks whose content classifies as a deliverable. Paired by the
+  // shared scanner in markdown.js, not by a regex: the bubble must hide exactly
+  // the span this extracts, and a naive pairing cuts a ```markdown document at
+  // the first inner fence (a ```mermaid block, say) — saving a truncated file
+  // and leaving its tail in the chat.
+  out = scanFences(out)
+    .map((part) => {
+      if (!part.fence) return part.value;
+      const body = part.code.replace(/\s+$/, "");
+      if (!_isDeliverable(part.lang, body)) return part.raw;
+      files.push({ name: _deliverableName(part.lang, body), content: body });
+      // Saved either way — but only HTML/SVG leaves the bubble.
+      return _isHiddenDeliverable(part.lang, body) ? "" : part.raw;
+    })
+    .join("\n");
 
   // Raw, unfenced HTML/SVG document — closed, or (while streaming) running to
   // the end of the text. A leading literal <pre><code> wrapper is absorbed.
@@ -276,12 +302,50 @@ function _buildDeliverableCard(file, building, artifact) {
   return card;
 }
 
+// A finished deliverable is the same kind of thing as a tool-written file: it
+// sits in the workspace behind a URL. So it gets the SAME card — an answer's
+// build-1.md and a write_file's Program.cs were reading as two different
+// classes of result when only their origin differed. The thin build-card stays
+// for the building phase (its spinner and progress strip are the whole point)
+// and for a deliverable that never got persisted, where there is no URL for the
+// rich card to open, preview, or download.
+function _deliverableRack(parent, before) {
+  const prev = before ? before.previousElementSibling : parent.lastElementChild;
+  if (prev?.classList?.contains("gfc-rack")) return prev;
+  const rack = document.createElement("div");
+  rack.className = "gfc-rack";
+  parent.insertBefore(rack, before || null);
+  return rack;
+}
+
+function _addRichDeliverableCard(parent, artifact, before) {
+  const rack = _deliverableRack(parent, before);
+  rack.appendChild(_buildGeneratedFileCard(artifact));
+  const n = rack.childElementCount;
+  rack.dataset.cards = n >= 3 ? "3+" : String(n);
+  return rack;
+}
+
+// Swap a thin build-card for the rich one in place. Returns false when the
+// deliverable has no persisted URL, so the caller keeps the thin card.
+function _upgradeDeliverableCard(card, artifact) {
+  if (!artifact?.url || !card.parentNode) return false;
+  _addRichDeliverableCard(card.parentNode, artifact, card);
+  card.remove();
+  return true;
+}
+
 function _syncDeliverableCards(bubble, files, building, tail = null) {
   const existing = [...bubble.querySelectorAll(":scope > .build-card")];
   files.forEach((file, i) => {
     const artifact = building ? null : _answerArtifacts[i];
-    if (existing[i]) _renderDeliverableCard(existing[i], file, building, artifact);
-    else bubble.insertBefore(_buildDeliverableCard(file, building, artifact), tail);
+    if (existing[i]) {
+      if (_upgradeDeliverableCard(existing[i], artifact)) return;
+      _renderDeliverableCard(existing[i], file, building, artifact);
+      return;
+    }
+    if (!building && artifact?.url) { _addRichDeliverableCard(bubble, artifact, tail); return; }
+    bubble.insertBefore(_buildDeliverableCard(file, building, artifact), tail);
   });
   existing.slice(files.length).forEach(node => node.remove());
 }
@@ -290,7 +354,11 @@ function _applyAnswerArtifactsToLastBubble() {
   const bubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
   if (!bubble) return;
   [...bubble.querySelectorAll(":scope > .build-card")].forEach((card, i) => {
-    if (card._deliverable) _renderDeliverableCard(card, card._deliverable, false, _answerArtifacts[i]);
+    if (!card._deliverable) return;
+    // The artifacts event usually lands just after the cards were built with
+    // nothing to point at, so this is where most deliverables get their card.
+    if (_upgradeDeliverableCard(card, _answerArtifacts[i])) return;
+    _renderDeliverableCard(card, card._deliverable, false, _answerArtifacts[i]);
   });
 }
 

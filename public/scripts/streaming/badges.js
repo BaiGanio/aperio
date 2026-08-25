@@ -292,6 +292,10 @@ async function _dropInlineDuplicateOfFile(container, { url, sizeKb }) {
   if (!url || (sizeKb || 0) > _DEDUPE_MAX_KB) return;
   const bubble = container.closest?.(".bubble") || container;
   const blocks = [...bubble.querySelectorAll(".code-block")].filter(b => {
+    // Markdown is kept in the bubble on purpose — it is the answer, not source
+    // the card replaces — so a saved .md is never a duplicate of what is shown.
+    const lang = (b.querySelector(".code-lang")?.textContent || "").trim().toLowerCase();
+    if (lang === "md" || lang === "markdown") return false;
     const text = b.querySelector("code")?.textContent || "";
     // A one-liner can be a substring of anything; only substantial blocks are
     // safe to call a duplicate.

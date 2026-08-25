@@ -54,6 +54,7 @@ function mockDeps(overrides = {}) {
     scheduler:           { stop: mock.fn() },
     shutdownEmbeddings:  mock.fn(async () => {}),
     disposeEmbeddings:   mock.fn(async () => {}),
+    closeAgents:         mock.fn(async () => {}),
     stopLlamaCpp:        mock.fn(async () => {}),
     watcherRegistry:     { stopAll: mock.fn(async () => {}) },
     apiRoutes:           { dispose: mock.fn() },
@@ -192,6 +193,12 @@ describe("createGracefulShutdown", () => {
     const shutdown = createGracefulShutdown(deps);
     await shutdown();
     assert.strictEqual(deps.disposeEmbeddings.mock.callCount(), 1);
+  });
+
+  test("closes owned agent MCP connections", async () => {
+    const shutdown = createGracefulShutdown(deps);
+    await shutdown();
+    assert.strictEqual(deps.closeAgents.mock.callCount(), 1);
   });
 
   test("closes the store", async () => {

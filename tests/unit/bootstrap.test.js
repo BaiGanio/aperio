@@ -1,7 +1,9 @@
-import { describe, test, before } from "node:test";
+import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { unlinkSync, existsSync, writeFileSync } from "fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { EventEmitter } from "events";
+import { tmpdir } from "os";
+import { join } from "path";
 import net from "net";
 
 // =============================================================================
@@ -86,37 +88,35 @@ describe("getEphemeralPort", () => {
 // isBootstrapped / getBootstrapMeta — lock file interactions
 // =============================================================================
 describe("isBootstrapped / getBootstrapMeta", () => {
-  test("isBootstrapped returns false when no lock file exists", async () => {
-    // Ensure no lock file
-    if (existsSync("var/bootstrap.lock")) unlinkSync("var/bootstrap.lock");
+  const runtimeRoot = mkdtempSync(join(tmpdir(), "aperio-bootstrap-test-"));
 
+  before(() => mkdirSync(join(runtimeRoot, "var"), { recursive: true }));
+  after(() => rmSync(runtimeRoot, { recursive: true, force: true }));
+
+  test("isBootstrapped returns false when no lock file exists", async () => {
     const { isBootstrapped } = await import("../../bootstrap.js");
-    assert.equal(isBootstrapped(), false);
+    assert.equal(isBootstrapped(runtimeRoot), false);
   });
 
   test("getBootstrapMeta returns null when no lock file exists", async () => {
     const { getBootstrapMeta } = await import("../../bootstrap.js");
-    assert.strictEqual(getBootstrapMeta(), null);
+    assert.strictEqual(getBootstrapMeta(runtimeRoot), null);
   });
 
   test("isBootstrapped returns true after creating the lock file", async () => {
-    writeFileSync("var/bootstrap.lock", JSON.stringify({
+    writeFileSync(join(runtimeRoot, "var/bootstrap.lock"), JSON.stringify({
       completedAt: new Date().toISOString(),
       model: "test-model",
       engine: "llamacpp",
     }));
 
     const { isBootstrapped, getBootstrapMeta } = await import("../../bootstrap.js");
-    assert.equal(isBootstrapped(), true);
+    assert.equal(isBootstrapped(runtimeRoot), true);
 
-    const meta = getBootstrapMeta();
+    const meta = getBootstrapMeta(runtimeRoot);
     assert.notStrictEqual(meta, null);
     assert.equal(meta.model, "test-model");
     assert.equal(meta.engine, "llamacpp");
-  });
-
-  test("restore: remove test lock file", () => {
-    if (existsSync("var/bootstrap.lock")) unlinkSync("var/bootstrap.lock");
   });
 });
 

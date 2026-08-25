@@ -43,11 +43,39 @@ function normalizeMath(text) {
     .replace(/\\([{}[\]()])/g, "$1");
 }
 
+// Mermaid's flowchart parser cannot read a bracket or a pipe inside a BARE node
+// label: `C[Message Queue (e.g., RabbitMQ/SQS)]` is a parse error, not a
+// diagram — and models write exactly that shape constantly, so a whole plan
+// arrived with its architecture diagram showing as raw source. Quoting the
+// label fixes every one of those characters; ( ) [ ] { } | were measured
+// against mermaid 11 in a browser, and all six parse once quoted.
+const _LABEL_BREAKERS = /[()[\]{}|]/;
+// `[(cylinder)]`, `((circle))`, `{{hexagon}}` are SHAPES, not labels that need
+// quoting — quoting one would flatten it back to a plain box.
+const _SHAPE_WRAPPED = /^\s*(?:\(.*\)|\[.*\]|\{.*\})\s*$/;
+
+function _quoteMermaidLabels(source) {
+  const first = String(source).split("\n").find(line => line.trim()) || "";
+  // Only flowcharts use this node syntax. A sequence or class diagram has its
+  // own grammar, where the same brackets mean something else.
+  if (!/^\s*(?:flowchart|graph)\b/i.test(first)) return source;
+  let out = String(source);
+  for (const [open, close] of [["[", "]"], ["(", ")"], ["{", "}"]]) {
+    const re = new RegExp(`([A-Za-z0-9_]+)\\${open}([^\\n]*?)\\${close}(?=$|[\\s;])`, "gm");
+    out = out.replace(re, (full, id, label) => {
+      if (!_LABEL_BREAKERS.test(label)) return full;
+      if (/^".*"$/.test(label.trim()) || _SHAPE_WRAPPED.test(label)) return full;
+      return `${id}${open}"${label.replace(/"/g, "&quot;")}"${close}`;
+    });
+  }
+  return out;
+}
+
 // Some models call PlantUML's component dialect "Mermaid". Mermaid has no
 // componentDiagram type, so repair that narrow, unambiguous shape first.
 function normalizeMermaidSource(source) {
   const lines = String(source).replace(/\r/g, "").split("\n");
-  if (lines[0]?.trim().toLowerCase() !== "componentdiagram") return String(source);
+  if (lines[0]?.trim().toLowerCase() !== "componentdiagram") return _quoteMermaidLabels(String(source));
   const out = ["flowchart TD"];
   for (const line of lines.slice(1)) {
     const trimmed = line.trim();
@@ -78,7 +106,24 @@ function normalizeMermaidSource(source) {
     }
     out.push(`%% ${trimmed}`);
   }
-  return out.join("\n");
+  return _quoteMermaidLabels(out.join("\n"));
+}
+
+// A streaming answer rebuilds its bubble on every frame, so a diagram already
+// on screen arrives as a BRAND NEW node ~30 times a second — and each one was
+// drawn from scratch, which is the flicker. Keep the drawn SVG keyed by its
+// source: an unchanged diagram is re-attached instantly instead of redrawn.
+// Bounded, oldest-out, so a long session cannot grow it without limit.
+const _mermaidSvgCache = new Map();
+const _MERMAID_CACHE_MAX = 50;
+
+function _rememberMermaidSvg(source, svg) {
+  if (!source || !svg) return;
+  _mermaidSvgCache.delete(source);            // re-insert to mark it newest
+  _mermaidSvgCache.set(source, svg);
+  while (_mermaidSvgCache.size > _MERMAID_CACHE_MAX) {
+    _mermaidSvgCache.delete(_mermaidSvgCache.keys().next().value);
+  }
 }
 
 function scheduleMermaidRender() {
@@ -90,11 +135,30 @@ function scheduleMermaidRender() {
   scheduleMermaidRender.queued = true;
   queueMicrotask(async () => {
     scheduleMermaidRender.queued = false;
-    const nodes = [...document.querySelectorAll(".mermaid:not([data-mermaid-rendered])")];
+    const fresh = [...document.querySelectorAll(".mermaid:not([data-mermaid-rendered])")];
+    if (!fresh.length) return;
+
+    // Re-attach what has already been drawn — synchronously, in this frame, so
+    // the diagram never blanks between the node appearing and mermaid running.
+    const nodes = [];
+    for (const node of fresh) {
+      const cached = _mermaidSvgCache.get(node.dataset.mermaidSource || "");
+      if (cached) {
+        node.innerHTML = cached;
+        node.dataset.mermaidRendered = "cached";
+      } else {
+        nodes.push(node);
+      }
+    }
     if (!nodes.length) return;
+
     nodes.forEach(node => { node.dataset.mermaidRendered = "pending"; });
     try {
       await window.mermaid.run({ nodes });
+      nodes.forEach(node => {
+        if (node.dataset.mermaidRendered === "pending") node.dataset.mermaidRendered = "done";
+        _rememberMermaidSvg(node.dataset.mermaidSource || "", node.innerHTML);
+      });
     } catch (err) {
       nodes.forEach(node => {
         if (node.dataset.mermaidRendered === "pending") {
@@ -108,31 +172,123 @@ function scheduleMermaidRender() {
   });
 }
 
-function renderMarkdown(text) {
+// CommonMark fence rules, plus one repair for a shape models emit constantly.
+//
+// A fence opened with N backticks is closed only by a line of N-or-more
+// backticks and nothing else; a line carrying an info string ("```mermaid")
+// opens a block, it never closes one. The old single regex honoured neither
+// rule, so a document fenced as ```markdown that contained its own ```mermaid
+// block was cut at the inner fence — the diagram leaked out as bare prose and
+// the tail reopened as an unlabelled "code" block.
+//
+// Models also nest same-width fences (``` inside ```markdown) where CommonMark
+// wants a wider outer fence. Inside a markdown/md container we therefore track
+// nesting depth, so the inner pair stays content and the outer block ends at
+// the last fence.
+const FENCE_LINE = /^ {0,3}(`{3,})[ \t]*(.*?)[ \t]*$/;
+
+function matchFence(line) {
+  const m = FENCE_LINE.exec(String(line).replace(/\r$/, ""));
+  // An info string may not contain a backtick.
+  if (!m || m[2].includes("`")) return null;
+  return { ticks: m[1].length, info: m[2] };
+}
+
+// Split text into an ordered run of parts, each covering a whole number of
+// source lines: { fence: false, value } for prose, { fence: true, lang, code,
+// raw } for a fenced block. Joining every part's text with "\n" reproduces the
+// input exactly, so callers can rewrite only the parts they care about.
+// Shared by renderMarkdown() and the deliverable stripper, which must agree on
+// where a block starts and ends or the chat hides a different span than the
+// server saved to disk. lib/agent/deliverables.js mirrors this on the server.
+function scanFences(text) {
+  const lines = String(text).split("\n");
+  const parts = [];
+  let prose = [];
+  const flush = () => {
+    if (prose.length) { parts.push({ fence: false, value: prose.join("\n") }); prose = []; }
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const open = matchFence(lines[i]);
+    if (!open) { prose.push(lines[i]); continue; }
+    flush();
+    const lang = open.info.split(/\s+/)[0] || "";
+    const container = /^(?:markdown|md)$/i.test(lang);
+    let depth = 1;
+    let close = -1;
+    for (let j = i + 1; j < lines.length; j++) {
+      const f = matchFence(lines[j]);
+      if (!f) continue;
+      if (!f.info && f.ticks >= open.ticks) {
+        if (--depth === 0) { close = j; break; }
+      } else if (container && f.info) {
+        depth++;
+      }
+    }
+    // A fence the model opened but never closed (weak models get cut off
+    // mid-build) takes the rest of the text, so it is still treated as one
+    // real block instead of leaking as a flat wall of escaped source.
+    const end = close === -1 ? lines.length : close;
+    parts.push({
+      fence: true,
+      closed: close !== -1,
+      lang,
+      code: lines.slice(i + 1, end).join("\n"),
+      raw: lines.slice(i, close === -1 ? lines.length : close + 1).join("\n"),
+    });
+    i = end;
+  }
+  flush();
+  return parts;
+}
+
+// `depth` guards the markdown-in-markdown recursion below; callers pass nothing.
+function renderMarkdown(text, depth = 0) {
   const blocks = [];
-  // A model that opened a ``` code fence but never closed it (common with weak
-  // models that get cut off mid-build) would otherwise have the whole block
-  // escaped into a flat wall of text — no .code-block element, so it can't be
-  // collapsed and floods the message. Close a dangling fence so the remainder
-  // renders as a real, collapsible code block.
-  if (((text.match(/```/g) || []).length) % 2 === 1) text += "\n```";
-  text = text.replace(/```(\w*)[ \t]*\r?\n?([\s\S]*?)```/g, (_, lang, code) => {
-    const id = "cb-" + Math.random().toString(36).slice(2, 8);
-    const label = escapeHtml(lang || "code");
+
+  function pushBlock(lang, code, closed) {
     const safeLang = /^[a-zA-Z0-9_+-]+$/.test(lang) ? lang : "";
-    const langClass = safeLang ? ' class="language-' + escapeHtml(safeLang) + '"' : "";
+    // A ```markdown fence is a DOCUMENT, not source code. Models wrap a plan or
+    // a report in one out of habit, and showing it as a code box meant the
+    // headings stayed as `#`, the lists as `*`, and — the part that kept being
+    // reported — the ```mermaid diagram inside it never got drawn. Render it,
+    // so the diagram inside becomes a real diagram.
+    if ((safeLang.toLowerCase() === "markdown" || safeLang.toLowerCase() === "md") && depth < 2) {
+      blocks.push('<div class="md-doc">' + renderMarkdown(code, depth + 1) + '</div>');
+      return "\x00" + (blocks.length - 1) + "\x00";
+    }
     if (safeLang.toLowerCase() === "mermaid") {
       const diagram = normalizeMermaidSource(code.trim());
+      if (closed === false) {
+        // Half a diagram cannot parse. Drawing it anyway throws, paints an
+        // error, and the next frame replaces that with another error — so hold
+        // the source as plain text until its closing fence lands, then draw
+        // once. This is the other half of the streaming flicker.
+        blocks.push(
+          '<div class="mermaid-block mermaid-block--pending">' +
+          '<pre class="mermaid-pending">' + escapeHtml(diagram) + '</pre></div>'
+        );
+        return "\x00" + (blocks.length - 1) + "\x00";
+      }
+      // A diagram already drawn is emitted as its finished SVG, so it is present
+      // in the very first paint of this frame. Waiting for the scheduler to
+      // swap it in meant every frame briefly held the raw source in a
+      // differently-sized box, and the diagram re-derived itself all the way
+      // down the answer.
+      const drawn = _mermaidSvgCache.get(diagram);
       blocks.push(
         '<div class="mermaid-block"><div class="mermaid" data-mermaid-source="' +
-        escapeHtml(diagram) + '">' + escapeHtml(diagram) + '</div>' +
+        escapeHtml(diagram) + '"' + (drawn ? ' data-mermaid-rendered="cached"' : '') + '>' +
+        (drawn || escapeHtml(diagram)) + '</div>' +
         '<details><summary>Mermaid source</summary><pre><code>' +
         escapeHtml(diagram) + '</code></pre></details></div>'
       );
       return "\x00" + (blocks.length - 1) + "\x00";
     }
+    const id = "cb-" + Math.random().toString(36).slice(2, 8);
+    const label = escapeHtml(lang || "code");
+    const langClass = safeLang ? ' class="language-' + escapeHtml(safeLang) + '"' : "";
     const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const idx = blocks.length;
     blocks.push(
       '<div class="code-block">' +
       '<div class="code-toolbar"><span class="code-lang">' + label + '</span>' +
@@ -140,8 +296,12 @@ function renderMarkdown(text) {
       '<i class="bi bi-clipboard"></i> copy</button></div>' +
       '<pre><code id="' + id + '"' + langClass + '>' + escaped.trimEnd() + '</code></pre></div>'
     );
-    return "\x00" + idx + "\x00";
-  });
+    return "\x00" + (blocks.length - 1) + "\x00";
+  }
+
+  text = scanFences(text)
+    .map(part => (part.fence ? pushBlock(part.lang, part.code, part.closed) : part.value))
+    .join("\n");
 
   text = normalizeMath(text);
 
@@ -266,8 +426,15 @@ function renderMarkdown(text) {
 
 window.addEventListener("load", scheduleMermaidRender);
 
-function highlightAll() {
-  if (window.Prism) Prism.highlightAll();
+// Prism.highlightAll() walks the WHOLE document and re-tokenizes every code
+// block in every earlier message. During streaming it is called once per frame,
+// so its cost tracks the length of the entire conversation rather than the size
+// of the message being written — the older the chat, the heavier every frame.
+// Callers that know which bubble changed pass it, and pay for that bubble only.
+function highlightAll(root) {
+  if (!window.Prism) return;
+  if (root) Prism.highlightAllUnder(root);
+  else Prism.highlightAll();
 }
 
 function copyCode(id) {

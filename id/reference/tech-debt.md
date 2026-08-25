@@ -59,31 +59,91 @@ housekeeping go in `A2D.md`, not here.
   graph is keyed `pkg\a.js` on Windows, self-consistently; the test was feeding POSIX
   `rel` values the walker never produces. ~69 blocks across ~28 files remain.
 - **Reproducing a Windows run on a POSIX host.** An ESM loader that re-exports
-  `node:path`'s win32 half under the plain `"path"` specifier matches the nightly's
-  per-file counts, but only once three seams are calibrated — without them it invents
-  failures the real machine does not have. (1) Real Windows accepts BOTH `\` and `/` in
-  `fs` paths; macOS accepts only `/`, so fold `\` to `/` on every real-`fs` path
-  argument. (2) Windows `realpath` answers in backslashes; leave `node_modules` alone or
-  Node's own CJS loader breaks. (3) Windows `process.cwd()` answers in backslashes too,
-  or an allowlist floor built from cwd will not match a resolved path. Do NOT stamp a
-  `C:` drive letter: tests that mock `process.cwd()` supply a driveless path and win32
-  `resolve` inherits the drive from cwd, so a real Windows run produces driveless paths
-  there — stamping one makes the simulation stricter than the machine. (4) The one thing
-  the simulation CANNOT judge: a test that spawns a REAL child process. The child runs
-  without the loader, so a driveless backslash path it is handed is not absolute to it,
-  and it fails in a way real Windows (where `C:\…` is absolute) never would. Treat any
-  file matching `spawnSync|execFileSync|execSync|spawn\(|fork\(` as unmeasurable here —
-  its count must come from the nightly.
-- 2026-08-25 Measured worklist for the next batch, from a full simulated run of
-  `tests/unit` + `tests/integration` (298 files): 174 failing blocks + 56 cancelled, in
-  ~40 files. Highest-value files with NO child-spawn blind spot, in order:
-  `routes/config-schema.test.js` 22, `handlers/database-confirm.test.js` 14,
-  `routes/config-shadow-warning.test.js` 10, `handlers/data/dataHandlers.test.js` 10,
-  `unit/db/sqlite-file-mode.test.js` 9, `unit/helpers/capabilities.test.js` 7,
-  `terminal/runtime.test.js` 7, `routes/paths.test.js` 7 — the last is a Fragile Zone,
-  so verify any change there against the path-traversal tests rather than the count
-  alone. `scripts/gen-agent-rules.test.js` 14 and `scripts/model-tier-bench.test.js` 13
-  both spawn real children and are seam (4) above, not real work.
+  `node:path`'s win32 half under the plain `"path"` specifier reproduces the machine
+  only once SEVEN seams are calibrated. Miss any of the first five and the simulation
+  invents failures the real machine does not have — the 2026-08-25 worklist below was
+  measured with three of them missing and overstated the work by roughly 5x.
+  (1) Real Windows accepts BOTH `\` and `/` in `fs` paths; macOS accepts only `/`, so
+  fold `\` to `/` on every real-`fs` path argument — and cover the ESM `import { … }
+  from "node:fs"` / `"node:fs/promises"` bindings, not just `require("fs")`. Patching
+  the CJS module object after the fact does NOT reach an ESM named import, because
+  Node snapshots a builtin's named exports when the facade is instantiated; redirect
+  the `fs` specifiers through the loader instead. (2) Fold the SECOND path argument of
+  `rename`/`link`/`symlink`/`copyFile`/`cp`. For `symlink` and `link` arg 0 is the
+  target and the link path itself is arg 1, so a first-argument-only fold writes the
+  new link under a literal backslash name. (3) `require("path")` and `require("fs")`
+  bypass ESM resolve hooks entirely — intercept `Module._load` too, or a test's own
+  path math answers POSIX while the product answers win32 and the mismatch is pure
+  simulation artifact. Fold `\` to `/` in the `Module._load` request as well, or
+  `better-sqlite3`'s own CJS loader cannot find its `.node` prebuild. (4) Fold the
+  filename handed to `better-sqlite3`: it is native code that passes the string to the
+  OS, which on Windows accepts either separator. (5) Windows `realpath` answers in
+  backslashes; leave `node_modules` alone or Node's own CJS loader breaks. (6) Windows
+  `process.cwd()` answers in backslashes too, or an allowlist floor built from cwd will
+  not match a resolved path. Do NOT stamp a `C:` drive letter: tests that mock
+  `process.cwd()` supply a driveless path and win32 `resolve` inherits the drive from
+  cwd, so a real Windows run produces driveless paths there — stamping one makes the
+  simulation stricter than the machine. (7) The one thing the simulation CANNOT judge:
+  a test that spawns a REAL child process. The child runs without the loader, so a
+  driveless backslash path it is handed is not absolute to it, and it fails in a way
+  real Windows (where `C:\…` is absolute) never would. Treat any file matching
+  `spawnSync|execFileSync|execSync|spawn\(|fork\(` as unmeasurable here — its count
+  must come from the nightly.
+- **Never run seam-(7) files under the simulation — they are destructive, not just
+  unmeasurable.** The child process writes with the backslash path it was handed, and
+  macOS accepts `\` as an ordinary filename character, so every write lands as a
+  literal `\var\folders\…\x.json` entry in the REPO ROOT rather than in the temp dir.
+  `tests/integration/helpers/tlsServer.test.js` shells out to `openssl` and does
+  exactly this. Two sweeps left 299 such entries in the working tree before the cause
+  was found. Skip those files by grep before executing, and guard every sweep with a
+  `ls -1 <repo> | grep -c '\\'` check after each file so a new leak is caught at the
+  file that caused it.
+- **Two things the calibrated simulation still gets wrong, both stricter than the
+  machine.** (a) Node's OWN internals keep POSIX path semantics — only userland `path`
+  imports are redirected — so an internal absolute-path check rejects a driveless
+  backslash path that real Windows accepts. `lib/server.js:94`'s
+  `createRequire(resolve(ROOT, "package.json"))` fails this way and accounts for all 5
+  blocks in `tests/unit/lib/server.test.js`; it is not real work. (b) The seam-(7) grep
+  `spawnSync|execFileSync|execSync|spawn\(|fork\(` misses a child spawned through the
+  MCP SDK's `StdioClientTransport`. Add that to the pattern:
+  `tests/integration/mcp/docgraph-clear-session-cache.test.js` is the only file in the
+  current worklist that hides a child this way, and its 3 blocks are unmeasurable here.
+- 2026-08-25 Measured worklist, from a full simulated run of `tests/unit` +
+  `tests/integration` with all seven seams calibrated: **36 failures across 18 files**
+  (270 files measured, 28 skipped as seam (7)). Of those 36, 5 are limitation (a) below
+  and 3 are limitation (b), leaving 28 blocks in 16 files. 2026-08-25 a PRODUCT fix then
+  cleared 7 of those 28: `lib/security/agentPermissions.js`'s `pathIsUnder()` anchored
+  containment on a hardcoded `"/"` while `normalizePathResource()` builds both sides with
+  `resolve()`, so on Windows every path rule collapsed to exact-string equality and all
+  agent filesystem permissions fell through to default-deny (fail-CLOSED — no escalation).
+  Now anchored on `path.sep`; verified on both separators against sibling-prefix
+  (`/repo/private-stuff` vs `/repo/private`) and `..` traversal cases, which are
+  unchanged. That fixed `unit/security/agentPermissions.test.js` 6 and
+  `integration/agent/bundle.test.js` 1. 20 blocks in 13 files remain. This REPLACES the
+  earlier "174 failing blocks + 56 cancelled in ~40 files" figure, which was measured with
+  seams (2), (3) and (4) missing. Six of the eight files that list named as highest-value
+  — `routes/config-schema.test.js` (claimed 22), `handlers/database-confirm.test.js` (14),
+  `routes/config-shadow-warning.test.js` (10), `handlers/data/dataHandlers.test.js` (10),
+  `unit/db/sqlite-file-mode.test.js` (9) and `routes/paths.test.js` (7) — pass with ZERO
+  changes; their counts were simulation artifacts. `terminal/runtime.test.js` (claimed 7)
+  is seam (7): a real `spawnSync` at line 210. The real remaining work, highest first:
+  `integration/agent/tool-hooks.test.js` 4, `unit/helpers/llamacppBinary.test.js` 3,
+  `integration/server/browser.test.js` 2, `integration/mcp/tool-profile-coverage.test.js`
+  2, then nine files at 1 each (`unit/services/folder-indexing.test.js`,
+  `unit/lib/terminal.test.js`, `unit/handlers/ws/handoff.test.js`,
+  `unit/agent/search-scopes.test.js`,
+  `integration/scripts/generate-e2e-dashboard.test.js`,
+  `integration/scripts/generate-coverage-dashboard.test.js`,
+  `integration/scripts/generate-browser-dashboard.test.js`,
+  `integration/docs/shared-doc-assets.test.js`, `integration/cliPrefs.test.js`,
+  `integration/agent/providers/claude-code.test.js`) — 20 blocks in 13 files.
+  `unit/agent/search-scopes.test.js`'s single block is a SECOND product bug, already
+  logged in `A2D.md`: `lib/agent/search-scopes.js:4`'s `PATH_PATTERN` does not match a
+  driveless Windows absolute path. Separately, `unit/helpers/capabilities.test.js` is a
+  CONFIRMED test bug the simulation cannot score (it mocks `execFileSync` but still
+  reaches a real spawn): line 180 seeds `join(VENV_DIR, "bin", "python3")` while
+  `lib/helpers/capabilities.js` looks for `Scripts\python.exe` when `IS_WIN`, so on
+  Windows the test seeds a path the product never checks.
 
 ## Continuous-audit program — the mandated verify-first test suite was never built
 

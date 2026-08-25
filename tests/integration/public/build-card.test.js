@@ -19,6 +19,8 @@ const renderingSource = readFileSync(resolve("public/scripts/rendering.js"), "ut
 const spreadsheetSource = readFileSync(resolve("public/scripts/spreadsheet-preview.js"), "utf8");
 const attachmentCss = readFileSync(resolve("public/styles/msg-attachments.css"), "utf8");
 const turnSource = readFileSync(resolve("public/scripts/streaming/events/turn.js"), "utf8");
+const chatSource = readFileSync(resolve("public/scripts/chat.js"), "utf8");
+const markdownSource = readFileSync(resolve("public/scripts/markdown.js"), "utf8");
 const knowledgeSource = readFileSync(resolve("public/scripts/streaming/events/knowledge.js"), "utf8");
 
 test("build-card invariants cover the streaming assets loaded by the app shell", () => {
@@ -99,6 +101,56 @@ test("answer_artifacts is handled and can patch already-finalized cards", () => 
   assert.match(source, /onStreamEvent\("answer_artifacts"/);
   assert.match(source, /function _applyAnswerArtifactsToLastBubble\(/);
   assert.match(source, /_answerArtifacts = \[\];\s*\/\/ belongs to the turn/);
+});
+
+test("a persisted deliverable gets the same rich card as a tool-written file", () => {
+  // build-1.md (written from the answer text) showed a thin one-line row while
+  // Program.cs (written by write_file) got the full card, though both are just
+  // a file in the workspace behind a URL. Same thing, same card.
+  assert.match(source, /function _upgradeDeliverableCard\(/);
+  assert.match(source, /_addRichDeliverableCard\(card\.parentNode, artifact, card\)/);
+  assert.match(source, /rack\.appendChild\(_buildGeneratedFileCard\(artifact\)\)/);
+  // No URL means nothing for the rich card to open, so the thin card stays.
+  assert.match(source, /if \(!artifact\?\.url \|\| !card\.parentNode\) return false;/);
+  // While the build is still running the thin card keeps its spinner.
+  assert.match(source, /if \(!building && artifact\?\.url\) \{ _addRichDeliverableCard/);
+  // Both entry points upgrade: the finalize sync and the late artifacts event.
+  assert.match(source, /if \(_upgradeDeliverableCard\(existing\[i\], artifact\)\) return;/);
+  assert.match(source, /if \(_upgradeDeliverableCard\(card, _answerArtifacts\[i\]\)\) return;/);
+  // Cards share the same rack the generated-file path uses, so several
+  // deliverables lay out as one shelf instead of a column.
+  assert.match(source, /rack\.dataset\.cards = n >= 3 \? "3\+" : String\(n\)/);
+});
+
+test("a long answer keeps following the stream instead of stranding the reader", () => {
+  // Autoscroll used to re-decide from distance on every frame, so a single
+  // frame that grew the bubble past the threshold — a mermaid diagram
+  // finishing, a table, a long list — read as "the user scrolled away" and
+  // following stopped for the rest of the answer. Following is now a flag the
+  // reader sets by scrolling; growing content fires no scroll event, so those
+  // frames cannot clear it.
+  assert.match(chatSource, /let _followBottom = true;/);
+  assert.match(chatSource, /addEventListener\("scroll", \(\) => \{ _followBottom = isNearBottom\(\); \}/);
+  assert.match(chatSource, /if \(force \|\| _followBottom\)/);
+  assert.doesNotMatch(chatSource, /if \(force \|\| isNearBottom\(\)\)/);
+});
+
+test("streaming re-highlights only the bubble that changed", () => {
+  // Prism.highlightAll() walks the whole document, so the per-frame cost grew
+  // with the length of the entire conversation: measured 0.31 ms/frame at 5
+  // code blocks and 1.88 ms/frame at 60, against a flat 0.03 ms/frame scoped.
+  assert.match(markdownSource, /function highlightAll\(root\)/);
+  assert.match(markdownSource, /Prism\.highlightAllUnder\(root\)/);
+  assert.match(source, /highlightAll\(ref\.bubble\)/);
+});
+
+test("a diagram already drawn is emitted as its SVG, not re-derived per frame", () => {
+  // The bubble's markup is rebuilt every frame. Emitting the raw source and
+  // letting the scheduler swap the SVG in afterwards meant each frame briefly
+  // held a differently-sized box where the diagram belongs.
+  assert.match(markdownSource, /const drawn = _mermaidSvgCache\.get\(diagram\);/);
+  assert.match(markdownSource, /drawn \? ' data-mermaid-rendered="cached"' : ''/);
+  assert.match(markdownSource, /\(drawn \|\| escapeHtml\(diagram\)\)/);
 });
 
 test("generated XLSX cards open the spreadsheet preview modal", () => {

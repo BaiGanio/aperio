@@ -53,3 +53,17 @@
   font-size: 0.8em;
 }
 .mermaid-block summary { cursor: pointer; }
+/* A diagram still arriving: its source held as plain text until the closing
+   fence lands. Drawing a half-diagram only paints an error the next frame
+   throws away, which is what made the screen strobe while an answer streamed. */
+.mermaid-block--pending {
+  opacity: 0.7;
+}
+.mermaid-pending {
+  margin: 0;
+  white-space: pre-wrap;
+  text-align: left;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--text-muted, #6b7280);
+}

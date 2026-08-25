@@ -1,11 +1,20 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { resolve } from "node:path";
+
 import {
   parseSearchScopes,
   selectSearchScope,
   resolveScopedSearchPath,
 } from "../../../lib/agent/search-scopes.js";
+
+// Fixtures stay POSIX. resolveScopedSearchPath() answers in the host separator and
+// anchors a rooted path to the current drive, so on Windows "/app/x" comes back as
+// `C:\app\x`. Fold both sides through one helper and derive the expectation with the
+// same resolve(), so the assertion is about WHICH path wins, not how it is spelled.
+const toKey = (value) => (typeof value === "string" ? value.replaceAll("\\", "/") : value);
+const abs = (posixPath) => toKey(resolve(posixPath));
 
 const RAW = [
   "[PREFERENCE] Auth search (importance: 4)",
@@ -63,11 +72,14 @@ describe("search scope preferences", () => {
 
   test("resolves missing, default, relative, contained, and conflicting paths to one path", () => {
     const scope = "/app/auth/oauth";
-    assert.equal(resolveScopedSearchPath(scope), scope);
-    assert.equal(resolveScopedSearchPath(scope, "."), scope);
-    assert.equal(resolveScopedSearchPath(scope, "callbacks"), "/app/auth/oauth/callbacks");
-    assert.equal(resolveScopedSearchPath(scope, "/app/auth/oauth/providers"), "/app/auth/oauth/providers");
-    assert.equal(resolveScopedSearchPath(scope, "/app/other"), scope);
-    assert.equal(resolveScopedSearchPath(scope, "../../../other"), scope);
+    assert.equal(toKey(resolveScopedSearchPath(scope)), abs(scope));
+    assert.equal(toKey(resolveScopedSearchPath(scope, ".")), abs(scope));
+    assert.equal(toKey(resolveScopedSearchPath(scope, "callbacks")), abs("/app/auth/oauth/callbacks"));
+    assert.equal(
+      toKey(resolveScopedSearchPath(scope, "/app/auth/oauth/providers")),
+      abs("/app/auth/oauth/providers"),
+    );
+    assert.equal(toKey(resolveScopedSearchPath(scope, "/app/other")), abs(scope));
+    assert.equal(toKey(resolveScopedSearchPath(scope, "../../../other")), abs(scope));
   });
 });

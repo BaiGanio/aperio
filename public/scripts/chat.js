@@ -347,8 +347,27 @@ function isNearBottom() {
   return window.messagesEl.scrollHeight - window.messagesEl.scrollTop - window.messagesEl.clientHeight < 120;
 }
 
+// Following the stream is the READER's decision, made by scrolling — not
+// something to re-infer from distance on every frame. Re-inferring broke as
+// soon as one frame added more than the threshold at once (a mermaid diagram
+// finishing, a table, a long list): the view was suddenly "far from the
+// bottom", following gave up, and the reader was stranded mid-answer while the
+// message kept growing below. Growing content moves no scrollbar and fires no
+// scroll event, so the flag survives exactly those frames.
+let _followBottom = true;
+
+function _watchFollowScroll() {
+  const el = window.messagesEl;
+  if (!el || el.dataset.followWatched) return;
+  el.dataset.followWatched = "1";
+  // Our own jump to the bottom fires this too, and lands near the bottom, so it
+  // re-arms following without needing a flag to suppress it.
+  el.addEventListener("scroll", () => { _followBottom = isNearBottom(); }, { passive: true });
+}
+_watchFollowScroll();
+
 function scrollToBottom(force = false) {
-  if (force || isNearBottom()) {
+  if (force || _followBottom) {
     window.messagesEl.scrollTop = window.messagesEl.scrollHeight;
   }
 }

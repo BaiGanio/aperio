@@ -553,11 +553,25 @@
     if (overlay) overlay.style.display = "flex";
     show(t("stov_restarting_title"), t("stov_restarting_msg"));
 
+    let restartResponse = null;
     try {
-      const res = await fetch("/api/restart", { method: "POST" });
-      if (!res.ok) throw new Error(`restart → ${res.status}`);
+      restartResponse = await fetch("/api/restart", { method: "POST" });
     } catch {
       // The connection often drops as the server exits — that's expected.
+    }
+
+    // A completed non-2xx response is not a disconnect: the server rejected
+    // the restart and is still running. Do not turn that real failure into an
+    // endless "Reconnecting" state.
+    if (restartResponse && !restartResponse.ok) {
+      let detail = `${restartResponse.status}${restartResponse.statusText ? ` ${restartResponse.statusText}` : ""}`;
+      try {
+        const body = await restartResponse.json();
+        if (body?.error) detail = body.error;
+      } catch { /* response was not JSON */ }
+      if (overlay) overlay.style.display = "none";
+      if (typeof showErrorModal === "function") showErrorModal(`${t("nav_power_restart")}: ${detail}`);
+      return;
     }
 
     const deadline = Date.now() + 90_000;

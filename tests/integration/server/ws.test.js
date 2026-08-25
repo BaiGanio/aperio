@@ -32,9 +32,7 @@ function defaultOpts(overrides = {}) {
     allowedHosts: new Set(["localhost"]),
     makeWsHandler: () => () => {},  // must return a handler function
     agent: {},
-    primaryRoundtable: {},
-    verifier: {},
-    roundtableAvailable: true,
+    roundtable: { roundtableAvailable: true },
     store: {},
     isShuttingDown: false,
     ...overrides,
@@ -180,14 +178,16 @@ describe("createWsServer", () => {
 
   test("passes roundtable info through to makeWsHandler", () => {
     const makeWsHandler = mock.fn(() => () => {});
-    createWsServer(defaultOpts({
-      makeWsHandler,
+    const roundtable = {
       roundtableAvailable: false,
       roundtableUnavailableReason: "No verifier configured",
+    };
+    createWsServer(defaultOpts({
+      makeWsHandler,
+      roundtable,
     }));
     const args = makeWsHandler.mock.calls[0].arguments[0];
-    assert.strictEqual(args.roundtableAvailable, false);
-    assert.strictEqual(args.roundtableUnavailableReason, "No verifier configured");
+    assert.strictEqual(args.roundtable, roundtable);
   });
 });
 

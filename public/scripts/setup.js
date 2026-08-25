@@ -29,6 +29,7 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&"
 
 const state = Object.fromEntries(STEPS.map(s => [s.id, { status: "idle", detail: _t("setup_detail_waiting") }]));
 let doneCount = 0;
+let completionShown = false;
 
 // ── Build cards ───────────────────────────────────────────────────────────
 const cardList = document.getElementById("cardList");
@@ -171,6 +172,8 @@ function updateProgress(done, total) {
 
 
 function showDone() {
+  if (completionShown) return;
+  completionShown = true;
   document.getElementById("progressFill").style.width          = "100%";
   document.getElementById("progressFrac").textContent          = `${STEPS.length} / ${STEPS.length}`;
   document.getElementById("progressLabel").textContent         = _t("setup_all_done");
@@ -284,6 +287,13 @@ function startProgress() {
     doneCount = done;
     updateProgress(done, STEPS.length);
     if (download) applyDownloadProgress(download);
+    // `complete` is a one-shot SSE event. A reconnect or a page opened after
+    // bootstrap finished can hydrate five terminal steps without ever seeing
+    // that event, so the snapshot itself must also unlock the finished UI.
+    if (done === STEPS.length) {
+      es.close();
+      showDone();
+    }
   });
 
   es.addEventListener("step", e => {

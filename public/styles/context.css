@@ -152,18 +152,27 @@
     .type-icon { font-size: var(--fs-micro); }
 
     /* ── CONTEXT WINDOW ─────────────────────────────────── */
+    /* Sized by its own numbers, never stretched or squeezed by the navbar.
+       It used to be `flex: 1` with a 120px floor, so a long model name in the
+       chip starved it: "8,175 / 104,570 (72% RAM)" wrapped to a second line,
+       the meter dropped below the navbar's centre line and the whole header
+       went crooked. The model name truncates instead — it has a tooltip; the
+       numbers do not. */
     .ctx-window {
-      flex: 1;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       gap: 4px;
-      min-width: 120px;
-      max-width: 280px;
+      /* A floor wide enough that the meter stays readable and the header does
+         not jitter as the token count grows digits. */
+      min-width: 190px;
     }
     .ctx-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: baseline;
+      gap: 10px;
+      white-space: nowrap;
     }
     .ctx-label {
       font-family: var(--font-mono);
@@ -178,6 +187,7 @@
       font-size: var(--fs-micro);
       font-weight: 600;
       color: var(--text);
+      white-space: nowrap;
       transition: color 0.3s;
     }
     /* Real money, not just another muted stat — give it its own color instead

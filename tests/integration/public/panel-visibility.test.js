@@ -73,6 +73,32 @@ test("Config click overrides CSP hiding and the next click closes it", () => {
   assert.equal(overlay.style.display, "none");
 });
 
+test("a rejected restart restores the page instead of polling forever", async () => {
+  const overlay = new FakeElement();
+  const title = new FakeElement();
+  const message = new FakeElement();
+  let shownError = null;
+  const context = loadBrowserScript("public/scripts/settings-overlay.js", {
+    restartOverlay: overlay,
+    restartOverlayTitle: title,
+    restartOverlayMsg: message,
+  }, {
+    fetch: async () => ({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      json: async () => ({ error: "setup_required" }),
+    }),
+    t(key) { return key === "nav_power_restart" ? "Restart server" : key; },
+    showErrorModal(error) { shownError = error; },
+  });
+
+  await context.restartAperio();
+
+  assert.equal(overlay.style.display, "none");
+  assert.match(shownError, /Restart server.*setup_required/);
+});
+
 test("Dataset Lab click overrides CSP hiding and the next click closes it", async () => {
   const panel = new FakeElement();
   const backdrop = new FakeElement();

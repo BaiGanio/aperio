@@ -491,11 +491,12 @@ export const runBootstrap = async ({ model, engine = null, pullModel = false } =
   }
 };
 
-export const isBootstrapped = () => existsSync('var/bootstrap.lock');
+export const isBootstrapped = (runtimeRoot = '.') =>
+  existsSync(resolve(runtimeRoot, 'var/bootstrap.lock'));
 
-export const getBootstrapMeta = () => {
+export const getBootstrapMeta = (runtimeRoot = '.') => {
   try {
-    return JSON.parse(readFileSync('var/bootstrap.lock', 'utf8'));
+    return JSON.parse(readFileSync(resolve(runtimeRoot, 'var/bootstrap.lock'), 'utf8'));
   } catch (_e) {
     return null;
   }

@@ -119,6 +119,10 @@
       max-width: none;
       min-width: 0;
       flex-shrink: 1;
+      /* The name is the one navbar item with no length bound, so it is also the
+         one that gives way first: it truncates (the full name stays in the
+         chip's tooltip) instead of pushing the context meter into a wrap. */
+      overflow: hidden;
       transition: opacity var(--transition), border-color var(--transition);
     }
     .status-pill[data-state="disconnected"] { opacity: .55; }
@@ -133,6 +137,9 @@
       white-space: nowrap;
       font-weight: 600;
       letter-spacing: 0.02em;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .model-chip-name--llamacpp { color: #22c55e; }
     .model-chip-name--deepseek { color: #3b82f6; }

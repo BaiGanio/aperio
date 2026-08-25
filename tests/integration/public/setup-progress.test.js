@@ -26,6 +26,11 @@ test("setup screen switching overrides hidden CSP placeholder styles", () => {
   assert.match(setupScript, /progressView\.style\.display = "block"/);
 });
 
+test("a completed snapshot reveals the launch action without the one-shot complete event", () => {
+  assert.match(setupScript, /if \(done === STEPS\.length\) \{\s*es\.close\(\);\s*showDone\(\);/);
+  assert.match(setupScript, /if \(completionShown\) return/);
+});
+
 test("setup failure UI never invents model-download progress", () => {
   assert.doesNotMatch(setupScript, /fill\.style\.width = "35%"/);
   assert.match(setupScript, /Download did not start/);

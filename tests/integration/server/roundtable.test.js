@@ -219,7 +219,7 @@ describe("bootRoundtable", () => {
 
   // ─── Full flow — agents created ──────────────────────────────────────
 
-  test("creates primary and verifier agents when both configs are valid and enabled", async () => {
+  test("creates primary and verifier lazily when first requested", async () => {
     process.env.ROUNDTABLE_AGENTS = "anthropic:claude-sonnet-4, deepseek:deepseek-chat";
     const mockAgent = defaultAgent();
     const createAgent = makeCreateAgent(mockAgent);
@@ -230,22 +230,134 @@ describe("bootRoundtable", () => {
     });
 
     assert.strictEqual(result.roundtableAvailable, true);
-    assert.ok(result.primaryRoundtable, "primary agent created");
-    assert.ok(result.verifier, "verifier agent created");
-    assert.strictEqual(result.primaryRoundtable, mockAgent);
-    assert.strictEqual(result.verifier, mockAgent);
-    // createAgent should have been called twice
+    assert.strictEqual(result.primaryRoundtable, null);
+    assert.strictEqual(result.verifier, null);
+    assert.strictEqual(createAgent.mock.callCount(), 0);
+
+    const agents = await result.getAgents();
+    assert.strictEqual(agents.primaryRoundtable, mockAgent);
+    assert.strictEqual(agents.verifier, mockAgent);
     assert.strictEqual(createAgent.mock.callCount(), 2);
+  });
+
+  test("single-flights concurrent first-use initialization", async () => {
+    process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
+    const createAgent = makeCreateAgent(defaultAgent());
+    const result = await bootRoundtable({
+      root: ROOT, version: VERSION, provider: { name: "anthropic" }, createAgent,
+    });
+
+    const [first, second] = await Promise.all([result.getAgents(), result.getAgents()]);
+
+    assert.strictEqual(first, second);
+    assert.strictEqual(createAgent.mock.callCount(), 2);
+  });
+
+  test("shares one compatible MCP connection across both roles", async () => {
+    process.env.ROUNDTABLE_AGENTS = "llamacpp:model-x, llamacpp:model-x";
+    const shared = { providerIsLocal: true };
+    const createAgent = mock.fn(async (opts) => ({
+      provider: opts.spec.provider,
+      getMcpConnection: () => opts.mcpConnection,
+    }));
+    const result = await bootRoundtable({
+      root: ROOT, version: VERSION, provider: { name: "llamacpp", model: "model-x" }, createAgent,
+      mcpConnections: [shared],
+    });
+
+    await result.getAgents();
+
+    assert.strictEqual(createAgent.mock.calls[0].arguments[0].mcpConnection, shared);
+    assert.strictEqual(createAgent.mock.calls[1].arguments[0].mcpConnection, shared);
+  });
+
+  test("does not share an MCP connection across the local/cloud privacy boundary", async () => {
+    process.env.ROUNDTABLE_AGENTS = "llamacpp:model-x, anthropic:model-y";
+    const localConnection = { providerIsLocal: true };
+    const cloudConnection = { providerIsLocal: false };
+    const createAgent = mock.fn(async (opts) => {
+      const connection = opts.mcpConnection ?? cloudConnection;
+      return {
+        provider: opts.spec.provider,
+        getMcpConnection: () => connection,
+      };
+    });
+    const result = await bootRoundtable({
+      root: ROOT, version: VERSION, provider: { name: "llamacpp", model: "model-x" }, createAgent,
+      mcpConnections: [localConnection],
+    });
+
+    await result.getAgents();
+
+    assert.strictEqual(createAgent.mock.calls[0].arguments[0].mcpConnection, localConnection);
+    assert.strictEqual(createAgent.mock.calls[1].arguments[0].mcpConnection, null);
+  });
+
+  test("closes a partially created primary when verifier creation fails", async () => {
+    process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
+    const close = mock.fn(async () => {});
+    let call = 0;
+    const createAgent = mock.fn(async () => {
+      if (++call === 1) return { provider: { name: "anthropic", model: "model-x" }, close };
+      throw new Error("verifier failed");
+    });
+    const result = await bootRoundtable({
+      root: ROOT, version: VERSION, provider: { name: "anthropic" }, createAgent,
+    });
+
+    await assert.rejects(result.getAgents(), /verifier failed/);
+
+    assert.strictEqual(close.mock.callCount(), 1);
+    assert.strictEqual(result.primaryRoundtable, null);
+  });
+
+  test("does not reuse a failed pair's closed MCP connection on retry", async () => {
+    process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
+    const firstConnection = { providerIsLocal: false };
+    const secondConnection = { providerIsLocal: false };
+    const firstClose = mock.fn(async () => {});
+    let call = 0;
+    const createAgent = mock.fn(async (opts) => {
+      call++;
+      if (call === 1) {
+        assert.strictEqual(opts.mcpConnection, null);
+        return {
+          provider: opts.spec.provider,
+          getMcpConnection: () => firstConnection,
+          close: firstClose,
+        };
+      }
+      if (call === 2) throw new Error("verifier failed");
+      if (call === 3) {
+        assert.strictEqual(opts.mcpConnection, null, "retry must not receive the closed first connection");
+        return {
+          provider: opts.spec.provider,
+          getMcpConnection: () => secondConnection,
+          close: async () => {},
+        };
+      }
+      return { provider: opts.spec.provider, close: async () => {} };
+    });
+    const result = await bootRoundtable({
+      root: ROOT, version: VERSION, provider: { name: "anthropic" }, createAgent,
+    });
+
+    await assert.rejects(result.getAgents(), /verifier failed/);
+    await result.getAgents();
+
+    assert.strictEqual(firstClose.mock.callCount(), 1);
+    assert.strictEqual(createAgent.mock.callCount(), 4);
   });
 
   test("passes root and version to createAgent", async () => {
     process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
     const createAgent = makeCreateAgent(defaultAgent());
 
-    await bootRoundtable({
+    const result = await bootRoundtable({
       root: ROOT, version: VERSION,
       provider: "anthropic", createAgent,
     });
+    await result.getAgents();
 
     // Both calls should have root and version
     for (const call of createAgent.mock.calls) {
@@ -258,10 +370,11 @@ describe("bootRoundtable", () => {
     process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
     const createAgent = makeCreateAgent(defaultAgent());
 
-    await bootRoundtable({
+    const result = await bootRoundtable({
       root: ROOT, version: VERSION,
       provider: "anthropic", createAgent,
     });
+    await result.getAgents();
 
     const calls = createAgent.mock.calls;
     assert.strictEqual(calls.length, 2);
@@ -283,10 +396,11 @@ describe("bootRoundtable", () => {
     const createAgent = makeCreateAgent(defaultAgent());
     logger.info.mock.resetCalls();
 
-    await bootRoundtable({
+    const result = await bootRoundtable({
       root: ROOT, version: VERSION,
       provider: "anthropic", createAgent,
     });
+    await result.getAgents();
 
     const bootLog = logger.info.mock.calls.find(c =>
       c.arguments[0].includes("🤝 Round-table")
@@ -319,7 +433,7 @@ describe("bootRoundtable", () => {
 
   // ─── createAgent failure ─────────────────────────────────────────────
 
-  test("catches createAgent error, logs error, and returns null agents", async () => {
+  test("surfaces a lazy createAgent error and leaves no cached agents", async () => {
     process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
     const createAgent = mock.fn(async () => { throw new Error("agent factory failed"); });
 
@@ -328,9 +442,10 @@ describe("bootRoundtable", () => {
       provider: "anthropic", createAgent,
     });
 
-    assert.strictEqual(result.roundtableAvailable, false);
+    assert.strictEqual(result.roundtableAvailable, true);
     assert.strictEqual(result.primaryRoundtable, null);
     assert.strictEqual(result.verifier, null);
+    await assert.rejects(result.getAgents(), /agent factory failed/);
 
     const errLog = logger.error.mock.calls.find(c =>
       c.arguments[0].includes("Could not boot round-table agents")
@@ -345,10 +460,11 @@ describe("bootRoundtable", () => {
     process.env.ROUNDTABLE_CHARACTERS = "professor-cruncher, skeptic-bot";
     const createAgent = makeCreateAgent(defaultAgent());
 
-    await bootRoundtable({
+    const result = await bootRoundtable({
       root: ROOT, version: VERSION,
       provider: "anthropic", createAgent,
     });
+    await result.getAgents();
 
     const calls = createAgent.mock.calls;
     assert.strictEqual(calls.length, 2);
@@ -361,10 +477,11 @@ describe("bootRoundtable", () => {
     process.env.ROUNDTABLE_AGENTS = "anthropic:model-x, deepseek:model-y";
     const createAgent = makeCreateAgent(defaultAgent());
 
-    await bootRoundtable({
+    const result = await bootRoundtable({
       root: ROOT, version: VERSION,
       provider: "anthropic", createAgent,
     });
+    await result.getAgents();
 
     const calls = createAgent.mock.calls;
     assert.strictEqual(calls.length, 2);
