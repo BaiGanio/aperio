@@ -72,6 +72,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `(ci) install matrix` full suite on `windows-11-arm`, where this single throw
   accounted for 160 direct failures and most of the 339 cascaded ones.
 
+- **`npm run gen:agent-rules` no longer fails on a Windows checkout.** Git checks
+  this repo out with CRLF on Windows (`core.autocrlf=true` is the platform
+  default there), so `id/agent-rules/aperio-memory.md` opens with `---\r\n` and
+  `parseCanonical`'s `/^---\n/` never matched — the generator aborted with
+  "must open with a frontmatter block", taking the `--check` CI gate and all 15
+  of `tests/integration/scripts/gen-agent-rules.test.js` with it. Every read in
+  `scripts/gen-agent-rules.js` is now folded to LF, which also makes the
+  generated adapters byte-identical across platforms so the drift gate compares
+  content rather than checkout policy. `stripFrontmatter()` in
+  `lib/agent/skill-admin.js` carried the same `\n`-strict pattern and would have
+  silently left the frontmatter block inside the body of a CRLF-authored skill;
+  it is now `\r`-tolerant.
+
 ### Changed
 
 - **The npm audit gate accepts dated, justified exceptions instead of sitting

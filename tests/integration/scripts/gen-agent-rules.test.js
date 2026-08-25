@@ -32,7 +32,10 @@ const ADAPTERS = [
 const run = (args, dir) =>
   spawnSync(process.execPath, [SCRIPT, ...(dir ? ["--out-dir", dir] : []), ...args], { encoding: "utf8" });
 
-const read = (p) => readFileSync(p, "utf8");
+// Folded to LF, matching the generator. Git checks this repo out with CRLF on
+// Windows, so a raw read would make the byte-compares below assert on checkout
+// policy rather than on content drift — the thing these tests actually guard.
+const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 
 /** Frontmatter body split: everything after a leading `---` fenced block. */
 function bodyOf(text) {

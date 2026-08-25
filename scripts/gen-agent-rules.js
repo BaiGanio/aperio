@@ -33,6 +33,14 @@ const OUT_DIR = outDirIdx !== -1
   ? resolve(process.argv[outDirIdx + 1])
   : join(ROOT, "integrations", "agent-rules");
 
+// ── text intake ───────────────────────────────────────────────────────────────
+// Every read is folded to LF. Git checks this repo out with CRLF on Windows
+// (`core.autocrlf=true` is the default there), and both the frontmatter parser
+// and the `--check` byte compare below are line-ending sensitive. Normalizing
+// at the boundary keeps the generated adapters byte-identical on every
+// platform, so the CI drift gate compares content and not checkout policy.
+const readText = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+
 // ── canonical source ──────────────────────────────────────────────────────────
 // A three-key frontmatter (name / description / keywords) feeds each adapter's
 // own header, so platform metadata is derived rather than restated. Parsed by
@@ -130,7 +138,7 @@ function wrap(text, width) {
 }
 
 // ── entry point ───────────────────────────────────────────────────────────────
-const canonical = parseCanonical(readFileSync(CANON, "utf8"));
+const canonical = parseCanonical(readText(CANON));
 
 const outputs = [
   { rel: "AGENTS.snippet.md", content: buildAgentsSnippet(canonical) },
@@ -142,7 +150,7 @@ if (process.argv.includes("--check")) {
   let stale = false;
   for (const o of outputs) {
     let current = "";
-    try { current = readFileSync(join(OUT_DIR, o.rel), "utf8"); } catch { /* missing → out of date */ }
+    try { current = readText(join(OUT_DIR, o.rel)); } catch { /* missing → out of date */ }
     if (current !== o.content) {
       console.error(`✗ ${o.rel} is out of date. Run \`npm run gen:agent-rules\`.`);
       stale = true;

@@ -15,7 +15,9 @@
 import { describe, test, mock, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { resolve as pathResolve } from "path";
+import { posix as posixPath } from "path";
+
+const posixResolve = posixPath.resolve;
 
 const require = createRequire(import.meta.url);
 const fs = require("fs");
@@ -33,6 +35,15 @@ const callLog = {
   unlinkSync: [],
   rmSync: [],
 };
+
+// The module under test builds every path with `path.join`, so on Windows it
+// hands this mock fs `C:\\test\\workspace\\var\\sessions\\x.json` while the fixtures
+// below are authored POSIX-style. Folding `\\` to `/` at the mock-fs boundary is
+// the whole platform story: fixture keys stay byte-identical everywhere, and the
+// two spellings of the same path can never diverge into a phantom ENOENT.
+function toKey(p) {
+  return typeof p === "string" ? p.replaceAll("\\", "/") : p;
+}
 
 function join(...parts) {
   return parts.join("/").replace(/\/+/g, "/");
@@ -123,12 +134,16 @@ let mockUnlinkSyncImpl = null;
 let mockRmSyncImpl = null;
 let mockCopyFileSyncImpl = null;
 
-// Resolve a path that may be relative against the mock workspace root.
+// Resolve a path that may be relative against the mock workspace root, and
+// return it in memFS key form. POSIX resolution on purpose: `path.resolve`
+// would prepend the host drive letter on Windows and desync from the
+// join()-built fixture keys.
 function _resolve(p) {
-  if (typeof p === "string" && !p.startsWith("/") && !p.startsWith("file://")) {
-    return pathResolve(mockCwd, p);
+  const k = toKey(p);
+  if (typeof k === "string" && !k.startsWith("/") && !k.startsWith("file://")) {
+    return posixResolve(toKey(mockCwd), k);
   }
-  return p;
+  return k;
 }
 
 function setupTest() {
@@ -141,7 +156,7 @@ function setupTest() {
     if (content === undefined) {
       // Fall back to the raw path for backward compat with existing tests
       // that use non-resolved paths
-      const raw = memFS.get(p);
+      const raw = memFS.get(toKey(p));
       if (raw !== undefined) return raw;
       const err = new Error(`ENOENT: no such file '${p}'`);
       err.code = "ENOENT";
@@ -180,13 +195,13 @@ function setupTest() {
 
   mockExistsSyncImpl = (p) => {
     callLog.existsSync.push(p);
-    return memFS.has(_resolve(p)) || memFS.has(p);
+    return memFS.has(_resolve(p)) || memFS.has(toKey(p));
   };
 
   mockUnlinkSyncImpl = (p) => {
     callLog.unlinkSync.push(p);
     const resolved = _resolve(p);
-    if (!memFS.delete(resolved) && !memFS.delete(p)) {
+    if (!memFS.delete(resolved) && !memFS.delete(toKey(p))) {
       const err = new Error(`ENOENT: no such file '${p}'`);
       err.code = "ENOENT";
       throw err;
@@ -295,7 +310,7 @@ describe("init()", () => {
   test("updates the directory paths", () => {
     sessions.init("/custom/root");
     const scratch = sessions.sessionScratchDir("abc123");
-    assert.ok(scratch.includes("/custom/root/var/scratch/abc123"));
+    assert.ok(toKey(scratch).includes("/custom/root/var/scratch/abc123"));
     sessions.init(mockCwd); // reset
   });
 });
@@ -306,7 +321,7 @@ describe("init()", () => {
 describe("sessionScratchDir()", () => {
   test("returns the scratch path for a session id", () => {
     const result = sessions.sessionScratchDir("my-session-id");
-    assert.ok(result.includes("var/scratch/my-session-id"));
+    assert.ok(toKey(result).includes("var/scratch/my-session-id"));
   });
 
   test("throws on a path-traversal id instead of resolving outside var/scratch (security)", () => {
@@ -355,7 +370,7 @@ describe("createSession()", () => {
 
     sessions.createSession({ model: "gpt-4", provider: "openai" });
 
-    assert.ok(callLog.mkdirSync.some(p => p === dir), "mkdirSync should be called for sessions dir");
+    assert.ok(callLog.mkdirSync.some(p => toKey(p) === dir), "mkdirSync should be called for sessions dir");
     assert.ok(memFS.has(dir), "sessions dir should now exist");
   });
 

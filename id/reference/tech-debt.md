@@ -34,13 +34,36 @@ housekeeping go in `A2D.md`, not here.
   remains is ~247 blocks across ~40 test files that are genuinely Windows-hostile, not
   product bugs: tests asserting on `/`-separated paths against `path.join` output,
   memfs doubles rooted at `/mem/...` that Windows resolves to `C:\mem\...`, and a few
-  `spawn`/venv/`ENOENT` assumptions. Worst offenders by count:
-  `tests/integration/helpers/sessions.test.js` (60), `tests/integration/mcp/tools/files.test.js`
-  (30), `tests/integration/scripts/gen-agent-rules.test.js` (15). Until these are
-  normalized the nightly stays red on that one matrix leg — the other two legs
-  (`ubuntu-24.04-arm`, `macos-latest`) are green, and `(ci) lite smoke` boots on
-  `windows-11-arm` fine. Full per-file breakdown is reproducible from
-  `gh run view <id> --log-failed` on any nightly run.
+  `spawn`/venv/`ENOENT` assumptions. The three worst offenders are now normalized
+  (`helpers/sessions.test.js` 60, `mcp/tools/files.test.js` 30,
+  `scripts/gen-agent-rules.test.js` 15 — the last of which turned out to be CRLF, not
+  paths, and needed a generator fix rather than a test one), leaving ~142 blocks across
+  ~37 files. The working pattern for the rest: fold `\` to `/` in a single `toKey()` at
+  the mock-fs boundary and keep the fixtures POSIX, rather than branching on
+  `process.platform` at each assertion. Until the remainder is normalized the nightly
+  stays red on that one matrix leg — the other two legs (`ubuntu-24.04-arm`,
+  `macos-latest`) are green, and `(ci) lite smoke` boots on `windows-11-arm` fine. Full
+  per-file breakdown is reproducible from `gh run view <id> --log-failed` on any nightly
+  run. A Windows run can be reproduced on a POSIX host with an ESM loader that re-exports
+  `node:path`'s win32 half under the plain `"path"` specifier — it matched the nightly's
+  per-file counts exactly.
+
+## `write_file` never creates parent directories on Windows
+
+- 2026-08-25 `mcp/tools/files/perform.js:12` derives the parent directory with
+  `resolved.substring(0, resolved.lastIndexOf("/"))`. On Windows `resolved` is
+  `C:\\Users\\me\\aperio\\reports\\q3\\summary.md` — no forward slash — so `lastIndexOf`
+  returns `-1`, `substring(0, -1)` returns `""`, and the `if (dir)` guard skips the
+  `fs.mkdir` entirely. `create_dirs: true` (the default) is therefore a no-op on Windows,
+  and every `write_file` into a not-yet-existing directory fails with ENOENT. Same class of
+  bug as `mcp/tools/files/helpers.js:42`, where `primary.split("/").pop()` makes the
+  `🗂️ Project:` label render the whole path instead of the folder name (cosmetic).
+  The fix is `dirname()` from `node:path` in both places.
+  `tests/integration/mcp/tools/files.test.js` did not catch this because its VFS double
+  computed the parent with the *same* hardcoded `/`, so mock and product agreed on the
+  wrong answer. The double now uses proper path handling, and the three write tests
+  ("creates parent directories when create_dirs is true", plus the two outside-scratch
+  write-gate tests) fail under a Windows-path simulation until the product is fixed.
 
 ## Continuous-audit program — the mandated verify-first test suite was never built
 

@@ -26,7 +26,22 @@ import { parseSearchScopes } from "../../../../lib/agent/search-scopes.js";
 
 const vfs = new Map(); // path → { type: "file"|"dir", content: string }
 
-function vfsSetupDir(path) {
+// The VFS is keyed POSIX-style, but the code under test builds its paths with
+// path.resolve/join, so on Windows it asks for "C:\\vfs\\aperio-test\\hello.js"
+// where the fixture was stored as "/vfs/aperio-test/hello.js". toKey() folds the
+// Windows spelling back: drop the drive the resolver stamped on, then swap the
+// separators. Dropping the drive is safe precisely because this VFS only ever
+// holds /vfs/... fixtures — and a real path that survives the fold without
+// landing under /vfs/ is passed through to the real filesystem below anyway.
+const toKey = (p) =>
+  typeof p === "string" ? p.replace(/^[A-Za-z]:/, "").replaceAll("\\", "/") : p;
+
+// Every mock takes its path first, so normalizing at the boundary keeps the
+// bodies below free of platform conditionals.
+const keyed = (fn) => (p, ...rest) => fn(toKey(p), ...rest);
+
+function vfsSetupDir(rawPath) {
+  const path = toKey(rawPath);
   path.split("/").filter(Boolean).reduce((acc, part) => {
     const p = `${acc}/${part}`;
     if (!vfs.has(p)) vfs.set(p, { type: "dir", content: "" });
@@ -34,20 +49,22 @@ function vfsSetupDir(path) {
   }, "");
 }
 
-function vfsSetupFile(path, content) {
+function vfsSetupFile(rawPath, content) {
+  const path = toKey(rawPath);
   const parent = path.substring(0, path.lastIndexOf("/"));
   if (parent) vfsSetupDir(parent);
   vfs.set(path, { type: "file", content });
 }
 
-function vfsSetupSymlink(path, target) {
+function vfsSetupSymlink(rawPath, target) {
+  const path = toKey(rawPath);
   const parent = path.substring(0, path.lastIndexOf("/"));
   if (parent) vfsSetupDir(parent);
   vfs.set(path, { type: "symlink", content: target });
 }
 
-const vfsRead   = (path) => vfs.get(path)?.content ?? null;
-const vfsExists = (path) => vfs.has(path);
+const vfsRead   = (path) => vfs.get(toKey(path))?.content ?? null;
+const vfsExists = (path) => vfs.has(toKey(path));
 
 // ─── Virtual cwd and TMP ─────────────────────────────────────────────────────
 
@@ -68,11 +85,13 @@ function mockStatSync(path) {
     isSymbolicLink: () => e.type === "symlink",
   };
 }
-function mockReadFileSync(path, ...rest) {
+function mockReadFileSync(rawPath, ...rest) {
   // Paths outside the VFS namespace (e.g. node_modules sources loaded by
-  // ExcelJS at import time) must hit the real fs, not our in-memory map.
+  // ExcelJS at import time) must hit the real fs, not our in-memory map — and
+  // they must reach it in their ORIGINAL spelling, drive letter and all.
+  const path = toKey(rawPath);
   if (typeof path !== "string" || !path.startsWith("/vfs/"))
-    return realReadFileSync(path, ...rest);
+    return realReadFileSync(rawPath, ...rest);
   const e = vfs.get(path);
   if (!e || e.type !== "file")
     throw Object.assign(new Error(`ENOENT: open '${path}'`), { code: "ENOENT" });
@@ -157,21 +176,21 @@ const realReadFileSync = fsSync.readFileSync;
 // Mocking process.cwd here (before files.js / paths.js load) causes paths.js
 // to set BASE_DIR = TMP, so ALLOWED_*_PATHS = [TMP] with no env-var changes.
 mock.method(process, "cwd",   () => virtualCwd);
-mock.method(process, "chdir", (dir) => { virtualCwd = dir.startsWith("/") ? dir : join(virtualCwd, dir); });
+mock.method(process, "chdir", (dir) => { const d = toKey(dir); virtualCwd = d.startsWith("/") ? d : `${virtualCwd}/${d}`; });
 
-mock.method(fsSync, "existsSync",   mockExistsSync);
-mock.method(fsSync, "statSync",     mockStatSync);
-mock.method(fsSync, "lstatSync",    mockStatSync);
+mock.method(fsSync, "existsSync", keyed(mockExistsSync));
+mock.method(fsSync, "statSync", keyed(mockStatSync));
+mock.method(fsSync, "lstatSync", keyed(mockStatSync));
 mock.method(fsSync, "readFileSync", mockReadFileSync);
-mock.method(fsSync, "readdirSync",  mockReaddirSync);
+mock.method(fsSync, "readdirSync", keyed(mockReaddirSync));
 
-mock.method(fsAsync, "writeFile",  mockWriteFile);
-mock.method(fsAsync, "readFile",   mockReadFile);
-mock.method(fsAsync, "appendFile", mockAppendFile);
-mock.method(fsAsync, "mkdir",      mockMkdir);
-mock.method(fsAsync, "stat",       mockStat);
-mock.method(fsAsync, "rm",         mockRm);
-mock.method(fsAsync, "unlink",     mockRm);
+mock.method(fsAsync, "writeFile", keyed(mockWriteFile));
+mock.method(fsAsync, "readFile", keyed(mockReadFile));
+mock.method(fsAsync, "appendFile", keyed(mockAppendFile));
+mock.method(fsAsync, "mkdir", keyed(mockMkdir));
+mock.method(fsAsync, "stat", keyed(mockStat));
+mock.method(fsAsync, "rm", keyed(mockRm));
+mock.method(fsAsync, "unlink", keyed(mockRm));
 
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
@@ -874,7 +893,7 @@ describe("grepFilesHandler", () => {
     vfsSetupFile(join(dir, "README.md"), "OAuthCallback docs");
     const result = await grepFilesHandler({ path: dir, pattern: "OAuthCallback" });
     const text = result.content[0].text;
-    assert.match(text, /src\/auth\.js:1:const OAuthCallback/);
+    assert.match(text, /src[\\/]auth\.js:1:const OAuthCallback/);
     assert.match(text, /README\.md:1:OAuthCallback docs/);
   });
 
@@ -922,7 +941,10 @@ describe("grepFilesHandler", () => {
     const otherDir = join(TMP, "scoped-project", "other");
     vfsSetupFile(join(authDir, "callback.js"), "export const OAuthCallback = true;");
     vfsSetupFile(join(otherDir, "callback.js"), "export const OAuthCallback = false;");
-    const raw = `[PREFERENCE] Auth scope (importance: 5)\nSearch ${authDir} first.\nTags: scope:auth\nID: scope-1`;
+    // The scope path is quoted POSIX-style on purpose: parseSearchScopes reads
+    // absolute paths as either "C:\\..." or "/...", and the driveless "\\vfs\\..."
+    // that path.join yields under a driveless mock cwd is neither.
+    const raw = `[PREFERENCE] Auth scope (importance: 5)\nSearch ${toKey(authDir)} first.\nTags: scope:auth\nID: scope-1`;
     const factory = createToolHooks({
       callTool: async (_name, args) => (await grepFilesHandler(args)).content[0].text,
       summarizeArgs: (_name, args) => args.path,
@@ -933,9 +955,9 @@ describe("grepFilesHandler", () => {
       logger: { info() {}, warn() {}, error() {} },
       WRITE_TOOLS: new Set(),
       CONFIRM_TOOLS: new Set(),
-      existsSync: mockExistsSync,
-      statSync: mockStatSync,
-      readdirSync: mockReaddirSync,
+      existsSync: keyed(mockExistsSync),
+      statSync: keyed(mockStatSync),
+      readdirSync: keyed(mockReaddirSync),
       copyFileSync() {},
       basename,
       join,
