@@ -28,7 +28,7 @@ const EXPECTED_TYPES = [
   "context_warning", "context_trimmed", "context_handoff_suggested", "handoff_written",
   "context_summarized", "suggestions_saved", "session_resumed", "session_branched",
   // knowledge
-  "memories", "deleted", "ttl_chip", "skills_matched", "capability_notice",
+  "memories", "deleted", "ttl_chip", "skills_matched",
   "generated_file", "answer_artifacts", "no_tool_use_detected", "slow_local_turn_detected",
   // loop guards — the model lost its tools for one pass and had to answer
   "tool_repeat_break", "tool_step_limit",

@@ -17,6 +17,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
   Privacy & upkeep. The lightweight publication workflow builds and ships A4
   PDFs only, matching the format readers actually use.
 
+### Changed
+
+- **Model vision detection is now measured, not configured.** Aperio used to
+  decide "can this model see pictures?" with a hand-kept regex over model
+  names — it was already wrong for at least one cached model. Vision is now
+  read straight from the model file: a local model sees iff its Hugging Face
+  cache holds a companion `mmproj*.gguf` projector; a cloud model's vision is
+  a fixed, provider-level fact. When the main model can't see, the bridge is
+  always gemma-4-E4B — the same curated model that boots by default — instead
+  of a second, separately downloaded 7B vision model. Tool-calling support is
+  now read from each model's own chat template the same way. Every model now
+  gets tools and the memory pointer; the old `APERIO_CAPABLE_MODELS` allowlist
+  that gated this is gone.
+- **DeepSeek's local vision bridge now actually starts.** Aperio only started
+  the local llama.cpp engine for `AI_PROVIDER=llamacpp`, so a DeepSeek turn
+  with an attached image quietly fetched a dead port and degraded to a text
+  label — DeepSeek image support had never actually worked. The engine now
+  starts on demand, with a progress message, the first time a DeepSeek turn
+  needs it.
+
+### Removed
+
+- **`LLAMACPP_VLM_MODEL` and `LLAMACPP_VLM_MMPROJ`** — the dedicated
+  second vision model is gone; the bridge role is always the curated default
+  local model, discovered automatically.
+- **`APERIO_CAPABLE_MODELS` and `APERIO_RECALL_SCAFFOLD_MODELS`** — the
+  model-name capability gate and its forced-recall scaffold. Every model now
+  gets tools and the memory pointer.
+- **`capability_notice` / `images_dropped`** — every provider now either
+  carries an image natively or routes it through the local vision bridge, so
+  there is no longer a "this provider silently can't see images" case to
+  notify the user about.
+
 ### Fixed
 
 - **Cached vision projectors are no longer mistaken for model weights.** GGUF

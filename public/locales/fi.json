@@ -193,7 +193,6 @@
   "skills_always_badge":      "aina päällä",
   "skills_more":              "lisää…",
   "skills_load_error":        "Taitoa ei voitu ladata.",
-  "images_dropped_notice":  "{provider} ei näe kuvia — tämä vuoro suoritetaan vain tekstillä.",
   "tool_repeat_break_notice": "{model} toisti saman työkalukutsun {repeats}× peräkkäin, joten työkalut poistettiin käytöstä tähän vastaukseen.",
   "tool_step_limit_notice": "{model} käytti tässä vastauksessa {steps} työkalukutsukierrosta (raja {limit}), joten työkalut poistettiin käytöstä ja sen oli vastattava.",
   "skills_panel_nav_title": "Taidot — katso, muokkaa, luo ja kytke agenttisi taitoja",

@@ -674,80 +674,11 @@ describe("run_shell cwd injection", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Forced auto-recall scaffold gate (issue #188)
-// ---------------------------------------------------------------------------
-//
-// The forced auto-recall injection (RELEVANT MEMORIES — a behavior override) used
-// to ride the same isCapableModel() threshold as the neutral recall pointer. That
-// bundles two different things onto one flag: the moment a local model is trusted
-// enough to be "capable", it is also unconditionally force-fed regex-driven recall,
-// with no way to keep the tools/pointer while dropping the override as the model
-// proves itself. needsRecallScaffold is the finer gate that separates them.
-
-describe("forced auto-recall scaffold gate (issue #188)", () => {
-  let saved;
-  beforeEach(() => {
-    delete process.env.AI_PROVIDER;
-    delete process.env.LLAMACPP_MODEL;
-    saved = {
-      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
-      APERIO_RECALL_SCAFFOLD_MODELS: process.env.APERIO_RECALL_SCAFFOLD_MODELS,
-    };
-  });
-  afterEach(() => {
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) delete process.env[k]; else process.env[k] = v;
-    }
-  });
-
-  const sse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
-  const DONE = "data: [DONE]\n";
-
-  // Drive one llama.cpp turn with a retrieval-shaped question and return the system
-  // prompt actually sent to the model (messages[0].content in the chat request).
-  async function systemPromptForRetrievalQuestion(t, model) {
-    stubMcpTransport(t);
-
-    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
-      if (name === "recall" && args?.query) {
-        return { content: [{ type: "text", text: "[fact] User has a meeting at 3pm" }] };
-      }
-      return { content: [{ type: "text", text: "No memories found." }] };
-    });
-
-    const bodies = [];
-    t.mock.method(globalThis, "fetch", (url, options) => {
-      if (String(url).includes("/health")) return Promise.resolve({ ok: true });
-      if (options?.body) bodies.push(JSON.parse(options.body));
-      return Promise.resolve(createMockResponseStream([sse({ content: "Sure." }), DONE]));
-    });
-
-    process.env.AI_PROVIDER = "llamacpp";
-    process.env.LLAMACPP_MODEL = model;
-
-    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
-    await agent.runAgentLoop(
-      [{ role: "user", content: "do you recall any memories about my meetings?" }],
-      { send: t.mock.fn() }
-    );
-
-    return bodies[0]?.messages?.find((m) => m.role === "system")?.content ?? "";
-  }
-
-  test("a scaffolded model (default fallback to APERIO_CAPABLE_MODELS) gets the forced injection", async (t) => {
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
-    const system = await systemPromptForRetrievalQuestion(t, "qwen3:32b");
-    assert.match(system, /RELEVANT MEMORIES/, "capable-by-default model still gets the forced-recall scaffold");
-  });
-
-  test("a capable-but-graduated model (removed from the scaffold list) is not force-fed recall", async (t) => {
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
-    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "llama3.1:70b"; // qwen3:32b is capable, but not scaffolded
-    const system = await systemPromptForRetrievalQuestion(t, "qwen3:32b");
-    assert.doesNotMatch(system, /RELEVANT MEMORIES/, "graduated model decides for itself whether to call recall");
-  });
-});
+// The forced auto-recall scaffold gate (issue #188) — needsRecallScaffold,
+// isCapableModel, APERIO_CAPABLE_MODELS/APERIO_RECALL_SCAFFOLD_MODELS — was
+// deleted 2026-08-26 (model-vision-autodetect plan, WS2): every model gets
+// tools + the memory pointer now, and the forced-injection override this
+// described no longer exists.
 
 // ---------------------------------------------------------------------------
 // Deterministic document-index inventory
@@ -1105,12 +1036,9 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(preloadedMemCount, 2, "the exact count is still returned for the UI banner");
   });
 
-  test("local (llama.cpp) models get no memory pointer — memory is skipped entirely", async (t) => {
+  test("local (llama.cpp) models get tools + a memory pointer now, regardless of name (2026-07-11 decision — no more model-name capability gate)", async (t) => {
     stubMcpTransport(t);
 
-    // Weak/local models can't make good use of memory and shouldn't burn tokens on
-    // it. Even with memories in the store, a llama.cpp agent gets an empty memCtx and
-    // reports zero to the banner. See refreshSessionMemCtx.
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
         return { content: [{ type: "text", text: "[fact] User name is John\n---\n[fact] Likes Node" }] };
@@ -1123,19 +1051,35 @@ describe("Agent Integration with Emitter", () => {
       providerConfig: { name: "llamacpp", model: "qwen2.5:3b" },
     });
 
-    const { memCtx, preloadedMemCount } = await agent.buildGreeting();
+    const { memCtx } = await agent.buildGreeting();
 
-    assert.strictEqual(memCtx, "", "llama.cpp models must not get a memory pointer");
-    assert.strictEqual(preloadedMemCount, 0, "no memories reported to the banner");
-    assert.strictEqual(agent.toolsEnabled, false, "weak llama.cpp models are offered no tools");
-    assert.strictEqual(agent.getToolCount("read my files", []), 0, "tool count is zero for weak models");
+    assert.match(memCtx, /saved memories/, "local models get the recall pointer too now");
+    assert.strictEqual(agent.toolsEnabled, true, "every model is tool-enabled now");
+    assert.ok(agent.getToolCount("read my files", []) > 0, "tool count is non-zero for a local model");
   });
 
-  test("an allowlisted (APERIO_CAPABLE_MODELS) llama.cpp model gets memory + tools", async (t) => {
+  test("a native-vision local model strips read_image/preprocess_image/describe_image for an inline upload", async (t) => {
     stubMcpTransport(t);
-    const prev = process.env.APERIO_CAPABLE_MODELS;
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
-    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+
+    // modelHandlesInlineImage is now measured from a cached mmproj file
+    // (model-capabilities.js), not a name allowlist. Give this model a real
+    // fixture cache entry so it resolves as native-vision.
+    const model = "harness-org/agent-vision-test-GGUF";
+    const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-agent-vision-cache-"));
+    const repoDir = path.join(cacheRoot, "models--" + model.replaceAll("/", "--"));
+    const snap = path.join(repoDir, "snapshots", "abc");
+    fs.mkdirSync(path.join(repoDir, "refs"), { recursive: true });
+    fs.mkdirSync(snap, { recursive: true });
+    fs.writeFileSync(path.join(repoDir, "refs", "main"), "abc");
+    fs.writeFileSync(path.join(snap, "model-Q4_K_M.gguf"), Buffer.alloc(16));
+    fs.writeFileSync(path.join(snap, "mmproj-BF16.gguf"), Buffer.alloc(16));
+    const prevLlamaCache = process.env.LLAMA_CACHE;
+    process.env.LLAMA_CACHE = cacheRoot;
+    t.after(() => {
+      fs.rmSync(cacheRoot, { recursive: true, force: true });
+      if (prevLlamaCache === undefined) delete process.env.LLAMA_CACHE;
+      else process.env.LLAMA_CACHE = prevLlamaCache;
+    });
 
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
@@ -1144,22 +1088,19 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({
       root: FAKE_ROOT, version: "1.0.0",
-      providerConfig: { name: "llamacpp", model: "qwen3:32b" },
+      providerConfig: { name: "llamacpp", model },
     });
 
-    const { memCtx } = await agent.buildGreeting();
-
-    assert.strictEqual(agent.toolsEnabled, true, "allowlisted llama.cpp models are capable");
-    assert.match(memCtx, /saved memories/, "allowlisted models get the recall pointer");
+    assert.strictEqual(agent.toolsEnabled, true);
     const imageTurn = [{ role: "user", content: [
       { type: "text", text: "describe this image" },
       { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
     ] }];
     const imageTools = agent.getOpenAiTools("describe this image", imageTurn)
       .map(t => t.function?.name);
-    assert.ok(!imageTools.includes("read_image"), "capable local models must not be offered read_image for an inline upload");
-    assert.ok(!imageTools.includes("preprocess_image"), "capable local models must not be offered preprocess_image for an inline upload");
-    assert.ok(!imageTools.includes("describe_image"), "capable local models must not be offered the VLM bridge tool");
+    assert.ok(!imageTools.includes("read_image"), "native-vision local models must not be offered read_image for an inline upload");
+    assert.ok(!imageTools.includes("preprocess_image"), "native-vision local models must not be offered preprocess_image for an inline upload");
+    assert.ok(!imageTools.includes("describe_image"), "native-vision local models must not be offered the VLM bridge tool");
     assert.ok(!imageTools.includes("read_file"), "standalone inline image requests must not offer read_file for the uploaded PNG");
     assert.ok(!imageTools.includes("propose_memory"), "standalone inline image requests must not offer propose_memory");
     assert.ok(!imageTools.includes("remember"), "standalone inline image requests must not offer remember");
@@ -1795,12 +1736,12 @@ describe("Provider resolution - DeepSeek", () => {
     assert.strictEqual(p.llamacppBaseURL, undefined);
   });
 
-  test("enables vision only for deepseek-v4-pro, not flash", () => {
+  test("deepseek is a provider-level blind, regardless of the specific model (model-vision-autodetect plan — no more per-model name list)", () => {
     process.env.AI_PROVIDER = "deepseek";
     process.env.DEEPSEEK_API_KEY = "sk-test";
 
     process.env.DEEPSEEK_MODEL = "deepseek-v4-pro";
-    assert.strictEqual(resolveProvider().vision, true);
+    assert.strictEqual(resolveProvider().vision, false);
 
     process.env.DEEPSEEK_MODEL = "deepseek-v4-flash";
     assert.strictEqual(resolveProvider().vision, false);

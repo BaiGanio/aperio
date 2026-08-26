@@ -1,6 +1,7 @@
 // tests/lib/helpers/imageBridge.test.js
 //
-// Tests for isVisionModel, isToollessVLM, and bridgeImagesToVLM.
+// Tests for bridgeImagesToVLM. Vision/tool-calling detection moved to
+// model-capabilities.test.js (measured from the GGUF file, not a name regex).
 // The logger module is imported at top level so we can mock its methods
 // before the dynamic import of imageBridge.js (which uses the same logger
 // instance via ESM cache). callTool and emitter are injected as arguments,
@@ -36,127 +37,13 @@ after(() => {
 
 let imageBridge;
 
+// VLM_MODEL is now the curated DEFAULT_LOCAL_MODEL constant — always
+// gemma-4-E4B, regardless of LLAMACPP_MODEL (see imageBridge.js's header
+// comment: never echo back a possibly-blind configured main model).
+const CURATED_VLM_MODEL = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
+
 before(async () => {
-  // Set a known VLM model for deterministic tests
-  process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
   imageBridge = await import("../../../lib/helpers/imageBridge.js");
-});
-
-// =============================================================================
-// isVisionModel
-// =============================================================================
-describe("isVisionModel()", () => {
-  test("returns true for llava models", () => {
-    assert.ok(imageBridge.isVisionModel("llava"));
-    assert.ok(imageBridge.isVisionModel("llava:13b"));
-    assert.ok(imageBridge.isVisionModel("bakllava"));
-  });
-
-  test("returns true for moondream", () => {
-    assert.ok(imageBridge.isVisionModel("moondream"));
-    assert.ok(imageBridge.isVisionModel("moondream:latest"));
-  });
-
-  test("returns true for minicpm-v variants", () => {
-    assert.ok(imageBridge.isVisionModel("minicpm-v"));
-    assert.ok(imageBridge.isVisionModel("minicpmv"));  // without hyphen
-  });
-
-  test("returns true for llama3.2-vision", () => {
-    assert.ok(imageBridge.isVisionModel("llama3.2-vision"));
-    assert.ok(imageBridge.isVisionModel("llama3.2-vision:11b"));
-  });
-
-  test("returns true for model names containing 'vision'", () => {
-    assert.ok(imageBridge.isVisionModel("custom-vision-model"));
-    assert.ok(imageBridge.isVisionModel("visionmodel"));
-  });
-
-  test("returns true for model names with 'vl' tag", () => {
-    assert.ok(imageBridge.isVisionModel("qwen2.5vl:7b"));   // 'vl:' pattern
-    assert.ok(imageBridge.isVisionModel("qwen2.5-vl:7b"));  // '-vl:' pattern
-    assert.ok(imageBridge.isVisionModel("qwen-vl"));         // '-vl' end
-    assert.ok(imageBridge.isVisionModel("phi3-vl"));         // '-vl' end
-    assert.ok(imageBridge.isVisionModel("internvl"));        // 'vl' internal
-  });
-
-  test("returns true for gemma3 and gemma4 variants", () => {
-    assert.ok(imageBridge.isVisionModel("gemma3"));
-    assert.ok(imageBridge.isVisionModel("gemma3:12b"));
-    assert.ok(imageBridge.isVisionModel("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"));
-    assert.ok(imageBridge.isVisionModel("gemma4"));
-    assert.ok(imageBridge.isVisionModel("gemma4:latest"));
-  });
-
-  test("returns false for non-vision models", () => {
-    assert.ok(!imageBridge.isVisionModel("llama3"));
-    assert.ok(!imageBridge.isVisionModel("llama3.1"));
-    assert.ok(!imageBridge.isVisionModel("llama3.2"));  // no "-vision" suffix
-    assert.ok(!imageBridge.isVisionModel("qwen2.5"));
-    assert.ok(!imageBridge.isVisionModel("mixtral"));
-    assert.ok(!imageBridge.isVisionModel("phi3"));
-    assert.ok(!imageBridge.isVisionModel("gemma2"));
-    assert.ok(!imageBridge.isVisionModel("mistral"));
-    assert.ok(!imageBridge.isVisionModel("deepseek-coder"));
-    assert.ok(!imageBridge.isVisionModel("codellama"));
-  });
-
-  test("returns false for empty string", () => {
-    assert.ok(!imageBridge.isVisionModel(""));
-  });
-
-  test("returns false when no argument is passed", () => {
-    assert.ok(!imageBridge.isVisionModel());
-  });
-});
-
-// =============================================================================
-// isToollessVLM
-// =============================================================================
-describe("isToollessVLM()", () => {
-  test("returns true for llava models", () => {
-    assert.ok(imageBridge.isToollessVLM("llava"));
-    assert.ok(imageBridge.isToollessVLM("llava:13b"));
-    assert.ok(imageBridge.isToollessVLM("bakllava"));
-  });
-
-  test("returns true for moondream", () => {
-    assert.ok(imageBridge.isToollessVLM("moondream"));
-  });
-
-  test("returns true for minicpm-v variants", () => {
-    assert.ok(imageBridge.isToollessVLM("minicpm-v"));
-    assert.ok(imageBridge.isToollessVLM("minicpmv"));
-  });
-
-  test("returns true for model names with 'vl' tag", () => {
-    assert.ok(imageBridge.isToollessVLM("qwen2.5vl:7b"));
-    assert.ok(imageBridge.isToollessVLM("qwen-vl"));
-    assert.ok(imageBridge.isToollessVLM("internvl"));
-    assert.ok(imageBridge.isToollessVLM("phi3-vl"));
-  });
-
-  test("returns false for full multimodal models that support tools", () => {
-    assert.ok(!imageBridge.isToollessVLM("llama3.2-vision"));
-    assert.ok(!imageBridge.isToollessVLM("gemma3"));
-    assert.ok(!imageBridge.isToollessVLM("gemma4"));
-    assert.ok(!imageBridge.isToollessVLM("gemma3:12b"));
-  });
-
-  test("returns false for models containing 'vision' only", () => {
-    assert.ok(!imageBridge.isToollessVLM("vision"));
-    assert.ok(!imageBridge.isToollessVLM("custom-vision"));
-  });
-
-  test("returns false for non-vision models", () => {
-    assert.ok(!imageBridge.isToollessVLM("llama3"));
-    assert.ok(!imageBridge.isToollessVLM("mixtral"));
-    assert.ok(!imageBridge.isToollessVLM("gemma2"));
-  });
-
-  test("returns false for empty string", () => {
-    assert.ok(!imageBridge.isToollessVLM(""));
-  });
 });
 
 describe("isStandaloneVisionRequest()", () => {
@@ -343,7 +230,7 @@ describe("bridgeImagesToVLM()", () => {
     assert.ok(calledWith, "callTool should have been called");
     assert.equal(calledWith.name, "describe_image");
     assert.equal(calledWith.input.data, "rawbase64data");
-    assert.equal(calledWith.input.model, "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+    assert.equal(calledWith.input.model, CURATED_VLM_MODEL);
   });
 
   test("passes the user's request to the VLM prompt", async () => {
@@ -582,7 +469,7 @@ describe("bridgeImagesToVLM()", () => {
     assert.ok(!infoCalls.some(args => args[0].includes("bridged")), "should not log bridge summary");
   });
 
-  test("uses LLAMACPP_VLM_MODEL in progress messages and labels", async () => {
+  test("uses the local vision model name in progress messages and labels", async () => {
     const messages = [
       { role: "user", content: [
         { type: "image", source: { data: "imgdata" } },
@@ -593,11 +480,11 @@ describe("bridgeImagesToVLM()", () => {
     await imageBridge.bridgeImagesToVLM(messages, makeSuccessCallTool("a description"), emitter);
 
     // Progress message should mention the model
-    const progressMsg = emitter._sends.find(s => s.text.includes("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"));
+    const progressMsg = emitter._sends.find(s => s.text.includes(CURATED_VLM_MODEL));
     assert.ok(progressMsg, "progress message should include VLM model name");
 
     // The description label should mention the model
-    assert.ok(messages[0].content.some(b => b.text.includes("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF")), "description should mention model");
+    assert.ok(messages[0].content.some(b => b.text.includes(CURATED_VLM_MODEL)), "description should mention model");
   });
 
   test("does not mutate message when callTool throws on the first image but proceeds for others", async () => {

@@ -193,7 +193,6 @@
   "skills_always_badge":      "vždy zapnuté",
   "skills_more":              "viac…",
   "skills_load_error":        "Nepodarilo sa načítať zručnosť.",
-  "images_dropped_notice":  "{provider} nevidí obrázky — toto kolo prebehne iba s textom.",
   "tool_repeat_break_notice": "{model} zopakoval rovnaké volanie nástroja {repeats}× za sebou, takže nástroje boli pre túto odpoveď vypnuté.",
   "tool_step_limit_notice": "{model} použil v tejto odpovedi {steps} prechodov s volaniami nástrojov (limit {limit}), takže nástroje boli vypnuté a musel odpovedať.",
   "skills_panel_nav_title": "Zručnosti — zobrazenie, úprava, vytváranie a prepínanie zručností tvojho agenta",

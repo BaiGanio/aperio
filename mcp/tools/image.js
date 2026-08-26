@@ -14,7 +14,10 @@ import { extname }                              from "path";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
 import { LLAMACPP_MAIN_ALIAS, LLAMACPP_VLM_ALIAS } from "../../lib/helpers/llamacppAliases.js";
-import { isVisionModel }                       from "../../lib/helpers/imageBridge.js";
+import { modelCapabilitiesSync }               from "../../lib/providers/model-capabilities.js";
+import { DEFAULT_LOCAL_MODEL as CURATED_LOCAL_MODEL } from "../../lib/providers/index.js";
+import { fetchServerModels }                    from "../../lib/helpers/llamacpp/models.js";
+import { LLAMACPP_BASE_URL }                    from "../../lib/helpers/llamacpp/constants.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -33,8 +36,7 @@ const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — same limit as before
 // and stops it at app boot/shutdown), so there is no per-call start/stop
 // lifecycle here — the engine is simply assumed to be up by the time a tool
 // call reaches this handler.
-const LLAMACPP_BASE_URL = process.env.LLAMACPP_BASE_URL || "http://127.0.0.1:8080";
-const LLAMACPP_VLM_MODEL = process.env.LLAMACPP_VLM_MODEL || "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
+const LLAMACPP_VLM_MODEL = CURATED_LOCAL_MODEL; // always the curated default — never echoes back a blind LLAMACPP_MODEL
 const LLAMACPP_MAIN_MODEL = process.env.LLAMACPP_MODEL || "";
 const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 300_000;
 // A visual-analysis tool must return concise evidence, not consume the VLM's
@@ -43,15 +45,29 @@ const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 3
 // grounded caption/OCR summary and keeps a runaway request finite.
 const VLM_RESPONSE_TOKEN_LIMIT = 512;
 
-export function resolveDescribeModel(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL) {
-  return vlmModel === configuredVlmModel && isVisionModel(configuredMainModel)
+// The aperio-main alias only exists when the RUNNING preset came from
+// buildModelsPreset (the normal main(+VLM) boot, lib/helpers/startLlamaCpp.js's
+// ensureLlamaCpp with its default preset builder) — that's the only path that
+// ever omits aperio-vlm in favor of routing a natively-vision-capable main
+// model's alias. The on-demand bridge path (ensureVisionEngine, driven by
+// deepseek's runDeepSeekLoop) instead always builds buildVisionOnlyPreset —
+// aperio-vlm only, regardless of what LLAMACPP_MODEL happens to be configured
+// to. `mainAliasEligible` must therefore reflect which preset is ACTUALLY
+// running right now, not which AI_PROVIDER this MCP process happened to boot
+// with: this tool server is spawned once per agent session (mcp/index.js),
+// and both a runtime provider switch (agent.setProvider(), lib/agent/
+// index.js) and this process's own frozen env can disagree with the live
+// llama-server — see livePresetVisionState() below, the pure decision logic
+// stays here for direct unit testing with an explicit boolean.
+export function resolveDescribeModel(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL, mainAliasEligible = false) {
+  return vlmModel === configuredVlmModel && mainAliasEligible && modelCapabilitiesSync(configuredMainModel).vision
     ? LLAMACPP_MAIN_ALIAS
     : (vlmModel === configuredVlmModel ? LLAMACPP_VLM_ALIAS : vlmModel);
 }
 
 /** Model identifier that actually receives the pixels (not its router alias). */
-export function resolveDescribeModelId(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL) {
-  return vlmModel === configuredVlmModel && isVisionModel(configuredMainModel)
+export function resolveDescribeModelId(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL, mainAliasEligible = false) {
+  return vlmModel === configuredVlmModel && mainAliasEligible && modelCapabilitiesSync(configuredMainModel).vision
     ? configuredMainModel
     : vlmModel;
 }
@@ -67,20 +83,52 @@ export function isLlamaCppProvider() {
   return (process.env.AI_PROVIDER || "").toLowerCase() === "llamacpp";
 }
 
+// The ONLY reliable source for "can describe_image serve a request right
+// now": the running llama-server itself, asked directly. AI_PROVIDER cannot
+// answer this — this MCP tool process is spawned once per agent session
+// (mcp/index.js) and reads its own env at that boot moment; it never learns
+// about a later runtime provider switch (agent.setProvider(), lib/agent/
+// index.js's setProvider mutates the orchestrator's in-memory provider
+// object in the SEPARATE parent process, never process.env). A session that
+// boots on Anthropic/Gemini/Codex and switches to DeepSeek mid-conversation,
+// or one that boots on a native-vision llamacpp model and switches to
+// DeepSeek (whose bridge then reconciles the engine down to the vision-only
+// preset — see ensureVisionEngine in startLlamaCpp.js), both leave
+// process.env.AI_PROVIDER stale. Querying /v1/models instead reflects
+// whatever preset is ACTUALLY loaded, independent of any provider label.
+async function livePresetVisionState(configuredMainModel = LLAMACPP_MAIN_MODEL) {
+  const serverModels = await fetchServerModels();
+  return {
+    servesVlmAlias: !!serverModels?.includes(LLAMACPP_VLM_ALIAS),
+    // A native-vision main model is only usable through aperio-main when the
+    // router is actually serving that alias right now.
+    mainAliasEligible: !!serverModels?.includes(LLAMACPP_MAIN_ALIAS) && modelCapabilitiesSync(configuredMainModel).vision,
+  };
+}
+
+export async function isVisionEngineAvailable() {
+  const { servesVlmAlias, mainAliasEligible } = await livePresetVisionState();
+  return servesVlmAlias || mainAliasEligible;
+}
+
 /**
  * describe_image via llama-server's OpenAI-compatible /v1/chat/completions —
  * llama.cpp has no native /api/generate equivalent, so the image goes in as a
  * standard `image_url` data-URI content block (router mode loads/swaps the
  * VLM model on demand, same as the main chat model).
  */
-export async function describeImageViaLlamaCpp(base64, prompt, model) {
+export async function describeImageViaLlamaCpp(base64, prompt, model, mainAliasEligible) {
   const vlmModel = model || LLAMACPP_VLM_MODEL;
   // Native-vision main models are deliberately the only model in the preset;
   // buildModelsPreset omits aperio-vlm to avoid loading a second multimodal
   // model. If a model nevertheless emits the describe_image tool call, route
   // it back to the already-loaded main alias instead of asking the router for
-  // an alias that cannot exist in this configuration.
-  const targetModel = resolveDescribeModel(vlmModel);
+  // an alias that cannot exist in this configuration. `mainAliasEligible` is
+  // an optional pre-computed value (describeImageHandler passes its own, to
+  // avoid a second /v1/models round trip) — an independent caller gets a
+  // fresh live check.
+  const eligible = mainAliasEligible ?? (await livePresetVisionState()).mainAliasEligible;
+  const targetModel = resolveDescribeModel(vlmModel, LLAMACPP_VLM_MODEL, LLAMACPP_MAIN_MODEL, eligible);
   const r = await fetch(`${LLAMACPP_BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -288,17 +336,20 @@ export async function describeImageHandler({
   }
 
   // ── 2. llama.cpp — no start/stop lifecycle; the engine is already managed
-  // (spawned/stopped) by Aperio's own boot/shutdown, not per call. ──────────
-  if (!isLlamaCppProvider()) {
-    return { content: [{ type: "text", text: `❌ describe_image requires AI_PROVIDER=llamacpp (current: "${process.env.AI_PROVIDER || "unset"}").` }] };
+  // (spawned/stopped) by Aperio's own boot/shutdown, not per call. Ask the
+  // running server directly rather than trusting AI_PROVIDER — see
+  // livePresetVisionState's header comment. ──────────────────────────────────
+  const { servesVlmAlias, mainAliasEligible } = await livePresetVisionState();
+  if (!servesVlmAlias && !mainAliasEligible) {
+    return { content: [{ type: "text", text: `❌ describe_image: the local vision engine (${LLAMACPP_BASE_URL}) is not currently serving a vision-capable model.` }] };
   }
 
   const vlmModel  = model  || LLAMACPP_VLM_MODEL;
-  const actualModel = resolveDescribeModelId(vlmModel);
+  const actualModel = resolveDescribeModelId(vlmModel, LLAMACPP_VLM_MODEL, LLAMACPP_MAIN_MODEL, mainAliasEligible);
   const vlmPrompt = prompt || "Describe this image in detail.";
   try {
     logger.info(`🤖 describe_image → ${actualModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
-    const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel);
+    const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel, mainAliasEligible);
     if (!description.trim()) {
       throw new Error(`VLM "${actualModel}" returned no visual evidence.`);
     }
@@ -393,7 +444,7 @@ export function register(server, _ctx) {
         "Use this when you need to understand what's in an image — text, objects, layout, " +
         "diagrams, screenshots, handwriting, etc.\n\n" +
         "The llama.cpp engine is already managed by Aperio, so there is no per-call start/stop step. " +
-        "Requires AI_PROVIDER=llamacpp.",
+        "Requires the local llama.cpp engine to be running with a vision-capable model loaded.",
       inputSchema: z.object({
         path: z.string().optional().describe(
           "Absolute (or ~-prefixed) path to a local image file."
@@ -405,7 +456,7 @@ export function register(server, _ctx) {
           "Question or instruction about the image. Default: 'Describe this image in detail.'"
         ),
         model: z.string().optional().describe(
-          `VLM model name. Default: "${LLAMACPP_VLM_MODEL}" (env LLAMACPP_VLM_MODEL).`
+          `VLM model name. Default: the local vision model (currently "${LLAMACPP_VLM_MODEL}").`
         ),
       }).refine(d => d.path || d.data, {
         message: "Provide either 'path' (local file) or 'data' (base64 string).",

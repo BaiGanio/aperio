@@ -116,7 +116,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Fetch URL, strip HTML, with offset paging for long pages (`fetch_url`)
 - Load image from path or base64 for analysis (`read_image`)
 - Normalize image to RGB PNG, letterbox 896×896 (`preprocess_image`)
-- Describe image via local llama.cpp VLM (`describe_image`)
+- Describe image via the local llama.cpp vision model (`describe_image`) — whichever model measurably has vision (a cached mmproj file wins), always gemma-4-E4B when the main model doesn't
 
 ## GitHub
 - Fetch an issue with body + comments (`fetch_github_issue`)
@@ -340,7 +340,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)
 - Local-engine hardware/perf profiles (`APERIO_LOCAL_PERF_PROFILE`: balanced/fast-low-vram/long-context/quality) — MoE-aware model pick, KV-cache quantization + flash attention + single-resident-model on tight VRAM, raised context ceiling for long-context, biggest-model-RAM-allows for quality; best-effort VRAM detection (macOS unified memory, `nvidia-smi`, else unknown)
-- Memory-aware llama.cpp vision bridge — native-vision main models omit the dedicated VLM; when the main model and VLM cannot fit together, the router keeps both entries but uses `models-max = 1` to swap them on demand, with the selected mode logged at startup
+- Measured model-vision detection — vision is read from the model file on disk (a cached `mmproj*.gguf` sibling), not a hand-kept name list; a native-vision main model omits the dedicated bridge, a blind one gets gemma-4-E4B as its eyes; when the two can't fit together, the router keeps both entries but uses `models-max = 1` to swap them on demand, with the selected mode logged at startup; a cloud text-only provider (DeepSeek) starts the local vision engine on demand the first time a turn needs it
 - `npm run local:bench` — short + medium fixed-prompt benchmark against the local llama.cpp engine; reports load overhead, prompt/gen tok/s, served context, profile, model, and a recommendation string (issue #222)
 - `npm run memory:baseline` — memory-compaction WS0 baseline (issue #286): against a throwaway seeded in-memory SQLite DB, reports token cost of the self-memory preload, the (content-free) session-memory pointer, and formatted `recall` payloads, plus recall hit-rate@k scored separately for semantic and full-text search modes; results append to `var/memory-compaction/baseline.tsv`
 - Model-tier pilot benchmark — runs fixed tool-use qualification cases against a

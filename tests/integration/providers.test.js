@@ -26,8 +26,6 @@ import {
   residentFootprintGB,
   DEFAULT_LOCAL_MODEL,
   modelDisplayName,
-  isSubscriptionProvider,
-  providerDropsImages,
 } from "../../lib/providers/index.js";
 import { installCuratedModelFacts } from "../fixtures/model-facts.js";
 
@@ -198,35 +196,11 @@ describe("isLocalProvider / isCloudProvider", () => {
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
 });
 
-// ── providerDropsImages — WS6/F1 image-drop notice predicate ──────────────────
-// provider-native-capabilities WS-A1/WS-A2 wired real image passthrough for
-// both codex and claude-code, so IMAGE_DROPPING_PROVIDERS is empty today —
-// kept (not deleted) as live infrastructure for a future text-only provider.
-// These are regression guards against silently re-adding codex/claude-code to
-// the drop set, not proof the mechanism itself is gone.
-describe("providerDropsImages", () => {
-  test("codex does NOT drop images (WS-A1)", () => { assert.ok(!providerDropsImages("codex")); });
-  test("claude-code does NOT drop images (WS-A2)", () => { assert.ok(!providerDropsImages("claude-code")); });
-  test("anthropic does not drop images", () => { assert.ok(!providerDropsImages("anthropic")); });
-  test("gemini does not drop images", () => { assert.ok(!providerDropsImages("gemini")); });
-  test("deepseek does not drop images", () => { assert.ok(!providerDropsImages("deepseek")); });
-  test("llamacpp does not drop images", () => { assert.ok(!providerDropsImages("llamacpp")); });
-  test("case-insensitive: CODEX still does not drop images", () => { assert.ok(!providerDropsImages("CODEX")); });
-  test("empty string does not drop images", () => { assert.ok(!providerDropsImages("")); });
-  test("null does not drop images", () => { assert.ok(!providerDropsImages(null)); });
-  test("undefined does not drop images", () => { assert.ok(!providerDropsImages(undefined)); });
-  test("no provider name currently drops images, decoupled from isSubscriptionProvider", () => {
-    // The coincidence this test used to assert (drop-set == subscription-set)
-    // is exactly what the plan's comment at the definition warned would
-    // diverge once a subscription provider gained real image support — it now
-    // has, so this asserts the decoupling instead of a stale equality.
-    for (const name of ["codex", "claude-code", "anthropic", "gemini", "deepseek", "llamacpp"]) {
-      assert.equal(providerDropsImages(name), false);
-    }
-    assert.ok(isSubscriptionProvider("codex"));
-    assert.ok(isSubscriptionProvider("claude-code"));
-  });
-});
+// providerDropsImages / IMAGE_DROPPING_PROVIDERS were deleted 2026-08-26
+// (model-vision-autodetect plan, WS2): every image now either reaches the
+// model natively or goes through the local VLM bridge (ensureVisionEngine on
+// a cloud text-only provider) — there is no longer a "silently drop the
+// image" path to guard against.
 
 // ── machineCapacityPct — estimated model + KV footprint as % of RAM ───────────
 describe("machineCapacityPct", () => {

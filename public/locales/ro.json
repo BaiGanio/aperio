@@ -193,7 +193,6 @@
   "skills_always_badge":      "mereu pornit",
   "skills_more":              "mai mult…",
   "skills_load_error":        "Abilitatea nu s-a putut încărca.",
-  "images_dropped_notice":  "{provider} nu poate vedea imagini — această tură se va desfășura doar cu text.",
   "tool_repeat_break_notice": "{model} a repetat același apel de instrument de {repeats} ori la rând, așa că instrumentele au fost dezactivate pentru acest răspuns.",
   "tool_step_limit_notice": "{model} a folosit {steps} treceri cu apeluri de instrumente în acest răspuns (limită {limit}), așa că instrumentele au fost dezactivate și a trebuit să răspundă.",
   "skills_panel_nav_title": "Abilități — vizualizează, editează, creează și comută abilitățile agentului tău",

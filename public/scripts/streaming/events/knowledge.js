@@ -19,10 +19,6 @@ onStreamEvent("skills_matched", (msg) => {
   if (msg.skills?.length) _renderSkillsChip(msg.skills);
 });
 
-onStreamEvent("capability_notice", (msg) => {
-  if (msg.kind === "images_dropped") _renderCapabilityNotice(t("images_dropped_notice", { provider: msg.provider }));
-});
-
 onStreamEvent("generated_file", (msg) => {
   // The server emits these only after the final answer has streamed, so the
   // answer bubble already exists — attach the download card straight to it.

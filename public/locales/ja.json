@@ -193,7 +193,6 @@
     "skills_always_badge":      "常時オン",
     "skills_more":              "もっと見る…",
     "skills_load_error":        "スキルを読み込めませんでした。",
-    "images_dropped_notice":  "{provider}は画像を認識できません — このターンはテキストのみで実行されます。",
     "tool_repeat_break_notice": "{model}が同じツール呼び出しを{repeats}回連続で行ったため、この返信ではツールをオフにしました。",
     "tool_step_limit_notice": "{model}はこの返信でツール呼び出しを{steps}回行い（上限{limit}回）、ツールをオフにして回答する必要がありました。",
     "skills_panel_nav_title": "スキル — エージェントのスキルを表示・編集・作成・切り替え",

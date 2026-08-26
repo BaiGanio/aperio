@@ -193,7 +193,6 @@
   "skills_always_badge":      "stále zapnutý",
   "skills_more":              "více…",
   "skills_load_error":        "Nepodařilo se načíst dovednost.",
-  "images_dropped_notice":  "{provider} nevidí obrázky — toto kolo proběhne pouze s textem.",
   "tool_repeat_break_notice": "{model} zopakoval stejné volání nástroje {repeats}× za sebou, takže nástroje byly pro tuto odpověď vypnuty.",
   "tool_step_limit_notice": "{model} použil v této odpovědi {steps} průchodů s voláním nástrojů (limit {limit}), proto byly nástroje vypnuty a musel odpovědět.",
   "skills_panel_nav_title": "Dovednosti — zobrazení, úprava, vytváření a přepínání dovedností tvého agenta",

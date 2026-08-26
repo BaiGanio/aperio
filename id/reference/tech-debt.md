@@ -174,22 +174,6 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
-## Docgraph — document facts (#250)
-
-- 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
-  yield `no_text` and are recovered only when a bank-statement row happens to
-  cover them. All nine corpus months now reconcile exactly, but that is because
-  every image-only receipt in this corpus has a statement row or a `.txt`
-  sibling; a household whose receipts are photos only would come up short. The
-  deterministic path needs a provider-neutral native-vision seam to close this
-  properly: cloud-capable models must remain supported; a vision-capable local
-  model (for example Gemma 4) should receive the image directly, while a
-  text-only local model (for example Qwen, Ornith, or Phi-4) should route
-  through the configured VLM. The extraction result must be structured,
-  uncertainty-aware, and never silently treated as deterministic text.
-
----
-
 ## Document-intelligence harness — grader (#250)
 
 > The grader lives in `tests/docint/` (`grading.mjs`, `grading-predicates.mjs`,

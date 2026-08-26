@@ -193,7 +193,6 @@
   "skills_always_badge":      "mindig bekapcsolva",
   "skills_more":              "tovább…",
   "skills_load_error":        "Nem sikerült betölteni a készségeket.",
-  "images_dropped_notice":  "A(z) {provider} nem lát képeket — ez a kör csak szöveggel fut.",
   "tool_repeat_break_notice": "A(z) {model} ugyanazt az eszközhívást ismételte meg {repeats}× egymás után, ezért ehhez a válaszhoz kikapcsoltuk az eszközöket.",
   "tool_step_limit_notice": "A(z) {model} {steps} eszközhívási kört használt fel ebben a válaszban (a korlát {limit}), ezért az eszközök kikapcsoltak, és válaszolnia kellett.",
   "skills_panel_nav_title": "Képességek — az ügynököd képességeinek megtekintése, szerkesztése, létrehozása és be-/kikapcsolása",

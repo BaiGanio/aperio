@@ -193,7 +193,6 @@
   "skills_always_badge":      "altid tændt",
   "skills_more":              "mere…",
   "skills_load_error":        "Kunne ikke indlæse færdighed.",
-  "images_dropped_notice":  "{provider} kan ikke se billeder — denne tur køres kun med tekst.",
   "tool_repeat_break_notice": "{model} gentog det samme værktøjskald {repeats}× i træk, så værktøjerne blev slået fra for dette svar.",
   "tool_step_limit_notice": "{model} brugte {steps} runder med værktøjskald i dette svar (grænse {limit}), så værktøjerne blev slået fra, og den måtte svare.",
   "skills_panel_nav_title": "Færdigheder — se, rediger, opret og slå din agents færdigheder til/fra",

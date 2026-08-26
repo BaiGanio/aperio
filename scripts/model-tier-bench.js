@@ -294,8 +294,6 @@ async function main() {
     ...process.env,
     AI_PROVIDER: "llamacpp",
     LLAMACPP_MODEL: model.hf,
-    APERIO_CAPABLE_MODELS: model.hf,
-    APERIO_RECALL_SCAFFOLD_MODELS: "",
     APERIO_LOCAL_PERF_PROFILE: "balanced",
     LLAMACPP_SERVE_CTX: String(tierConfiguration.servedContext),
     LLAMACPP_CTX: String(tierConfiguration.servedContext),

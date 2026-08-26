@@ -47,7 +47,7 @@ describe("GGUF model facts", () => {
     assert.ok(facts.sizeGB > 0);
   });
 
-  test("finds the requested quant in the Hugging Face snapshot cache", () => {
+  test("finds the requested quant in the Hugging Face snapshot cache", async () => {
     const cache = mkdtempSync(join(tmpdir(), "aperio-cache-")); roots.push(cache);
     const repo = join(cache, "models--org--Model-GGUF");
     const snap = join(repo, "snapshots", "abc");
@@ -57,7 +57,7 @@ describe("GGUF model facts", () => {
     symlinkSync(blob, join(snap, "Model-Q4_K_M.gguf"));
     assert.equal(findCachedGguf("org/Model-GGUF:Q4_K_M", cache), join(snap, "Model-Q4_K_M.gguf"));
     assert.equal(inspectCachedModel("org/Model-GGUF:Q4_K_M", cache)?.kvBytesPerToken, 20480);
-    const preset = buildModelsPreset({ LLAMACPP_MODEL: "org/Model-GGUF:Q4_K_M" }, { totalRamGB: 32, modelCacheDir: cache });
+    const preset = await buildModelsPreset({ LLAMACPP_MODEL: "org/Model-GGUF:Q4_K_M" }, { totalRamGB: 32, modelCacheDir: cache });
     assert.match(preset, /\[aperio-main\][\s\S]*?ctx-size = 131072/);
   });
 

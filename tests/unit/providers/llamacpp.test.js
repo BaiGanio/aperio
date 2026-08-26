@@ -7,6 +7,9 @@
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import {
   compactSystemPromptToContext,
   estimateThinkingTokens,
@@ -138,12 +141,39 @@ after(() => {
 
 let runLlamaCppLoop, warmLlamaCppCache;
 
+// Vision/tool-calling capability is now measured from the GGUF cache
+// (modelCapabilitiesSync — never touches the network, cache-only), not a
+// model-name list. Isolate this file's cache lookups from the real
+// ~/.cache/huggingface/hub (a dev machine may have real models cached under
+// these exact names) and provide one real fixture — a cached mmproj for
+// "unsloth/Qwen3.5-9B-GGUF" — for the one test that needs a genuinely
+// native-vision main model. Every other model string used in this file is a
+// bare alias (no "/", e.g. "gemma4:e4b") or an uncached repo, both of which
+// resolve to the same safe blind default with no fixture needed.
+const FIXTURE_CACHE = mkdtempSync(join(tmpdir(), "aperio-llamacpp-provider-test-"));
+function fixtureVisionRepo(repo) {
+  const dir = join(FIXTURE_CACHE, "models--" + repo.replaceAll("/", "--"));
+  const snap = join(dir, "snapshots", "abc");
+  mkdirSync(join(dir, "refs"), { recursive: true });
+  mkdirSync(snap, { recursive: true });
+  writeFileSync(join(dir, "refs", "main"), "abc");
+  // A weights file must exist too — findCachedGguf (the "is this cached at
+  // all" check computeCapabilities gates on) filters for weight files and
+  // explicitly excludes mmproj*.gguf, so an mmproj file alone never counts
+  // as "cached".
+  writeFileSync(join(snap, "model-Q4_K_M.gguf"), Buffer.alloc(16));
+  writeFileSync(join(snap, "mmproj-BF16.gguf"), Buffer.alloc(16));
+}
+
 before(async () => {
-  process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
+  process.env.LLAMA_CACHE = FIXTURE_CACHE;
+  fixtureVisionRepo("unsloth/Qwen3.5-9B-GGUF");
   const mod = await import("../../../lib/agent/providers/llamacpp.js");
   runLlamaCppLoop = mod.runLlamaCppLoop;
   warmLlamaCppCache = mod.warmLlamaCppCache;
 });
+
+after(() => { rmSync(FIXTURE_CACHE, { recursive: true, force: true }); });
 
 function reset() {
   infoCalls = [];
@@ -686,42 +716,83 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.equal(wireContent.find(b => b.type === "image_url").image_url.url, "data:image/png;base64,pixels");
   });
 
-  test("bridges images for a capable but non-vision model instead of sending raw pixels", async () => {
-    // A model on the APERIO_CAPABLE_MODELS allowlist that cannot see (no
-    // mmproj — e.g. Ornith, gpt-oss) must still go through the VLM bridge:
-    // raw pixels on its main request make llama-server 500 with "image input
-    // is not supported". A standalone "describe" request is answered by the
-    // VLM directly, so no /chat/completions call happens at all.
-    const previous = process.env.APERIO_CAPABLE_MODELS;
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
-    try {
-      let chatCalls = 0;
-      mock.method(globalThis, "fetch", async (url) => {
-        const tag = String(url);
-        if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
-        chatCalls++;
-        assert.fail("a blind capable model must never receive the raw image request");
-      });
-      const callTool = mock.fn(async (name) => {
-        assert.equal(name, "describe_image");
-        return "A futuristic city with flying saucers.";
-      });
-      const result = await runLlamaCppLoop(
-        [{ role: "user", content: [
-          { type: "text", text: "Describe this image" },
-          { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
-        ]}],
-        { send: makeEmittersend() }, {}, undefined, () => {},
-        baseCtx("qwen3:32b", { callTool }),
-      );
+  test("routes a raw image straight to aperio-main during a cold native-vision download (disk lags the boot-time Hub check)", async () => {
+    // buildModelsPreset() resolves vision via the async, Hub-aware
+    // modelCapabilities() and can already omit aperio-vlm for an uncached
+    // native-vision model on Hub metadata alone — before the weights/
+    // projector finish downloading and this turn's disk-only sync check
+    // agrees. "unsloth/Cold-Vision-GGUF" has no cache fixture, so
+    // modelCapabilitiesSync reports vision:false; the router is nonetheless
+    // already committed to a main-only preset (aperio-main, no aperio-vlm).
+    let requestBody;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/v1/models")) {
+        return { ok: true, status: 200, text: async () => "", json: async () => ({ data: [{ id: "aperio-main" }] }) };
+      }
+      requestBody = JSON.parse(opts.body);
+      return {
+        ok: true, status: 200, text: async () => "",
+        body: sseStream([
+          'data: {"choices":[{"index":0,"delta":{"content":"Still downloading, but I can see it."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":7}}\n\n',
+          "data: [DONE]\n\n",
+        ]),
+      };
+    });
+    const callTool = mock.fn(async () => assert.fail("a cold native-vision main model must not fall back to the VLM bridge"));
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: [
+        { type: "text", text: "Describe this image" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+      ]}],
+      { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("unsloth/Cold-Vision-GGUF:Q4_K_M", { callTool }),
+    );
 
-      assert.equal(result, "A futuristic city with flying saucers.");
-      assert.equal(callTool.mock.callCount(), 1);
-      assert.equal(chatCalls, 0);
-    } finally {
-      if (previous === undefined) delete process.env.APERIO_CAPABLE_MODELS;
-      else process.env.APERIO_CAPABLE_MODELS = previous;
-    }
+    assert.equal(result, "Still downloading, but I can see it.");
+    const wireContent = requestBody.messages.at(-1).content;
+    assert.ok(wireContent.some(b => b.type === "image_url"), "the raw image should still reach aperio-main");
+  });
+
+  test("bridges images for a tool-capable but non-vision model instead of sending raw pixels", async () => {
+    // Every model gets tools now (no more capability allowlist), but a model
+    // with no cached mmproj (e.g. Ornith, gpt-oss) must still go through the
+    // VLM bridge: raw pixels on its main request make llama-server 500 with
+    // "image input is not supported". A standalone "describe" request is
+    // answered by the VLM directly, so no /chat/completions call happens at
+    // all. "qwen3:32b" has no "/", so it resolves blind with no fixture.
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      // The main model is genuinely blind (no cached mmproj) — the live
+      // router check that guards against a cold-download race must see the
+      // bridge alias still present, so it defers to the disk-only verdict
+      // and this turn still goes through describe_image below.
+      if (tag.includes("/v1/models")) {
+        return { ok: true, status: 200, text: async () => "", json: async () => ({ data: [{ id: "aperio-vlm" }] }) };
+      }
+      chatCalls++;
+      assert.fail("a blind model must never receive the raw image request");
+    });
+    const callTool = mock.fn(async (name) => {
+      assert.equal(name, "describe_image");
+      return "A futuristic city with flying saucers.";
+    });
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: [
+        { type: "text", text: "Describe this image" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+      ]}],
+      { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("qwen3:32b", { callTool }),
+    );
+
+    assert.equal(result, "A futuristic city with flying saucers.");
+    assert.equal(callTool.mock.callCount(), 1);
+    assert.equal(chatCalls, 0);
   });
 
 });

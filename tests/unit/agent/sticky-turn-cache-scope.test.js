@@ -59,11 +59,9 @@ describe("ensureTurn's cache is scoped per conversation, not shared agent-wide (
     stubMcpTransport(t);
     process.env.AI_PROVIDER = "llamacpp";
     process.env.LLAMACPP_MODEL = "sticky-cache-scope-test-model";
-    // Local models need an explicit capability allowlist entry to get tools at
-    // all (isCapableModel) — cloud providers skip this, but the sticky pin
-    // mechanism itself only activates for providerName === "llamacpp", so a
-    // cloud provider can't be used to exercise it here.
-    process.env.APERIO_CAPABLE_MODELS = "sticky-cache-scope-test-model";
+    // Every model gets tools now (no more capability allowlist) — the sticky
+    // pin mechanism itself only activates for providerName === "llamacpp", so
+    // a cloud provider can't be used to exercise it here.
 
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
 
@@ -136,7 +134,6 @@ describe("the skill-block pin is per-conversation and holds the block byte-stabl
     stubMcpTransport(t);
     process.env.AI_PROVIDER = "llamacpp";
     process.env.LLAMACPP_MODEL = "skill-pin-scope-test-model";
-    process.env.APERIO_CAPABLE_MODELS = "skill-pin-scope-test-model";
     const root = skillRoot();
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 

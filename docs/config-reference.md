@@ -227,18 +227,6 @@ Max bytes of shell output captured before truncation.
 
 Local llama.cpp models are lean chat models by default; list trusted ones to grant them tools + memory.
 
-#### `APERIO_CAPABLE_MODELS`
-
-list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
-
-Comma-separated local model names you trust to get the full tools + memory flow (others stay lean chat models).
-
-#### `APERIO_RECALL_SCAFFOLD_MODELS`
-
-list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
-
-Comma-separated local model names that still need forced auto-recall (a behavior override, not just the recall pointer). Falls back to APERIO_CAPABLE_MODELS when unset. Remove a model from this list once it reliably calls recall on its own, without losing tools/memory from APERIO_CAPABLE_MODELS.
-
 #### `APERIO_SMALL_WINDOW_TOKENS`
 
 number · tier 1 (Settings UI, restart to apply) · default: `32768` · advanced
@@ -324,12 +312,6 @@ llama-server chat API base URL.
 text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`
 
 Hugging Face repo[:quant] for the main model (llama-server -hf format). Becomes the hf-repo of the router's `aperio-main` preset entry; requests send that stable alias as the `model` field (not the raw repo id, which would load a second, full-context copy).
-
-#### `LLAMACPP_VLM_MODEL`
-
-text · tier 1 (Settings UI, restart to apply) · default: `ggml-org/Qwen2.5-VL-7B-Instruct-GGUF` · advanced
-
-Hugging Face repo[:quant] used for image understanding; llama-server's router loads/swaps it on demand.
 
 #### `APERIO_MODEL_FACTS_OVERRIDES`
 
@@ -594,7 +576,7 @@ llama.cpp up/down health-check timeout.
 
 number · tier 1 (Settings UI, restart to apply) · default: `300000` · advanced
 
-Timeout for the local VLM image-analysis bridge (LLAMACPP_VLM_MODEL).
+Timeout for the local VLM image-analysis bridge (the local vision model — see LLAMACPP_MODEL).
 
 #### `CODEX_COMPLETION_TIMEOUT_MS`
 

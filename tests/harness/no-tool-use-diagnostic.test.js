@@ -112,21 +112,11 @@ test("the same scenario still warns when the mutation tool IS actually available
   assert.ok(fired, "no_tool_use_detected should still fire when write_file was genuinely offered and never called");
 });
 
-// ── Second P2 finding: modelIsCapable() gating ──────────────────────────────
-//
-// getSelectedTools()/getAnthropicTools()/getOpenAiTools()/getGeminiTools()
-// (lib/agent/index.js) all short-circuit to an empty tool list whenever
-// modelIsCapable() is false — a LOCAL provider whose model isn't listed in
-// APERIO_CAPABLE_MODELS. But the CACHED turn plan (turnCacheByMessages'
-// `.names`) is built from the user's text alone via planTurnTools/tool-
-// profiles.js, with no idea whether this particular model is capable — so a
-// weak local model, given the same file-edit-shaped prompt, would still be
-// planned a "file-edit" tool set even though it was never actually sent any
-// tools at all. This drives the REAL llamacpp provider loop (not the mock
-// provider, which the app always treats as a cloud/capable provider — see
-// isCloudProvider in lib/providers/index.js) with global fetch mocked to
-// serve a scripted SSE stream, exactly like tests/unit/providers/
-// llamacpp.test.js does, so no real llama-server is needed.
+// The second P2 finding this file used to cover (modelIsCapable() gating on
+// APERIO_CAPABLE_MODELS) no longer applies: that name-list capability gate
+// was deleted 2026-08-26 (model-vision-autodetect plan, WS2) — every model
+// gets tools now, so there is no "incapable model never offered any tools"
+// state left to guard against.
 
 function sseChunk(obj) { return `data: ${JSON.stringify(obj)}\n\n`; }
 
@@ -141,48 +131,6 @@ function fencedCodeSseStream() {
     start(ctrl) { for (const c of chunks) ctrl.enqueue(enc.encode(c)); ctrl.close(); },
   });
 }
-
-test("an incapable local model (absent from APERIO_CAPABLE_MODELS) never warns, even though the cached plan still names a mutation tool (P2 regression)", async (t) => {
-  stubMcpTransport(t);
-  t.mock.method(globalThis, "fetch", async (url) => {
-    const u = String(url);
-    if (u.endsWith("/health")) return { ok: true, status: 200, body: null, text: async () => "" };
-    if (u.endsWith("/chat/completions")) return { ok: true, status: 200, body: fencedCodeSseStream() };
-    throw new Error(`unexpected fetch in this test: ${u}`);
-  });
-
-  const previousCapableModels = process.env.APERIO_CAPABLE_MODELS;
-  delete process.env.APERIO_CAPABLE_MODELS; // ensure the test model is genuinely unlisted
-  t.after(() => {
-    if (previousCapableModels === undefined) delete process.env.APERIO_CAPABLE_MODELS;
-    else process.env.APERIO_CAPABLE_MODELS = previousCapableModels;
-  });
-
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-harness-notool-incapable-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const scratchDir = path.join(root, "scratch");
-  fs.mkdirSync(scratchDir, { recursive: true });
-
-  const agent = await createAgent({
-    root,
-    version: "1.0.0-harness",
-    providerConfig: { name: "llamacpp", model: "totally-uncapable-test-model-not-in-any-list" },
-    hostTools: createHarnessHostTools({ scratchDir }),
-  });
-
-  const sink = makeSinkEmitter();
-  const messages = [];
-  for (const text of [FILE_EDIT_USER_TEXT, FILE_EDIT_USER_TEXT + " again"]) {
-    messages.push({ role: "user", content: text });
-    await runWithPaths([root], [root], scratchDir, () =>
-      agent.runAgentLoop(messages, sink.emitter, {}, () => null, () => {}));
-  }
-
-  assert.ok(
-    !sink.events.some(e => e.type === "no_tool_use_detected"),
-    "no_tool_use_detected must not fire for a model that was never actually offered any tools",
-  );
-});
 
 // ── Third P2 finding: the vision filter runs AFTER the cached plan ──────────
 //
@@ -209,16 +157,27 @@ test("a standalone-vision turn does NOT warn, even though the cached plan still 
     throw new Error(`unexpected fetch in this test: ${u}`);
   });
 
-  // isVisionModel() must match, or llamacpp.js routes the raw image through
-  // the VLM bridge (which would answer the turn itself and never reach the
-  // main loop). APERIO_CAPABLE_MODELS must ALSO list it, or modelIsCapable()
-  // short-circuits the flag and the test would pass without the fix.
-  const model = "harness-vision-test-model";
-  const previousCapableModels = process.env.APERIO_CAPABLE_MODELS;
-  process.env.APERIO_CAPABLE_MODELS = model;
+  // modelCapabilitiesSync(model).vision must be true, or llamacpp.js routes
+  // the raw image through the VLM bridge (which would answer the turn itself
+  // and never reach the main loop) — measured from a cached mmproj file now,
+  // not a name-list. Every model gets tools regardless of name (the
+  // APERIO_CAPABLE_MODELS gate this test used to also need was deleted
+  // 2026-08-26), so only the vision cache fixture is needed here.
+  const model = "harness-org/vision-test-model-GGUF";
+  const previousLlamaCache = process.env.LLAMA_CACHE;
+  const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-harness-notool-vision-cache-"));
+  const repoDir = path.join(cacheRoot, "models--" + model.replaceAll("/", "--"));
+  const snap = path.join(repoDir, "snapshots", "abc");
+  fs.mkdirSync(path.join(repoDir, "refs"), { recursive: true });
+  fs.mkdirSync(snap, { recursive: true });
+  fs.writeFileSync(path.join(repoDir, "refs", "main"), "abc");
+  fs.writeFileSync(path.join(snap, "model-Q4_K_M.gguf"), Buffer.alloc(16));
+  fs.writeFileSync(path.join(snap, "mmproj-BF16.gguf"), Buffer.alloc(16));
+  process.env.LLAMA_CACHE = cacheRoot;
   t.after(() => {
-    if (previousCapableModels === undefined) delete process.env.APERIO_CAPABLE_MODELS;
-    else process.env.APERIO_CAPABLE_MODELS = previousCapableModels;
+    fs.rmSync(cacheRoot, { recursive: true, force: true });
+    if (previousLlamaCache === undefined) delete process.env.LLAMA_CACHE;
+    else process.env.LLAMA_CACHE = previousLlamaCache;
   });
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-harness-notool-vision-"));

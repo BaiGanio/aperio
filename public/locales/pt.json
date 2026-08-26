@@ -193,7 +193,6 @@
   "skills_always_badge":      "sempre ativo",
   "skills_more":              "mais…",
   "skills_load_error":        "Não foi possível carregar a habilidade.",
-  "images_dropped_notice":  "{provider} não consegue ver imagens — este turno será executado apenas com texto.",
   "tool_repeat_break_notice": "{model} repetiu a mesma chamada de ferramenta {repeats}× seguidas, por isso as ferramentas foram desativadas para esta resposta.",
   "tool_step_limit_notice": "{model} usou {steps} passagens de chamadas de ferramentas nesta resposta (limite {limit}), por isso as ferramentas foram desativadas e teve de responder.",
   "skills_panel_nav_title": "Competências — visualiza, edita, cria e ativa as competências do teu agente",

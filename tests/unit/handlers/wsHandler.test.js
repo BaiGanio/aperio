@@ -702,96 +702,12 @@ describe("message type: chat", () => {
     assert.equal(sentOf(ws, "context_summarized").at(-1).ok, true);
   });
 
-  // provider-ux-parity WS6/F1 built this notice because codex/claude-code
-  // built their prompt from text only, silently dropping any attached image.
-  // provider-native-capabilities WS-A1/WS-A2 wired real image passthrough for
-  // both, so no shipped provider drops images today — IMAGE_DROPPING_PROVIDERS
-  // is empty (lib/providers/index.js), kept as live infrastructure for a
-  // future text-only provider rather than deleted. These tests now assert the
-  // "no notice for a provider that actually handles images" side against
-  // codex/claude-code specifically (the two names this used to fire for),
-  // plus the still-relevant provider-agnostic cases. The old dedup
-  // ("multiple images → one notice") and provider-switch scenarios required a
-  // real dropping provider to exercise and have no such provider left to run
-  // against — deleted rather than left green on a premise that can no longer
-  // occur (see provider-native-capabilities plan Risks).
-  describe("capability_notice — image drop (WS6/F1, now WS-A1/WS-A2)", () => {
-    // 1×1 transparent PNG — small enough to embed, real enough for sharp
-    // (imageHandler's normalisation step) to decode without mocking it.
-    const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-
-    function imageAttachment(name = "photo.png") {
-      return { name, type: "image/png", data: TINY_PNG };
-    }
-
-    test("attaching an image while codex is active no longer emits a notice (WS-A1: codex handles images now)", async (t) => {
-      const ws = makeWs(t);
-      const handler = makeWsHandler({
-        agent: makeAgent({
-          provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
-          runAgentLoop: async () => "",
-        }),
-        store: { listAll: async () => [] },
-        varRoot: TEST_DIR,
-      });
-
-      handler(ws);
-      await ws.emit({ type: "chat", text: "what's in this photo?", attachments: [imageAttachment()] });
-
-      assert.equal(sentOf(ws, "capability_notice").length, 0);
-    });
-
-    test("attaching an image while claude-code is active no longer emits a notice (WS-A2: claude-code handles images now)", async (t) => {
-      const ws = makeWs(t);
-      const handler = makeWsHandler({
-        agent: makeAgent({
-          provider: { name: "claude-code", model: "claude-opus-4-8", contextWindow: 200000 },
-          runAgentLoop: async () => "",
-        }),
-        store: { listAll: async () => [] },
-        varRoot: TEST_DIR,
-      });
-
-      handler(ws);
-      await ws.emit({ type: "chat", text: "describe this", attachments: [imageAttachment()] });
-
-      assert.equal(sentOf(ws, "capability_notice").length, 0);
-    });
-
-    test("no notice when the active provider supports images", async (t) => {
-      const ws = makeWs(t);
-      const handler = makeWsHandler({
-        agent: makeAgent({
-          provider: { name: "anthropic", model: "claude-haiku-4-5", contextWindow: 200000 },
-          runAgentLoop: async () => "",
-        }),
-        store: { listAll: async () => [] },
-        varRoot: TEST_DIR,
-      });
-
-      handler(ws);
-      await ws.emit({ type: "chat", text: "what's in this photo?", attachments: [imageAttachment()] });
-
-      assert.equal(sentOf(ws, "capability_notice").length, 0);
-    });
-
-    test("no notice on a text-only turn", async (t) => {
-      const ws = makeWs(t);
-      const handler = makeWsHandler({
-        agent: makeAgent({
-          provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
-          runAgentLoop: async () => "",
-        }),
-        store: { listAll: async () => [] },
-        varRoot: TEST_DIR,
-      });
-
-      handler(ws);
-      await ws.emit({ type: "chat", text: "hello, no attachment here" });
-
-      assert.equal(sentOf(ws, "capability_notice").length, 0);
-    });
-  });
+  // capability_notice / images_dropped (provider-ux-parity WS6/F1) was
+  // deleted 2026-08-26 (model-vision-autodetect plan, WS2): every provider
+  // now either carries an image natively or routes it through the local
+  // vision bridge (ensureVisionEngine for a cloud text-only provider), so
+  // there is no longer a "this provider silently can't see images" case to
+  // notify the user about.
 });
 
 // ─── "stop" message ───────────────────────────────────────────────────────────

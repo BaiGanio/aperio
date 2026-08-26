@@ -29,7 +29,6 @@ after(() => { mock.restoreAll(); });
 let runLlamaCppLoop;
 before(async () => {
   process.env.LLAMACPP_THINKING_TIMEOUT_MS = "100";
-  process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
   const mod = await import("../../../lib/agent/providers/llamacpp.js");
   runLlamaCppLoop = mod.runLlamaCppLoop;
 });

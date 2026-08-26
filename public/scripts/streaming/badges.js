@@ -337,18 +337,6 @@ function _appendGeneratedFileCard(container, msg) {
   return rack;
 }
 
-// ── Capability notice ────────────────────────────────────────────────────────
-// One-shot, non-dismissible line for a turn-level capability gap (e.g. an
-// attached image the active provider silently can't see) — the plan's WS6/F1:
-// tell the user instead of letting the attachment vanish with no explanation.
-function _renderCapabilityNotice(text) {
-  const note = document.createElement("div");
-  note.className = "capability-notice";
-  note.innerHTML = `<span class="recall-asterisk">⚠</span><span class="recall-pill-label">${escapeHtml(text)}</span>`;
-  messagesEl.appendChild(note);
-  scrollToBottom();
-}
-
 // ── Skills chip ─────────────────────────────────────────────────────────────
 // Skills are injected into the system prompt (not executed), so this chip is
 // the only signal the user gets about which ones steered the turn.

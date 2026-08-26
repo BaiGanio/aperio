@@ -19,6 +19,16 @@ import assert from "node:assert/strict";
 const RUNTIME_DIR = mkdtempSync(join(tmpdir(), "aperio-llamacpp-test-"));
 process.env.APERIO_LLAMACPP_RUNTIME_DIR = RUNTIME_DIR;
 process.env.NODE_ENV ??= "test"; // belt-and-suspenders: also gates real PID discovery/ownership checks off
+// modelCapabilities() (via buildModelsPreset) reads the real HF hub cache
+// whenever a test doesn't pass its own hardware.modelCacheDir override —
+// resolveModelCacheDir() falls back to the developer's actual
+// ~/.cache/huggingface/hub otherwise. On a dev machine with real models
+// already downloaded that makes vision detection (and therefore preset
+// shape) depend on ambient disk state instead of the test's own fixtures.
+// Force an empty, isolated cache root for every test in this file; tests
+// that want a specific cache pass their own modelCacheDir, which still wins
+// (see buildModelsPreset's capsEnv).
+process.env.LLAMA_CACHE = mkdtempSync(join(tmpdir(), "aperio-llamacpp-test-cache-"));
 
 const {
   buildModelsPreset,
@@ -26,6 +36,7 @@ const {
   mainPlusVlmFit,
   vlmPresetMode,
   ensureLlamaCpp,
+  ensureVisionEngine,
   presetModelIds,
   shouldStartOffline,
   getLlamaCppPid,
@@ -38,12 +49,15 @@ const {
   deleteServerLog,
   pruneServerLogs,
 } = await import("../../../lib/helpers/startLlamaCpp.js");
-const { PRESET_DIR, STATE_FILE, SERVER_LOG_PATH } = await import("../../../lib/helpers/llamacpp/constants.js");
-const { recommendContextLength, resolveModelFacts } = await import("../../../lib/providers/index.js");
+const { PRESET_DIR, PRESET_PATH, STATE_FILE, SERVER_LOG_PATH } = await import("../../../lib/helpers/llamacpp/constants.js");
+const { recommendContextLength, resolveModelFacts, DEFAULT_LOCAL_MODEL } = await import("../../../lib/providers/index.js");
 const { installCuratedModelFacts } = await import("../../fixtures/model-facts.js");
 
 assert.equal(PRESET_DIR, RUNTIME_DIR, "llamacpp constants must resolve inside this suite's isolated runtime dir, never the shared var/llamacpp");
-after(() => { rmSync(RUNTIME_DIR, { recursive: true, force: true }); });
+after(() => {
+  rmSync(RUNTIME_DIR, { recursive: true, force: true });
+  rmSync(process.env.LLAMA_CACHE, { recursive: true, force: true });
+});
 
 const MODEL_FACTS = installCuratedModelFacts();
 
@@ -56,12 +70,15 @@ function fakeSpawn(pid = 99999) {
   return () => ({ on: () => {}, unref: () => {}, pid });
 }
 
-test("preset ownership includes aliases and underlying hf repos", () => {
-  const ids = presetModelIds(buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, {}));
+test("preset ownership includes aliases and underlying hf repos", async () => {
+  // DEFAULT_MODEL (Qwen2.5-3B) is blind (not in VISION_REPOS), so the bridge
+  // model renders too — always defaultLocalModel(), the curated gemma-4-E4B,
+  // never a separate configured VLM model.
+  const ids = presetModelIds(await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, {}));
   assert.ok(ids.has("aperio-main"));
   assert.ok(ids.has("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"));
   assert.ok(ids.has("aperio-vlm"));
-  assert.ok(ids.has("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"));
+  assert.ok(ids.has("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"));
 });
 
 // A fake kill that returns the given value (true = killed, false = failed).
@@ -69,12 +86,43 @@ function fakeKill(result) {
   return async () => result;
 }
 
-const originalFetch = globalThis.fetch;
+// await buildModelsPreset() now measures vision via modelCapabilities(), which (for
+// a repo not found in the HF cache) makes one real HTTP call to Hugging Face.
+// Every test in this suite must stay network-free and deterministic, and the
+// existing mockFetchSequence helper below intercepts globalThis.fetch wholesale
+// for /health and /v1/models — so the HF tree-lookup URL is special-cased
+// FIRST, answered from this small allowlist mirroring the plan's real-cache
+// ground truth (model-vision-autodetect.md), and never consumes a sequence
+// slot meant for a health/models check. Anything not listed here resolves as
+// blind, matching the safe default a real uncached/unknown repo gets.
+const VISION_REPOS = new Set([
+  "unsloth/gemma-4-E4B-it-qat-GGUF",
+  "unsloth/gemma-4-E2B-it-qat-GGUF",
+  "unsloth/gemma-4-26B-A4B-it-GGUF",
+  "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+]);
+function isHubTreeUrl(url) {
+  return /^https:\/\/huggingface\.co\/api\/models\/.+\/tree\/main$/.test(String(url));
+}
+function hubTreeResponse(url) {
+  const repo = decodeURIComponent(String(url)).replace(/^https:\/\/huggingface\.co\/api\/models\//, "").replace(/\/tree\/main$/, "");
+  const vision = VISION_REPOS.has(repo);
+  return { ok: true, json: async () => (vision ? [{ path: "mmproj-F16.gguf" }] : [{ path: "model.gguf" }]) };
+}
+// Safe network-free baseline: any non-hub-tree fetch this suite didn't
+// explicitly mock (via mockFetchSequence) fails closed rather than reaching
+// the real network — matches modelCapabilities()'s own "on any failure,
+// vision: false" contract.
+function baselineFetch(url) {
+  return isHubTreeUrl(url) ? Promise.resolve(hubTreeResponse(url)) : Promise.resolve({ ok: false });
+}
+globalThis.fetch = baselineFetch; // safe network-free default from the first test onward
+
 const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
+  globalThis.fetch = baselineFetch;
   for (const k of ENV_KEYS) {
     if (savedEnv[k] === undefined) delete process.env[k];
     else process.env[k] = savedEnv[k];
@@ -85,7 +133,8 @@ afterEach(() => {
 
 function mockFetchSequence(...responses) {
   let i = 0;
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (url) => {
+    if (isHubTreeUrl(url)) return hubTreeResponse(url); // never consumes a health/models slot
     const res = responses[i] ?? responses[responses.length - 1];
     i++;
     return res;
@@ -102,29 +151,29 @@ const DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 // =============================================================================
 describe("buildModelsPreset", () => {
 
-  test("collects the configured llama.cpp wiki refresh model", () => {
+  test("collects the configured llama.cpp wiki refresh model", async () => {
     assert.deepEqual(
       collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "llamacpp:foo/bar-GGUF:Q4_K_M" }),
       ["foo/bar-GGUF:Q4_K_M"],
     );
   });
 
-  test("ignores unset, empty, and non-llama.cpp wiki refresh providers", () => {
+  test("ignores unset, empty, and non-llama.cpp wiki refresh providers", async () => {
     assert.deepEqual(collectExtraLlamaCppModels({}), []);
     assert.deepEqual(collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "llamacpp:" }), []);
     assert.deepEqual(collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "anthropic:claude-x" }), []);
   });
 
-  test("appends one extra wiki model section with model facts", () => {
+  test("appends one extra wiki model section with model facts", async () => {
     const model = "foo/bar-GGUF:Q4_K_M";
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, WIKI_REFRESH_PROVIDER: `llamacpp:${model}` }, { totalRamGB: 64 });
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, WIKI_REFRESH_PROVIDER: `llamacpp:${model}` }, { totalRamGB: 64 });
     assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\]/);
     assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\]\nhf-repo = foo\/bar-GGUF:Q4_K_M\nctx-size = \d+/);
     assert.equal(ini.match(/^\[[^*].*\]$/gm)?.length, 3);
   });
 
-  test("dedupes a wiki refresh model already served as the main model", () => {
-    const ini = buildModelsPreset({
+  test("dedupes a wiki refresh model already served as the main model", async () => {
+    const ini = await buildModelsPreset({
       LLAMACPP_MODEL: DEFAULT_MODEL,
       WIKI_REFRESH_PROVIDER: `llamacpp:${DEFAULT_MODEL}`,
     }, { totalRamGB: 64 });
@@ -132,9 +181,9 @@ describe("buildModelsPreset", () => {
     assert.equal(ini.match(new RegExp(`hf-repo = ${DEFAULT_MODEL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"))?.length, 1);
   });
 
-  test("fast-low-vram keeps models-max at 1 and applies cache settings to an extra model", () => {
+  test("fast-low-vram keeps models-max at 1 and applies cache settings to an extra model", async () => {
     const model = "foo/bar-GGUF:Q4_K_M";
-    const ini = buildModelsPreset({
+    const ini = await buildModelsPreset({
       APERIO_LOCAL_PERF_PROFILE: "fast-low-vram",
       LLAMACPP_MODEL: DEFAULT_MODEL,
       WIKI_REFRESH_PROVIDER: `llamacpp:${model}`,
@@ -143,65 +192,111 @@ describe("buildModelsPreset", () => {
     assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\][\s\S]*?cache-type-k = q8_0\ncache-type-v = q8_0/);
   });
 
-  test("emits a [*] global section with jinja enabled", () => {
-    const ini = buildModelsPreset({}, {});
+  test("emits a [*] global section with jinja enabled", async () => {
+    const ini = await buildModelsPreset({}, {});
     assert.match(ini, /^\[\*\]\njinja = true\nparallel = 1/);
   });
 
-  test("defaults to the curated main model, no RAM tiering; omits the VLM bridge since it's natively vision-capable", () => {
-    const ini = buildModelsPreset({}, { totalRamGB: 32 });
+  test("defaults to the curated main model, no RAM tiering; omits the VLM bridge since it's natively vision-capable", async () => {
+    const ini = await buildModelsPreset({}, { totalRamGB: 32 });
     assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/);
     assert.doesNotMatch(ini, /\[aperio-vlm\]/, "the curated default is natively vision-capable, no VLM bridge needed");
   });
 
-  test("LLAMACPP_MODEL / LLAMACPP_VLM_MODEL keep stable aliases and override hf-repo names", () => {
-    const ini = buildModelsPreset({
+  test("LLAMACPP_MODEL sets the main hf-repo; a stray LLAMACPP_VLM_MODEL (deleted config) is ignored — the bridge is always the curated default", async () => {
+    const ini = await buildModelsPreset({
       LLAMACPP_MODEL: "my-org/my-model-GGUF:Q8_0",
       LLAMACPP_VLM_MODEL: "my-org/my-vlm-GGUF",
-    }, {});
+    }, { modelCacheDir: "/definitely/not/a/cache" });
     assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /hf-repo = my-org\/my-model-GGUF:Q8_0/);
     assert.match(ini, /\[aperio-vlm\]/);
-    assert.match(ini, /hf-repo = my-org\/my-vlm-GGUF/);
+    assert.match(ini, new RegExp(`hf-repo = ${DEFAULT_LOCAL_MODEL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    assert.doesNotMatch(ini, /my-org\/my-vlm-GGUF/, "the deleted LLAMACPP_VLM_MODEL config must not influence the bridge model");
   });
 
-  test("LLAMACPP_MODEL supplied to buildModelsPreset flows into the default model pick", () => {
-    const ini = buildModelsPreset({
+  test("LLAMACPP_MODEL supplied to buildModelsPreset flows into the default model pick", async () => {
+    const ini = await buildModelsPreset({
       LLAMACPP_MODEL: "custom/pinned-model-GGUF:Q4_K_M",
     }, { totalRamGB: 12, modelCacheDir: "/definitely/not/a/cache" });
     assert.match(ini, /hf-repo = custom\/pinned-model-GGUF:Q4_K_M/);
   });
 
-  test("omits mmproj when LLAMACPP_VLM_MMPROJ is unset (llama-server auto-detects it)", () => {
-    const ini = buildModelsPreset({}, {});
+  test("omits mmproj when LLAMACPP_VLM_MMPROJ is unset (llama-server auto-detects it)", async () => {
+    const ini = await buildModelsPreset({}, {});
     assert.doesNotMatch(ini, /mmproj/);
   });
 
-  test("emits mmproj on the VLM entry only when LLAMACPP_VLM_MMPROJ is set", () => {
+  test("emits the bridge model's real mmproj path when it is cached, omits it when it is not", async () => {
     // Non-vision main model needed so a VLM bridge section actually renders —
-    // the curated default is natively vision-capable and omits it.
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, { totalRamGB: 32 });
-    const mmprojMatches = ini.match(/mmproj = mmproj-file\.gguf/g);
-    assert.equal(mmprojMatches?.length, 1, "mmproj should appear exactly once");
-    const vlmHeaderIdx = ini.indexOf("[aperio-vlm]");
-    const mainHeaderIdx = ini.indexOf("[aperio-main]");
-    const mmprojIdx = ini.indexOf("mmproj = mmproj-file.gguf");
-    assert.ok(mmprojIdx > vlmHeaderIdx && vlmHeaderIdx > mainHeaderIdx, "mmproj line should fall within the VLM section, after the main section");
+    // the curated default is natively vision-capable and omits it. There is
+    // no LLAMACPP_VLM_MMPROJ config anymore — the path is discovered from the
+    // bridge model's own HF cache snapshot (hasCachedMmproj).
+    const cache = mkdtempSync(join(tmpdir(), "aperio-vlm-mmproj-"));
+    try {
+      const repoDir = join(cache, "models--" + DEFAULT_LOCAL_MODEL.split(":")[0].replaceAll("/", "--"));
+      const snap = join(repoDir, "snapshots", "abc");
+      mkdirSync(join(repoDir, "refs"), { recursive: true });
+      mkdirSync(snap, { recursive: true });
+      writeFileSync(join(repoDir, "refs", "main"), "abc");
+      writeFileSync(join(snap, "mmproj-BF16.gguf"), Buffer.alloc(16));
+
+      const withMmproj = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 32, modelCacheDir: cache });
+      const mmprojMatches = withMmproj.match(/mmproj = .*mmproj-BF16\.gguf/g);
+      assert.equal(mmprojMatches?.length, 1, "mmproj should appear exactly once");
+      const vlmHeaderIdx = withMmproj.indexOf("[aperio-vlm]");
+      const mainHeaderIdx = withMmproj.indexOf("[aperio-main]");
+      const mmprojIdx = withMmproj.search(/mmproj = .*mmproj-BF16\.gguf/);
+      assert.ok(mmprojIdx > vlmHeaderIdx && vlmHeaderIdx > mainHeaderIdx, "mmproj line should fall within the VLM section, after the main section");
+
+      const withoutMmproj = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 32, modelCacheDir: "/definitely/not/a/cache" });
+      assert.doesNotMatch(withoutMmproj, /mmproj/);
+    } finally {
+      rmSync(cache, { recursive: true, force: true });
+    }
   });
 
-  test("LLAMACPP_SERVE_CTX pins ctx-size for both models, skipping RAM-based sizing", () => {
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "4096" }, { totalRamGB: 4 });
+  test("P1 regression: emits BOTH aperio-main and aperio-vlm when the bridge model equals the (unset→curated-default) main model and its mmproj hasn't landed yet", async () => {
+    // LLAMACPP_MODEL unset → mainModel resolves to the curated default, same
+    // repo string buildModelsPreset always uses for the bridge (vlmModel).
+    // Cache only the main GGUF, no mmproj sibling yet — modelCapabilities()
+    // measures this as blind (omitVlm=false), so the code takes the "add the
+    // bridge as a second entry" branch even though vlmModel === mainModel.
+    // Before the fix, emitOnce's name-based dedup silently dropped the
+    // aperio-vlm section since that repo was already "emitted" under
+    // aperio-main — every image request then targeted a router alias that
+    // did not exist in the actual preset.
+    const cache = mkdtempSync(join(tmpdir(), "aperio-partial-vision-cache-"));
+    try {
+      const repo = DEFAULT_LOCAL_MODEL.split(":")[0];
+      const repoDir = join(cache, "models--" + repo.replaceAll("/", "--"));
+      const snap = join(repoDir, "snapshots", "abc");
+      mkdirSync(join(repoDir, "refs"), { recursive: true });
+      mkdirSync(snap, { recursive: true });
+      writeFileSync(join(repoDir, "refs", "main"), "abc");
+      writeFileSync(join(snap, "model-Q4_K_XL.gguf"), Buffer.alloc(16)); // weights present, mmproj NOT yet
+
+      const ini = await buildModelsPreset({}, { totalRamGB: 32, modelCacheDir: cache });
+      assert.match(ini, /\[aperio-main\]/);
+      assert.match(ini, /\[aperio-vlm\]/, "the bridge role's own router alias must exist even when main==vlm and vision isn't detected yet");
+    } finally {
+      rmSync(cache, { recursive: true, force: true });
+    }
+  });
+
+  test("LLAMACPP_SERVE_CTX pins ctx-size for both models, skipping RAM-based sizing", async () => {
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "4096" }, { totalRamGB: 4 });
     const ctxLines = ini.match(/ctx-size = \d+/g);
     assert.deepEqual(ctxLines, ["ctx-size = 4096", "ctx-size = 4096"]);
   });
 
-  test("LLAMACPP_SERVE_CTX above the bridge ceiling still leaves the VLM capped at 24576", () => {
+  test("LLAMACPP_SERVE_CTX above the bridge ceiling still leaves the VLM capped at 24576", async () => {
     // ensureLlamaCpp self-sets LLAMACPP_SERVE_CTX (the MAIN model's window)
     // before building the preset. Uncapped, the VLM inherited that full window
     // (131072 observed live in models.ini) — defeating VLM_BRIDGE_CTX_CEILING
     // and flipping the RAM-fit check into swap mode.
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "131072" }, { totalRamGB: 32 });
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "131072" }, { totalRamGB: 32 });
     const vlmIdx = ini.indexOf("[aperio-vlm]");
     const mainSection = ini.slice(0, vlmIdx);
     const vlmSection = ini.slice(vlmIdx);
@@ -209,19 +304,19 @@ describe("buildModelsPreset", () => {
     assert.match(vlmSection, /ctx-size = 24576/);
   });
 
-  test("ctx-size never exceeds each model's max context regardless of RAM", () => {
-    const ini = buildModelsPreset({}, { totalRamGB: 512 });
+  test("ctx-size never exceeds each model's max context regardless of RAM", async () => {
+    const ini = await buildModelsPreset({}, { totalRamGB: 512 });
     const ctxLines = ini.match(/ctx-size = (\d+)/g).map(l => parseInt(l.split(" = ")[1], 10));
     for (const ctx of ctxLines) assert.ok(ctx <= 262144, `ctx-size ${ctx} should be capped at model max context`);
   });
 
-  test("small RAM sizes down toward the floor", () => {
-    const ini = buildModelsPreset({}, { totalRamGB: 4 });
+  test("small RAM sizes down toward the floor", async () => {
+    const ini = await buildModelsPreset({}, { totalRamGB: 4 });
     const ctxLines = ini.match(/ctx-size = (\d+)/g).map(l => parseInt(l.split(" = ")[1], 10));
     for (const ctx of ctxLines) assert.ok(ctx <= 4096, `expected a small window on a 4GB machine, got ${ctx}`);
   });
 
-  test("the 8 GiB curated small Gemma agents receive enough context for Aperio's startup prompt", () => {
+  test("the 8 GiB curated small Gemma agents receive enough context for Aperio's startup prompt", async () => {
     const models = [
       "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL",
       "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
@@ -230,47 +325,47 @@ describe("buildModelsPreset", () => {
     const mainSection = ini => ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
 
     for (const model of models) {
-      const atEightGiB = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
-      const belowTier = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
+      const atEightGiB = await buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
+      const belowTier = await buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
 
       assert.match(mainSection(atEightGiB), /ctx-size = 8192/, `${model} should receive the agent floor`);
       assert.doesNotMatch(mainSection(belowTier), /ctx-size = 8192/, `${model} should retain RAM-fit sizing below the tier`);
     }
   });
 
-  test("uses curated hybrid facts conservatively when no inspectable cache is supplied", () => {
+  test("uses curated hybrid facts conservatively when no inspectable cache is supplied", async () => {
     const noCache = { totalRamGB: 32, modelCacheDir: "/definitely/not/a/cache" };
-    const q35 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, noCache);
-    const q36 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:Q4_K_XL" }, noCache);
+    const q35 = await buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, noCache);
+    const q36 = await buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:Q4_K_XL" }, noCache);
     assert.match(q35, /\[aperio-main\][\s\S]*?ctx-size = 131072/);
     assert.match(q36, /\[aperio-main\][\s\S]*?ctx-size = 2048/);
   });
 
-  test("VLM alias caps at 24576 even on a huge machine that would otherwise RAM-fit it much larger", () => {
+  test("VLM alias caps at 24576 even on a huge machine that would otherwise RAM-fit it much larger", async () => {
     // A custom VLM model with no curated entry falls to GENERIC_MODEL_FACTS
     // (maxContext 131072) — without the bridge ceiling, 512GB of RAM would
     // fit it right up near that, reproducing the two-large-models-resident
     // Metal OOM this test guards against.
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_VLM_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_VLM_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
     const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
     assert.match(vlmSection, /ctx-size = 24576/);
   });
 
-  test("VLM alias still sizes down below the bridge ceiling on a genuinely tight machine", () => {
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 4 });
+  test("VLM alias still sizes down below the bridge ceiling on a genuinely tight machine", async () => {
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 4 });
     const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
     const ctx = parseInt(vlmSection.match(/ctx-size = (\d+)/)[1], 10);
     assert.ok(ctx < 24576, `expected the VLM window to shrink below the bridge ceiling on 4GB RAM, got ${ctx}`);
   });
 
-  test("main-model role is unaffected by the VLM bridge ceiling: pointing LLAMACPP_MODEL at the VLM's own hf id gets the full RAM-fit window", () => {
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
+  test("main-model role is unaffected by the VLM bridge ceiling: pointing LLAMACPP_MODEL at the VLM's own hf id gets the full RAM-fit window", async () => {
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
     const mainSection = ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
     assert.doesNotMatch(mainSection, /ctx-size = 24576/);
   });
 
-  test("omits the bridge when the main model has native vision", () => {
-    const ini = buildModelsPreset({
+  test("omits the bridge when the main model has native vision", async () => {
+    const ini = await buildModelsPreset({
       LLAMACPP_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
     }, { totalRamGB: 64 });
     assert.match(ini, /\[aperio-main\]/);
@@ -278,26 +373,29 @@ describe("buildModelsPreset", () => {
     assert.doesNotMatch(ini, /models-max/);
   });
 
-  test("caps the router at one resident model when the measured pair does not fit", () => {
-    const env = {
-      LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf,
-      LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
-    };
-    const ini = buildModelsPreset(env, { totalRamGB: 16 });
+  // The bridge model is always DEFAULT_LOCAL_MODEL (gemma-4-E4B) now — no
+  // separate LLAMACPP_VLM_MODEL config exists to point it elsewhere. Both
+  // tests below pass DEFAULT_LOCAL_MODEL explicitly to mainPlusVlmFit/
+  // vlmPresetMode so the RAM-fit check they assert on matches exactly what
+  // buildModelsPreset itself computes internally.
+  test("caps the router at one resident model when the measured pair does not fit", async () => {
+    const env = { LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf };
+    const ini = await buildModelsPreset(env, { totalRamGB: 16, modelCacheDir: "/definitely/not/a/cache" });
     assert.match(ini, /^\[\*\][\s\S]*models-max = 1/m);
     assert.equal(ini.match(/models-max = 1/g)?.length, 1);
     assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /\[aperio-vlm\]/);
-    assert.equal(vlmPresetMode(env.LLAMACPP_MODEL, env.LLAMACPP_VLM_MODEL, env, { totalRamGB: 16 }), "swap mode (main+VLM exceed RAM)");
+    assert.equal(
+      vlmPresetMode(env.LLAMACPP_MODEL, DEFAULT_LOCAL_MODEL, env, { totalRamGB: 16, modelCacheDir: "/definitely/not/a/cache" }),
+      "swap mode (main+VLM exceed RAM)",
+    );
   });
 
-  test("keeps both models resident when their served footprints fit", () => {
-    const env = {
-      LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf,
-      LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
-    };
-    assert.equal(mainPlusVlmFit(env.LLAMACPP_MODEL, env.LLAMACPP_VLM_MODEL, env, { totalRamGB: 64 }), true);
-    const ini = buildModelsPreset(env, { totalRamGB: 64 });
+  test("keeps both models resident when their served footprints fit", async () => {
+    const env = { LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf };
+    const hardware = { totalRamGB: 64, modelCacheDir: "/definitely/not/a/cache" };
+    assert.equal(mainPlusVlmFit(env.LLAMACPP_MODEL, DEFAULT_LOCAL_MODEL, env, hardware), true);
+    const ini = await buildModelsPreset(env, hardware);
     assert.doesNotMatch(ini, /models-max/);
     assert.match(ini, /\[aperio-main\][\s\S]*\[aperio-vlm\]/);
   });
@@ -308,29 +406,29 @@ describe("buildModelsPreset", () => {
 // through env into buildModelsPreset via resolvePerfProfile.
 describe("buildModelsPreset — perf profiles", () => {
 
-  test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
-    const ini = buildModelsPreset({}, { totalRamGB: 64 });
+  test("balanced (default, no env var set): identical to pre-Phase-4 output", async () => {
+    const ini = await buildModelsPreset({}, { totalRamGB: 64 });
     assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
     assert.match(ini, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/, "balanced uses the curated default model, not RAM-tiered");
   });
 
-  test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
+  test("fast-low-vram: emits models-max=1 and flash-attn in the global section", async () => {
+    const ini = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
     assert.match(ini, /^\[\*\]\njinja = true\nparallel = 1\nmodels-max = 1\nflash-attn = true\n/);
   });
 
-  test("fast-low-vram: emits quantized KV cache flags on every model section", () => {
+  test("fast-low-vram: emits quantized KV cache flags on every model section", async () => {
     // Non-vision main model needed so a VLM bridge section actually renders —
     // the curated default is natively vision-capable and omits it.
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 64 });
+    const ini = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 64 });
     const kMatches = ini.match(/cache-type-k = q8_0/g);
     const vMatches = ini.match(/cache-type-v = q8_0/g);
     assert.equal(kMatches?.length, 2, "both main + VLM sections should quantize the K cache");
     assert.equal(vMatches?.length, 2, "both main + VLM sections should quantize the V cache");
   });
 
-  test("fast-low-vram: keeps Flash Attention enabled for Gemma 4 with quantized KV cache", () => {
-    const ini = buildModelsPreset({
+  test("fast-low-vram: keeps Flash Attention enabled for Gemma 4 with quantized KV cache", async () => {
+    const ini = await buildModelsPreset({
       APERIO_LOCAL_PERF_PROFILE: "fast-low-vram",
       LLAMACPP_MODEL: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
     }, { totalRamGB: 16 });
@@ -340,19 +438,19 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.match(mainSection, /cache-type-v = q8_0/, "Gemma 4 uses the compatible quantized V-cache");
   });
 
-  test("fast-low-vram: emits n-cpu-moe when the selected model is MoE architecture", () => {
+  test("fast-low-vram: emits n-cpu-moe when the selected model is MoE architecture", async () => {
     // Model choice is no longer RAM-tiered — an MoE model only shows up here
     // when explicitly configured via LLAMACPP_MODEL.
     const moeModel = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL";
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: moeModel }, { totalRamGB: 24 });
+    const ini = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: moeModel }, { totalRamGB: 24 });
     assert.match(ini, /hf-repo = unsloth\/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL/);
     assert.match(ini, /n-cpu-moe = 999/);
     // Only one n-cpu-moe line: the VLM model (dense) must not get it.
     assert.equal(ini.match(/n-cpu-moe/g)?.length, 1);
   });
 
-  test("fast-low-vram: an explicit LLAMACPP_MODEL still wins over the MoE-preferred default", () => {
-    const ini = buildModelsPreset(
+  test("fast-low-vram: an explicit LLAMACPP_MODEL still wins over the MoE-preferred default", async () => {
+    const ini = await buildModelsPreset(
       { APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "my-org/pinned-GGUF" },
       { totalRamGB: 24 },
     );
@@ -360,31 +458,31 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.doesNotMatch(ini, /Qwen3-30B-A3B/);
   });
 
-  test("fast-low-vram: ctx ceiling is lower than balanced's on a huge-RAM machine", () => {
-    const fast = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
-    const balanced = buildModelsPreset({ LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
+  test("fast-low-vram: ctx ceiling is lower than balanced's on a huge-RAM machine", async () => {
+    const fast = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
+    const balanced = await buildModelsPreset({ LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
     const fastCtx = parseInt(fast.match(/ctx-size = (\d+)/)[1], 10);
     const balancedCtx = parseInt(balanced.match(/ctx-size = (\d+)/)[1], 10);
     assert.ok(fastCtx <= 16384, `fast-low-vram ctx ${fastCtx} should be capped at 16384`);
     assert.ok(fastCtx < balancedCtx);
   });
 
-  test("long-context: raises the ctx ceiling above balanced's on a huge-RAM machine (model with a 262144 max context)", () => {
+  test("long-context: raises the ctx ceiling above balanced's on a huge-RAM machine (model with a 262144 max context)", async () => {
     // A generic/unrecognized model's own maxContext (131072, GENERIC_MODEL_FACTS)
     // would cap both profiles at the same value regardless of ceiling — use a
     // curated model whose trained max (262144) is actually big enough for the
     // raised ceiling to matter.
     const model = MODEL_FACTS["qwen3.5:9b"].hf; // curated, trained max 262144
-    const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model }, { totalRamGB: 512 });
-    const balanced = buildModelsPreset({ LLAMACPP_MODEL: model }, { totalRamGB: 512 });
+    const long = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model }, { totalRamGB: 512 });
+    const balanced = await buildModelsPreset({ LLAMACPP_MODEL: model }, { totalRamGB: 512 });
     const longCtx = parseInt(long.match(/ctx-size = (\d+)/)[1], 10);
     const balancedCtx = parseInt(balanced.match(/ctx-size = (\d+)/)[1], 10);
     assert.ok(longCtx > balancedCtx, `expected long-context (${longCtx}) > balanced (${balancedCtx})`);
     assert.doesNotMatch(long, /models-max|flash-attn|cache-type|n-cpu-moe/, "long-context stays on f16 after the b9938 Metal q8 matrix failed the throughput gate");
   });
 
-  test("long-context keeps a native-vision main model on the default f16 cache", () => {
-    const ini = buildModelsPreset({
+  test("long-context keeps a native-vision main model on the default f16 cache", async () => {
+    const ini = await buildModelsPreset({
       APERIO_LOCAL_PERF_PROFILE: "long-context",
       LLAMACPP_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
     }, { totalRamGB: 64 });
@@ -392,18 +490,18 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.doesNotMatch(ini, /\[aperio-vlm\]/);
   });
 
-  test("all profiles omit speculative cache and context-shifting flags", () => {
+  test("all profiles omit speculative cache and context-shifting flags", async () => {
     for (const profile of ["balanced", "fast-low-vram", "long-context", "quality"]) {
-      const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: profile }, { totalRamGB: 64 });
+      const ini = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: profile }, { totalRamGB: 64 });
       assert.doesNotMatch(ini, /shift-kv|context-shift|paged|cache-reuse/i, profile);
     }
   });
 
-  test("long-context sizes with the same f16 policy it emits", () => {
+  test("long-context sizes with the same f16 policy it emits", async () => {
     const model = MODEL_FACTS["qwen3.5:9b"].hf;
     const facts = resolveModelFacts(model, { LLAMA_CACHE: "/definitely/not/a/cache" });
     for (const totalRamGB of [8, 16, 24, 32, 64]) {
-      const ini = buildModelsPreset(
+      const ini = await buildModelsPreset(
         { APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model },
         { totalRamGB, modelCacheDir: "/definitely/not/a/cache" },
       );
@@ -419,7 +517,7 @@ describe("buildModelsPreset — perf profiles", () => {
     }
   });
 
-  test("long-context keeps the f16 co-residency decision while fast-low-vram uses q8", () => {
+  test("long-context keeps the f16 co-residency decision while fast-low-vram uses q8", async () => {
     const main = MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf;
     const vlm = MODEL_FACTS["qwen2.5vl:7b"].hf;
     const base = { LLAMACPP_SERVE_CTX: "24576" };
@@ -427,15 +525,15 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.equal(mainPlusVlmFit(main, vlm, { ...base, APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 46 }), false);
   });
 
-  test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
-    const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
+  test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", async () => {
+    const long = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
     assert.match(long, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/, "long-context keeps the curated default model, same as balanced");
   });
 
-  test("quality: uses the same curated default model as balanced — no RAM-tiered model swap", () => {
+  test("quality: uses the same curated default model as balanced — no RAM-tiered model swap", async () => {
     // Model choice is no longer RAM-tiered on any profile, including quality —
     // one curated small model everyone gets by default.
-    const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
+    const quality = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
     assert.match(quality, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/);
     // Gemma 4 is natively vision-capable, so the preset omits the dedicated
     // VLM rather than putting two resident models into swap mode.
@@ -443,14 +541,14 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.doesNotMatch(quality, /flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
   });
 
-  test("quality: an explicit LLAMACPP_MODEL still wins over the bigger-model default", () => {
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality", LLAMACPP_MODEL: "my-org/pinned-GGUF" }, { totalRamGB: 16 });
+  test("quality: an explicit LLAMACPP_MODEL still wins over the bigger-model default", async () => {
+    const ini = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality", LLAMACPP_MODEL: "my-org/pinned-GGUF" }, { totalRamGB: 16 });
     assert.match(ini, /hf-repo = my-org\/pinned-GGUF/);
   });
 
-  test("an unrecognized profile value falls back to balanced behavior", () => {
-    const bogus    = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "ultra-turbo" }, { totalRamGB: 64 });
-    const balanced = buildModelsPreset({}, { totalRamGB: 64 });
+  test("an unrecognized profile value falls back to balanced behavior", async () => {
+    const bogus    = await buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "ultra-turbo" }, { totalRamGB: 64 });
+    const balanced = await buildModelsPreset({}, { totalRamGB: 64 });
     assert.equal(bogus, balanced);
   });
 });
@@ -462,7 +560,7 @@ describe("buildModelsPreset — perf profiles", () => {
 // providers/index.js's Ollama-tag-keyed MODEL_FACTS.
 describe("buildModelsPreset — sizing parity with recommendContextLength", () => {
 
-  test("main model ctx-size matches a direct recommendContextLength call at several RAM sizes", () => {
+  test("main model ctx-size matches a direct recommendContextLength call at several RAM sizes", async () => {
     // Derive the expected window from the SAME facts serveCtxFor resolves, so the
     // parity holds regardless of the current default roster or whether the GGUF
     // is cached locally (gguf facts carry the reserveGB:4/0.15 override that a
@@ -473,7 +571,7 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
     const hf = MODEL_FACTS["qwen3.5:9b"].hf;
     for (const totalRamGB of [4, 8, 16, 24, 48, 64]) {
       const facts = resolveModelFacts(hf, {});
-      const ini = buildModelsPreset({ LLAMACPP_MODEL: hf }, { totalRamGB });
+      const ini = await buildModelsPreset({ LLAMACPP_MODEL: hf }, { totalRamGB });
       const mainCtx = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
       const expected = recommendContextLength({
         modelMaxContext: facts.maxContext,
@@ -486,8 +584,8 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
     }
   });
 
-  test("an unrecognized custom model falls back to the generic facts recommendServeContextLength used", () => {
-    const ini = buildModelsPreset({ LLAMACPP_MODEL: "someone/custom-GGUF" }, { totalRamGB: 64 });
+  test("an unrecognized custom model falls back to the generic facts recommendServeContextLength used", async () => {
+    const ini = await buildModelsPreset({ LLAMACPP_MODEL: "someone/custom-GGUF" }, { totalRamGB: 64 });
     const mainCtx = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
     // GENERIC_MODEL_FACTS carries a conservative kvBytesPerToken (a modern
     // 9B-class KV cost) so an unknown model sizes down rather than OOMing at
@@ -608,7 +706,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   }
 
   test("fast return when server is up, preset hash matches, and models match", async () => {
-    const preset = buildModelsPreset({}, {});
+    const preset = await buildModelsPreset({}, {});
     writeStoredState(99999, preset);
 
     // fetch #1: /health → ok (server up)
@@ -632,7 +730,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // process.kill() target with special "whole process group" semantics on
     // POSIX — calling process.kill(0, 0) in the fast-path liveness probe was
     // unintended. pid=null must be skipped instead of probed.
-    const preset = buildModelsPreset({}, {});
+    const preset = await buildModelsPreset({}, {});
     writeStoredState(null, preset);
 
     // fetch #1: /health → ok (server up)
@@ -650,7 +748,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   });
 
   test("kills and restarts when server model set is stale (models in preset not in server)", async () => {
-    const preset = buildModelsPreset({}, {});
+    const preset = await buildModelsPreset({}, {});
     writeStoredState(99999, preset);
 
     // fetch #1: /health → ok
@@ -688,7 +786,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   });
 
   test("uses the live port listener when state.json contains a stale PID", async () => {
-    const preset = buildModelsPreset({}, {});
+    const preset = await buildModelsPreset({}, {});
     writeStoredState(37991, preset);
     mockFetchSequence(
       { ok: true },
@@ -730,7 +828,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // server is down, the reconcile block above is skipped and writeState is
     // about to overwrite that PID — orphaning its resident workers forever.
     // ensureLlamaCpp must group-kill the prior PID before recording the new one.
-    writeStoredState(31313, buildModelsPreset({}, {}));
+    writeStoredState(31313, await buildModelsPreset({}, {}));
 
     // fetch #1: /health → false (server down) → straight to spawn
     // spawn poll: fetch #2: /health → true
@@ -744,7 +842,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   });
 
   test("does not kill a recycled stale PID whose ownership cannot be verified", async () => {
-    writeStoredState(31314, buildModelsPreset({}, {}));
+    writeStoredState(31314, await buildModelsPreset({}, {}));
     mockFetchSequence({ ok: false }, { ok: true });
     const killed = [];
     await ensureLlamaCpp(fakeSpawn(42425), async pid => { killed.push(pid); return true; }, undefined, () => false);
@@ -824,6 +922,153 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // State should exist (writeState was called with pid=0 to suppress
     // repeated logging). It may have been overwritten by writeState.
     assert.ok(existsSync(STATE_FILE));
+  });
+});
+
+// =============================================================================
+// WS4 (G8): ensureVisionEngine — on-demand local vision for a cloud
+// text-only provider (DeepSeek). Drives the exact same spawn/health-poll
+// path as ensureLlamaCpp, against a vision-only preset, and only when
+// nothing is already up.
+describe("ensureVisionEngine", () => {
+  test("G8.1 no-op when llama-server is already up AND genuinely serves aperio-vlm — never spawns", async () => {
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/health")) return { ok: true };
+      if (String(url).endsWith("/v1/models")) return jsonResponse({ data: [{ id: "aperio-vlm" }] });
+      return { ok: false };
+    };
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 60001 }; };
+    await ensureVisionEngine(null, trackerSpawn);
+    assert.equal(spawnCalled, false);
+  });
+
+  test("G8.1b up but NOT serving aperio-vlm (e.g. a native-vision main-only preset) — reconciles instead of silently no-op'ing", async () => {
+    // health always ok; /v1/models reports only aperio-main, never aperio-vlm.
+    // ensureLlamaCpp's own subsequent calls also see /health ok and the same
+    // model list, so it takes its "server up but unowned, can't manage it"
+    // fail-closed path — which ensureVisionEngine must now surface as a
+    // thrown error rather than silently reporting success.
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/health")) return { ok: true };
+      if (String(url).endsWith("/v1/models")) return jsonResponse({ data: [{ id: "aperio-main" }] });
+      return { ok: false };
+    };
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 60099 }; };
+    await assert.rejects(
+      () => ensureVisionEngine(null, trackerSpawn),
+      /could not be reconciled to serve aperio-vlm/,
+    );
+    assert.equal(spawnCalled, false, "an unowned foreign process must not be spawned over");
+  });
+
+  test("G8.2 cold boot writes a vision-only preset (no main model) and spawns", async () => {
+    // Three /health checks before a real listener exists: ensureVisionEngine's
+    // own probe, ensureLlamaCpp's own probe (it re-checks internally), then
+    // the spawn poll succeeds.
+    mockFetchSequence({ ok: false }, { ok: false }, { ok: true });
+    let capturedArgs = null;
+    const trackerSpawn = (_cmd, args) => { capturedArgs = args; return { on: () => {}, unref: () => {}, pid: 60002 }; };
+    await ensureVisionEngine(null, trackerSpawn);
+
+    assert.ok(capturedArgs, "spawn should have been called");
+    assert.equal(getLlamaCppPid(), 60002);
+    const preset = readFileSync(PRESET_PATH, "utf8");
+    assert.match(preset, /\[aperio-vlm\]/);
+    assert.doesNotMatch(preset, /\[aperio-main\]/, "vision-only preset must not include a main model entry");
+    assert.match(preset, new RegExp(`hf-repo = ${DEFAULT_LOCAL_MODEL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  });
+
+  test("G8.3 emits a progress token naming the model before the wait", async () => {
+    // Three /health checks before a real listener exists, same as G8.2:
+    // ensureVisionEngine's own probe, ensureLlamaCpp's own probe, then the
+    // spawn poll succeeds. Fewer than 3 lets ensureLlamaCpp's own probe
+    // prematurely see "already up" and take its reconcile path instead of
+    // the cold-spawn path this test means to exercise.
+    mockFetchSequence({ ok: false }, { ok: false }, { ok: true });
+    const sent = [];
+    const emitter = { send: (msg) => sent.push(msg) };
+    await ensureVisionEngine(emitter, (_cmd, _args) => ({ on: () => {}, unref: () => {}, pid: 60003 }));
+
+    assert.ok(sent.length > 0, "a progress token should have been emitted");
+    const text = sent.map(s => s.text ?? "").join("");
+    assert.match(text, /local vision model/i);
+    assert.match(text, new RegExp(DEFAULT_LOCAL_MODEL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+
+  test("G8.4 a failure to start surfaces as a rejected promise", { timeout: 20_000 }, async (t) => {
+    globalThis.fetch = async () => ({ ok: false }); // never comes up
+    t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+
+    const p = ensureVisionEngine(null, () => ({ on: () => {}, unref: () => {}, pid: 60004 })).catch(e => e);
+    await new Promise(r => setImmediate(r));
+    await new Promise(r => setImmediate(r));
+    t.mock.timers.tick(31_000);
+    await new Promise(r => setImmediate(r));
+    await new Promise(r => setImmediate(r));
+    await new Promise(r => setImmediate(r));
+
+    const err = await p;
+    assert.ok(err instanceof Error, `expected an Error, got: ${err}`);
+  });
+
+  test("G8.5 two concurrent cold starts serialize into a single spawn — no port race", async () => {
+    // Regression: two sessions each submitting a first image while the vision
+    // engine is cold both used to pass the "not up yet" health check and call
+    // ensureLlamaCpp() independently, spawning competing llama-server
+    // processes on the same port. fetch now reports "up" (and, once up,
+    // serving aperio-vlm) only once a spawn has actually happened, so a
+    // second, un-serialized caller would spawn again before the first's poll
+    // ever saw success. The second, serialized caller genuinely runs its own
+    // verification pass once queued behind the first (see the startupQueue
+    // header comment in startLlamaCpp.js) — /v1/models must answer for real
+    // so that pass's "does the server already have what I need" check can
+    // take the true no-op fast path instead of misreading an unparseable
+    // response as a stale model set and respawning.
+    let spawnCalls = 0;
+    const trackerSpawn = () => { spawnCalls++; return { on: () => {}, unref: () => {}, pid: 60005 }; };
+    globalThis.fetch = async (url) => {
+      const up = spawnCalls > 0;
+      if (String(url).endsWith("/v1/models")) return { ok: up, json: async () => ({ data: up ? [{ id: "aperio-vlm" }] : [] }) };
+      return { ok: up };
+    };
+
+    await Promise.all([
+      ensureVisionEngine(null, trackerSpawn),
+      ensureVisionEngine(null, trackerSpawn),
+    ]);
+
+    assert.equal(spawnCalls, 1, "two concurrent cold starts must spawn llama-server exactly once");
+    assert.equal(getLlamaCppPid(), 60005);
+  });
+
+  test("G8.6 a caller queued behind a DIFFERENT-preset in-flight run gets its OWN preset, not a silently-inherited one", async () => {
+    // Regression: the original single-shared-promise serialization made a
+    // second, DIFFERENT-preset caller silently inherit the first caller's
+    // result — e.g. a DeepSeek image bridge cold-starting the vision-only
+    // preset while a local wiki refresh concurrently calls the normal
+    // ensureLlamaCpp() for the main(+VLM) preset. Two distinct fake preset
+    // builders stand in for that mismatch; the reconciliation kill+restart
+    // this exercises is the SAME machinery a real preset change already goes
+    // through (hash-mismatch detection) — this only proves it now fires for
+    // a QUEUED caller too, not just a later independent call.
+    const presetA = () => "[*]\njinja = true\n\n[preset-a]\nhf-repo = org/a\nctx-size = 4096\n";
+    const presetB = () => "[*]\njinja = true\n\n[preset-b]\nhf-repo = org/b\nctx-size = 4096\n";
+    let up = false, spawnsA = 0, spawnsB = 0;
+    const spawnA = () => { up = true; spawnsA++; return { on: () => {}, unref: () => {}, pid: 62001 }; };
+    const spawnB = () => { up = true; spawnsB++; return { on: () => {}, unref: () => {}, pid: 62002 }; };
+    const killFreeingPort = async () => { up = false; return true; }; // simulates the port actually freeing up
+    globalThis.fetch = async () => ({ ok: up });
+
+    await Promise.all([
+      ensureLlamaCpp(spawnA, killFreeingPort, undefined, undefined, presetA),
+      ensureLlamaCpp(spawnB, killFreeingPort, undefined, undefined, presetB),
+    ]);
+
+    assert.equal(spawnsA, 1, "the first caller's own preset must still get spawned");
+    assert.equal(spawnsB, 1, "the second, different-preset caller must get its OWN spawn — not silently inherit the first caller's result");
+    assert.equal(getLlamaCppPid(), 62002, "the second (different-preset) call's spawn is left owning the engine, matching what it actually asked for");
   });
 });
 describe("killByPid — process-group teardown", () => {
@@ -1157,9 +1402,11 @@ describe("shouldStartOffline", () => {
       const cache = fakeCache();
       process.env.LLAMA_CACHE = cache;
       process.env.LLAMACPP_MODEL = "org/Main-GGUF:Q4_K_M";
-      process.env.LLAMACPP_VLM_MODEL = "org/Vlm-GGUF";
+      delete process.env.LLAMACPP_VLM_MODEL; // deleted config — must have no effect
       fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q4_K_M.gguf");
-      fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+      // The bridge is always DEFAULT_LOCAL_MODEL now — cache IT, not a
+      // configured LLAMACPP_VLM_MODEL, for the preset to be fully cached.
+      fakeCachedRepo(cache, DEFAULT_LOCAL_MODEL.split(":")[0], DEFAULT_LOCAL_MODEL.split("/").pop() + "-Q4_K_M.gguf");
 
       let capturedArgs = null;
       const trackerSpawn = (_cmd, args) => { capturedArgs = args; return { on: () => {}, unref: () => {}, pid: 90001 }; };
@@ -1167,8 +1414,8 @@ describe("shouldStartOffline", () => {
       await ensureLlamaCpp(trackerSpawn);
       assert.ok(capturedArgs.includes("--offline"), `fully cached preset should start offline, got: ${capturedArgs.join(" ")}`);
 
-      // Now break the cache for the VLM: the next start must go back online.
-      rmSync(join(cache, "models--org--Vlm-GGUF"), { recursive: true, force: true });
+      // Now break the cache for the bridge model: the next start must go back online.
+      rmSync(join(cache, "models--" + DEFAULT_LOCAL_MODEL.split(":")[0].replaceAll("/", "--")), { recursive: true, force: true });
       try { unlinkSync(STATE_FILE); } catch { /* keep runs independent */ }
       capturedArgs = null;
       mockFetchSequence({ ok: false }, { ok: true });

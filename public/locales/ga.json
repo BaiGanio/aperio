@@ -193,7 +193,6 @@
   "skills_always_badge":      "i gcónaí-ar",
   "skills_more":              "tuilleadh…",
   "skills_load_error":        "Níorbh fhéidir an scil a lódáil.",
-  "images_dropped_notice":  "Ní féidir le {provider} íomhánna a fheiceáil — reáchtálfar an seal seo mar théacs amháin.",
   "tool_repeat_break_notice": "D'athdéan {model} an t-iarratas céanna ar uirlis {repeats}× as a chéile, mar sin cuireadh na huirlisí as feidhm don fhreagra seo.",
   "tool_step_limit_notice": "Bhain {model} úsáid as {steps} pas glaonna uirlisí san fhreagra seo (teorainn {limit}), mar sin múchadh na huirlisí agus b'éigean dó freagra a thabhairt.",
   "skills_panel_nav_title": "Scileanna — féach, cuir in eagar, cruthaigh agus scoránaigh scileanna d'ghníomhaire",

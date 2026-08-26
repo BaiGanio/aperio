@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools, parsePinTurns, filterPreExecutedTools } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools, parsePinTurns, filterPreExecutedTools } from "../../../lib/agent/tool-profiles.js";
 import { CONFIRMABLE_TOOLS } from "../../../lib/helpers/confirmableTools.js";
 import { applyConfigToEnv, configSettingKey } from "../../../lib/config-resolver.js";
 
@@ -646,62 +646,11 @@ describe("tool-profiles — CSV classification (issue #300)", () => {
   });
 });
 
-// needsRecallScaffold: a second, finer gate below isCapableModel (issue #188).
-// isCapableModel decides tools + the neutral memory pointer. needsRecallScaffold
-// decides the behavior-*overriding* crutch (forced auto-recall injection) — a
-// model can be capable without needing the scaffold, so the two must not share
-// a single threshold.
-describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
-  let saved;
-  beforeEach(() => {
-    saved = {
-      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
-      APERIO_RECALL_SCAFFOLD_MODELS: process.env.APERIO_RECALL_SCAFFOLD_MODELS,
-    };
-    delete process.env.APERIO_CAPABLE_MODELS;
-    delete process.env.APERIO_RECALL_SCAFFOLD_MODELS;
-  });
-  afterEach(() => {
-    for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) delete process.env[k]; else process.env[k] = v;
-    }
-  });
-
-  test("default (APERIO_RECALL_SCAFFOLD_MODELS unset): falls back to APERIO_CAPABLE_MODELS — behavior unchanged", () => {
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
-    const provider = { name: "llamacpp", model: "qwen3:32b" };
-    assert.ok(isCapableModel(provider), "still capable");
-    assert.ok(needsRecallScaffold(provider), "falls back to the capable-models list by default");
-  });
-
-  test("a model allowlisted as capable but NOT in the scaffold list: capable, no scaffold", () => {
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
-    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "llama3.1:70b"; // qwen3:32b not in this list
-    const provider = { name: "llamacpp", model: "qwen3:32b" };
-    assert.ok(isCapableModel(provider), "tools + memory pointer");
-    assert.ok(!needsRecallScaffold(provider), "graduated out of the forced-recall crutch");
-  });
-
-  test("a model in the scaffold list still gets it", () => {
-    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
-    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "qwen3:32b";
-    const provider = { name: "llamacpp", model: "qwen3:32b" };
-    assert.ok(needsRecallScaffold(provider));
-  });
-
-  test("cloud providers never need the scaffold, even if the name matches the list", () => {
-    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "claude-sonnet-5";
-    const provider = { name: "anthropic", model: "claude-sonnet-5" };
-    assert.ok(isCapableModel(provider), "cloud is always capable");
-    assert.ok(!needsRecallScaffold(provider), "cloud never needs the local-model scaffold");
-  });
-
-  test("a weak, non-allowlisted local model needs no scaffold either", () => {
-    const provider = { name: "llamacpp", model: "gemma3:4b" };
-    assert.ok(!isCapableModel(provider));
-    assert.ok(!needsRecallScaffold(provider));
-  });
-});
+// isCapableModel / needsRecallScaffold (issue #188 capability-gate doctrine)
+// were deleted 2026-08-26 (model-vision-autodetect plan, WS2): every model now
+// gets tools + the memory pointer, and the model-name-list recall scaffold
+// this described is gone with them. See model-capabilities.test.js for the
+// measured-from-the-GGUF replacement.
 
 // ---------------------------------------------------------------------------
 // Phase 5a (issue #307): pure category-2 helpers extracted from the inline

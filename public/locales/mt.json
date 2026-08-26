@@ -193,7 +193,6 @@
   "skills_always_badge":      "dejjem mixgħula",
   "skills_more":              "aktar...",
   "skills_load_error":        "Ma setgħetx tagħbija ħiliet.",
-  "images_dropped_notice":  "{provider} ma jarax ritratti — dan id-dawra se titmexxa bit-test biss.",
   "tool_repeat_break_notice": "{model} irrepeta l-istess seħja għall-għodda {repeats}× wara xulxin, għalhekk l-għodod tqiegħdu barra għal din it-tweġiba.",
   "tool_step_limit_notice": "{model} uża {steps} passaġġi ta' sejħiet għall-għodda f'din it-tweġiba (limitu {limit}), għalhekk l-għodod tqiegħdu barra u kellu jwieġeb.",
   "skills_panel_nav_title": "Ħiliet — ara, editja, oħloq u aqleb il-ħiliet tal-aġent tiegħek",

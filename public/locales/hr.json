@@ -193,7 +193,6 @@
   "skills_always_badge":      "uvijek uključen",
   "skills_more":              "više…",
   "skills_load_error":        "Nije moguće učitati vještinu.",
-  "images_dropped_notice":  "{provider} ne vidi slike — ovaj potez izvršit će se samo s tekstom.",
   "tool_repeat_break_notice": "{model} je isti poziv alata ponovio {repeats}× zaredom, pa su alati za ovaj odgovor isključeni.",
   "tool_step_limit_notice": "{model} je u ovom odgovoru upotrijebio {steps} prolaza s pozivima alata (ograničenje {limit}), pa su alati isključeni i morao je odgovoriti.",
   "skills_panel_nav_title": "Vještine — pregledaj, uredi, izradi i uključi/isključi vještine svog agenta",
