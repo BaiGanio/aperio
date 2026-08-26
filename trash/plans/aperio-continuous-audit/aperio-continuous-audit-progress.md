@@ -4,6 +4,45 @@ _This is the reusable Run 1 template. Copy it for later runs; do not erase prior
 
 ---
 
+## Run 3 — status: AUDIT COMPLETE 2026-08-26, fix session pending
+
+| Field | Value |
+|---|---|
+| Run number | 3 |
+| Status | 5/17 remaining slices deep-audited (A02, A04, A09, A15, A18 — the security-engineer-owned tranche); 4 findings confirmed, A04 clean; 12 slices still deferred (A01, A05, A07, A08, A10, A11, A12, A16, A19, A20, A21, A22) |
+| Started / completed | 2026-08-26 / 2026-08-26 |
+| Baseline commit | 010a12fc |
+| Branch | master (clean tree at start and at audit time) |
+| Lead auditor | Claude Sonnet 5 (Claude Code), 5 parallel forks (recon+audit) + orchestrator independent verification pass by direct file reads |
+| Previous run | Run 2 (closed 2026-08-24) |
+
+### What was done
+Picked the highest-risk 5 of the 17 remaining deferred slices — all security-engineer-owned per the audit plan's invariant table: A02 (config/secrets), A04 (WebSocket/session), A09 (privacy/egress), A15 (filesystem/shell), A18 (permission enforcement). A15 and A18 had salvaged, unverified report.md files from an abandoned 2026-08-17 attempt (obsolete/dirty revision, no baseline.json survived) — both were re-audited fresh and every carried-over claim independently re-confirmed (0 dropped) rather than trusted as-is.
+
+Process deviation, recorded not hidden: 3 of the 5 forks (A09, A15, A18) reported they could not or did not actually write their own `report.md` files, despite their final summaries claiming they had (confirmed by file mtimes — one, A15's, still held the stale 2026-08-17 content until the orchestrator overwrote it). The A04 fork additionally reported it ran inline rather than as an isolated background fork this once. None of this affected the underlying recon/audit quality (each fork still read real source and ran real tests, and the orchestrator independently re-verified every confirmed finding by direct file reads before writing the final reports) — but it is a real tooling reliability gap worth flagging.
+
+### Findings — 4 confirmed, 1 slice clean, Run 2's 4 prior fixes reverified still-fixed
+Findings register at `audit/runs/run-003/findings.json`, reports at `audit/runs/run-003/{A02,A04,A09,A15,A18}/report.md`.
+
+| ID | Slice | Severity | Confidence | Summary | Issue |
+|---|---|---|---|---|---|
+| F-R3-01 | A02 | medium | high | `PUT /api/settings/:key` has no tier check — a Tier-0 (env-only, secret) key can be written into the DB; `EDITABLE_KEYS` exists for exactly this but is unused | [#530](https://github.com/BaiGanio/aperio/issues/530) |
+| F-R3-02 | A15 | high | high | `read_image`/`preprocess_image`/`describe_image` bypass the path allowlist entirely — can read any image file anywhere on disk | [#529](https://github.com/BaiGanio/aperio/issues/529) |
+| F-R3-03 | A09 | medium | high | Privacy `restore()` has zero production callers — `APERIO_CLOUD_SENSITIVE_MODE=redact` permanently shows placeholder tokens instead of real data | [#531](https://github.com/BaiGanio/aperio/issues/531) |
+| F-R3-04 | A18 | low (dormant) | high | `AgentSpec.filesystem`/`.memoryScopes` validated at construction but never enforced at execution — currently unreachable (no live `spawnChild`/`spawnParallel` caller) | code-depth item, not a security issue |
+
+A04 (WebSocket/session lifecycle): no confirmed findings, slice is clean.
+
+Run 2's 4 already-fixed findings (F-R2-01, F-R2-02, F-R2-06, F-R2-07) were reverified still-fixed at `010a12fc` as part of the A09 pass.
+
+### Next audit-run scope
+12 slices remain: A01, A05, A07, A08, A10, A11, A12, A16, A19, A20, A21, A22. Same priority-order-by-risk approach.
+
+### Run 3 closeout
+Not yet closed — findings filed 2026-08-26: F-R3-01 → [#530](https://github.com/BaiGanio/aperio/issues/530), F-R3-02 → [#529](https://github.com/BaiGanio/aperio/issues/529), F-R3-03 → [#531](https://github.com/BaiGanio/aperio/issues/531). F-R3-04 logged to `id/reference/tech-debt.md` instead (dormant, no live exploit path — code-depth item, not a security issue). Fix session pending per Run 2's precedent (audit-only rule: no production code was touched during this audit).
+
+---
+
 ## Run 2 — status: CLOSED 2026-08-17 (4 slices audited, all findings remediated)
 
 | Field | Value |

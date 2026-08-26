@@ -158,6 +158,22 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Agent permissions — AgentSpec filesystem/memory scoping not enforced at execution time
+
+- 2026-08-26 Continuous-audit Run 3, slice A18, finding F-R3-04. `AgentSpec.filesystem` /
+  `.memoryScopes` / `.interruptPolicy` are validated and narrowing-checked at spec-construction
+  time (`lib/agent/spec.js`, `lib/agent/bundle.js`, `lib/security/agentPermissions.js`) but
+  never consulted at tool-execution time — `lib/agent/index.js:213` only reads
+  `agentSpec.toolAllowlist` into `ctx`; every `runWithPaths()` call site (`wsHandler.js:354`,
+  `index-folder.js:45`, `standalone.js:352,618`) still sources from the single global
+  `getAllowlist()`, never `agentSpec.filesystem` (`grep -rn "ctx\.spec" lib mcp` → zero hits).
+  Not currently exploitable — `spawnChild`/`spawnParallel` (the only callers of the narrowing
+  machinery) have zero live callers themselves (`grep -rln "spawnChild\|spawnParallel" lib mcp`
+  outside `spawn.js` → zero) — a latent gap that only activates if a future feature wires
+  spawn to a live tool without also wiring enforcement. Report: `audit/runs/run-003/A18/report.md`.
+
+---
+
 ## Docgraph — document facts (#250)
 
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
