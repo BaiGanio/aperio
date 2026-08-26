@@ -314,8 +314,11 @@ function renderMarkdown(text, depth = 0) {
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
     // Inline images: ![alt](src). src is allowlisted to local generated-file
     // routes and https to keep the innerHTML injection safe (no javascript:/data:).
+    // `&`, `<` and `>` were already escaped at the top of this chain, so — same
+    // as the anchor href below — only the `"` needs escaping here; a full
+    // escapeHtml() pass would double-encode the `&` in a query string.
     .replace(/!\[([^\]]*)\]\((\/(?:scratch|uploads)\/[^)\s]+|https:\/\/[^)\s]+)\)/g,
-      (_, alt, src) => `<img class="chat-image" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy">`)
+      (_, alt, src) => `<img class="chat-image" src="${src.replace(/"/g, "&quot;")}" alt="${escapeHtml(alt)}" loading="lazy">`)
     // A `"` inside the URL would otherwise close the href attribute and let the
     // rest of the match inject arbitrary HTML attributes (an inline event
     // handler, say) into the anchor this innerHTML builds. Only the quote needs
