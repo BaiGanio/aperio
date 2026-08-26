@@ -23,7 +23,7 @@ done
 DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
 cd "$DIR"
 
-MIN_NODE_VERSION=22
+MIN_NODE_VERSION=24
 OS="$(uname -s)"
 LOG="$DIR/var/install/ignition.log"
 mkdir -p "$DIR/var/install"

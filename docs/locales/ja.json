@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# いつでも再実行してその場で更新 —",
     "setup_comment_preserved": "# メモリデータベースは保持されます",
     "setup_method_source": "3 · ソースから",
-    "setup_method_source_desc": "<strong>完全な制御</strong> — 開発ブランチをクローンして自分で実行。Node 18+；デフォルトはSQLite、Postgresもオプション。以下のステップバイステップガイドに従ってください。",
+    "setup_method_source_desc": "<strong>完全な制御</strong> — 開発ブランチをクローンして自分で実行。Node 24+；デフォルトはSQLite、Postgresもオプション。以下のステップバイステップガイドに従ってください。",
     "setup_source_eyebrow": "方法3 · ソースから",
     "step1_title": "クローンして依存関係をインストール",
     "setup_comment_dev_branch": "# 専用の開発者ブランチ — 余計なファイルはありません",

@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# opnieuw uitvoeren om ter plekke bij te werken —",
     "setup_comment_preserved": "# uw geheugendatabase blijft behouden",
     "setup_method_source": "3 · Vanuit broncode",
-    "setup_method_source_desc": "<strong>Volledige controle</strong> — kloon de dev-branch en draai het zelf. Node 18+; standaard SQLite, Postgres optioneel. Stap-voor-stap hieronder.",
+    "setup_method_source_desc": "<strong>Volledige controle</strong> — kloon de dev-branch en draai het zelf. Node 24+; standaard SQLite, Postgres optioneel. Stap-voor-stap hieronder.",
     "setup_source_eyebrow": "Methode 3 · Vanuit broncode",
     "step1_title": "Klonen en afhankelijkheden installeren",
     "setup_comment_dev_branch": "# speciale ontwikkelaarsbranch - geen extra bestanden",

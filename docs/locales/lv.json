@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# palaid vēlreiz jebkurā laikā, lai atjauninātu —",
     "setup_comment_preserved": "# tava atmiņu datubāze tiek saglabāta",
     "setup_method_source": "3 · No avota",
-    "setup_method_source_desc": "<strong>Pilnīga kontrole</strong> — klonē izstrādes zaru un palaid pats. Node 18+; SQLite pēc noklusējuma, Postgres neobligāts. Soli pa solim zemāk.",
+    "setup_method_source_desc": "<strong>Pilnīga kontrole</strong> — klonē izstrādes zaru un palaid pats. Node 24+; SQLite pēc noklusējuma, Postgres neobligāts. Soli pa solim zemāk.",
     "setup_source_eyebrow": "3. metode · No avota",
     "step1_title": "Klonēt un instalēt atkarības",
     "setup_comment_dev_branch": "# speciāla izstrādātāja zars - bez papildu failiem",

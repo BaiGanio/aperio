@@ -322,7 +322,7 @@ const EN_LOCALE = {
     "setup_comment_rerun": "# re-run anytime to update in place —",
     "setup_comment_preserved": "# your memory database is preserved",
     "setup_method_source": "3 · From source",
-    "setup_method_source_desc": "<strong>Full control</strong> — clone the dev branch and run it yourself. Node 18+; SQLite by default, Postgres optional. Step-by-step below.",
+    "setup_method_source_desc": "<strong>Full control</strong> — clone the dev branch and run it yourself. Node 24+; SQLite by default, Postgres optional. Step-by-step below.",
     "setup_source_eyebrow": "Method 3 · From source",
     "step1_title": "Clone & install dependencies",
     "setup_comment_dev_branch": "# dedicated developer branch - no extra files",

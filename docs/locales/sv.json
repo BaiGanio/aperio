@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# kör igen när som helst för att uppdatera på plats —",
     "setup_comment_preserved": "# din minnesdatabas bevaras",
     "setup_method_source": "3 · Från källkod",
-    "setup_method_source_desc": "<strong>Full kontroll</strong> — klona utvecklingsgrenen och kör den själv. Node 18+; SQLite som standard, Postgres valfritt. Steg-för-steg nedan.",
+    "setup_method_source_desc": "<strong>Full kontroll</strong> — klona utvecklingsgrenen och kör den själv. Node 24+; SQLite som standard, Postgres valfritt. Steg-för-steg nedan.",
     "setup_source_eyebrow": "Metod 3 · Från källkod",
     "step1_title": "Klona & installera beroenden",
     "setup_comment_dev_branch": "# dedikerad utvecklingsgren - inga extra filer",

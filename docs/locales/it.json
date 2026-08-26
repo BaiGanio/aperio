@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# riesegui quando vuoi per aggiornare sul posto —",
     "setup_comment_preserved": "# il tuo database di memoria è preservato",
     "setup_method_source": "3 · Dal sorgente",
-    "setup_method_source_desc": "<strong>Controllo totale</strong> — clona il ramo dev ed eseguilo tu stesso. Node 18+; SQLite di default, Postgres opzionale. Passo dopo passo qui sotto.",
+    "setup_method_source_desc": "<strong>Controllo totale</strong> — clona il ramo dev ed eseguilo tu stesso. Node 24+; SQLite di default, Postgres opzionale. Passo dopo passo qui sotto.",
     "setup_source_eyebrow": "Metodo 3 · Dal sorgente",
     "step1_title": "Clona e installa le dipendenze",
     "setup_comment_dev_branch": "# ramo sviluppatore dedicato - nessun file extra",

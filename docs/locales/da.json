@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# kør igen når som helst for at opdatere på stedet —",
     "setup_comment_preserved": "# din hukommelsesdatabase bevares",
     "setup_method_source": "3 · Fra kilde",
-    "setup_method_source_desc": "<strong>Fuld kontrol</strong> — klon dev-grenen og kør det selv. Node 18+; SQLite som standard, Postgres valgfrit. Trin-for-trin nedenfor.",
+    "setup_method_source_desc": "<strong>Fuld kontrol</strong> — klon dev-grenen og kør det selv. Node 24+; SQLite som standard, Postgres valgfrit. Trin-for-trin nedenfor.",
     "setup_source_eyebrow": "Metode 3 · Fra kilde",
     "step1_title": "Klon og installér afhængigheder",
     "setup_comment_dev_branch": "# dedikeret developer-gren - ingen ekstra filer",

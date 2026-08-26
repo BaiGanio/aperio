@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, existsSync, realpathSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync, realpathSync, globSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -215,19 +215,37 @@ test("CI and backend parity", async (t) => {
   // T62: Scripts discover real-app tests
   // ════════════════════════════════════════════════════════════════════
   await t.test("T62: test:e2e:real discovers only real-app files", () => {
-    const pkg = readFileSync(resolve(REPO_ROOT, "package.json"), "utf8");
+    // Node's own glob support (`node --test` requires Node 22+, the repo's
+    // floor is Node 24+) is exercised directly here via fs.globSync, rather
+    // than string-matching the raw package.json text, so this proves what the
+    // scripts actually discover on disk instead of trusting a literal quote.
+    const pkg = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), "utf8"));
+    assert.ok(pkg.scripts["test:e2e:real"], "test:e2e:real script exists in package.json");
+    assert.ok(pkg.scripts["test:e2e"], "test:e2e script exists in package.json");
+
+    const extractGlob = (script) => {
+      const match = script.match(/'([^']+\.test\.js)'/);
+      assert.ok(match, `script carries a quoted glob: ${script}`);
+      return match[1];
+    };
+
+    const realGlob = extractGlob(pkg.scripts["test:e2e:real"]);
+    const allGlob = extractGlob(pkg.scripts["test:e2e"]);
+    const realMatches = globSync(realGlob, { cwd: REPO_ROOT }).sort();
+    const allMatches = globSync(allGlob, { cwd: REPO_ROOT }).sort();
+
+    assert.ok(realMatches.length > 0, "test:e2e:real's glob matches at least one file");
     assert.ok(
-      pkg.includes('test:e2e:real'),
-      "test:e2e:real script exists in package.json"
+      realMatches.every((f) => f.startsWith("tests/e2e/real-app/")),
+      "test:e2e:real only discovers files under tests/e2e/real-app/"
     );
     assert.ok(
-      pkg.includes("'tests/e2e/real-app/real-app-*.test.js'"),
-      "test:e2e:real targets real-app-*.test.js files"
+      allMatches.length > realMatches.length,
+      "test:e2e discovers strictly more files than test:e2e:real (bootstrap/, websocket/, ui/ exist alongside real-app/)"
     );
-    assert.ok(
-      pkg.includes("'tests/e2e/**/*.test.js'"),
-      "test:e2e targets all e2e test files"
-    );
+    for (const f of realMatches) {
+      assert.ok(allMatches.includes(f), `test:e2e's broader glob still includes ${f}`);
+    }
   });
 
   // ════════════════════════════════════════════════════════════════════

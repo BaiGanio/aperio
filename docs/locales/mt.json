@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# erġa' mexxi fi kwalunkwe ħin biex taġġorna fil-post —",
     "setup_comment_preserved": "# id-database tal-memorja tiegħek tinżamm",
     "setup_method_source": "3 · Mis-sors",
-    "setup_method_source_desc": "<strong>Kontroll sħiħ</strong> — ikklona l-fergħa dev u mexxiha int stess. Node 18+; SQLite b'mod default, Postgres fakultattiv. Pass pass hawn taħt.",
+    "setup_method_source_desc": "<strong>Kontroll sħiħ</strong> — ikklona l-fergħa dev u mexxiha int stess. Node 24+; SQLite b'mod default, Postgres fakultattiv. Pass pass hawn taħt.",
     "setup_source_eyebrow": "Metodu 3 · Mis-sors",
     "step1_title": "Ikklona u installa d-dipendenzi",
     "setup_comment_dev_branch": "# fergħa dedikata għall-iżvilupp - l-ebda fajls extra",

@@ -156,15 +156,6 @@ housekeeping go in `A2D.md`, not here.
   was mutation-proved red before landing. `npm run test:audit` is now 462 tests /
   26 suites. T7 (journeys) and T9 (closeout, deltas) are still open.
 
-- 2026-08-23 **`test:e2e` and `test:e2e:real` still pass a glob to `node --test`.**
-  `README.md` documents a Node 18 floor, and `node --test` gained glob expansion
-  only in Node 22 — below that the quoted pattern is opened as a literal
-  filename and the run fails. Every other suite goes through
-  `scripts/run-tests.js`, which enumerates in JS; these two were missed. CI runs
-  Node 26, so nothing is red today. Untouched here because the e2e scripts carry
-  concurrency and timeout flags that want checking against the collector's own
-  options before they move.
-
 ---
 
 ## Docgraph — document facts (#250)

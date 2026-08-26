@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# uruchom ponownie, aby zaktualizować na miejscu —",
     "setup_comment_preserved": "# Twoja baza danych wspomnień jest zachowana",
     "setup_method_source": "3 · Ze źródła",
-    "setup_method_source_desc": "<strong>Pełna kontrola</strong> — sklonuj gałąź deweloperską i uruchom samodzielnie. Node 18+; domyślnie SQLite, Postgres opcjonalnie. Instrukcja krok po kroku poniżej.",
+    "setup_method_source_desc": "<strong>Pełna kontrola</strong> — sklonuj gałąź deweloperską i uruchom samodzielnie. Node 24+; domyślnie SQLite, Postgres opcjonalnie. Instrukcja krok po kroku poniżej.",
     "setup_source_eyebrow": "Metoda 3 · Ze źródła",
     "step1_title": "Sklonuj i zainstaluj zależności",
     "setup_comment_dev_branch": "# dedykowana gałąź deweloperska - bez dodatkowych plików",

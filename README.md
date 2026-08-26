@@ -28,7 +28,7 @@ For a guided installation, [download Aperio-lite](https://github.com/BaiGanio/ap
 
 ### From source
 
-Requirements: [Node.js 18+](https://nodejs.org/en/download). Docker is optional;
+Requirements: [Node.js 24+](https://nodejs.org/en/download). Docker is optional;
 SQLite is the default and needs no separate database server.
 
 ```bash

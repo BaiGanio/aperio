@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# 随时重新运行以原地更新——",
     "setup_comment_preserved": "# 你的记忆数据库将被保留",
     "setup_method_source": "3 · 从源码安装",
-    "setup_method_source_desc": "<strong>完全控制</strong>——克隆开发分支并自行运行。需要 Node 18+；默认使用 SQLite，可选用 Postgres。详细步骤见下方。",
+    "setup_method_source_desc": "<strong>完全控制</strong>——克隆开发分支并自行运行。需要 Node 24+；默认使用 SQLite，可选用 Postgres。详细步骤见下方。",
     "setup_source_eyebrow": "方法 3 · 从源码安装",
     "step1_title": "克隆并安装依赖",
     "setup_comment_dev_branch": "# 专用开发分支——无额外文件",

@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# vuelve a ejecutar en cualquier momento para actualizar en el lugar —",
     "setup_comment_preserved": "# tu base de datos de memoria se conserva",
     "setup_method_source": "3 · Desde el código fuente",
-    "setup_method_source_desc": "<strong>Control total</strong> — clona la rama de desarrollo y ejecútalo tú mismo. Node 18+; SQLite por defecto, Postgres opcional. Paso a paso abajo.",
+    "setup_method_source_desc": "<strong>Control total</strong> — clona la rama de desarrollo y ejecútalo tú mismo. Node 24+; SQLite por defecto, Postgres opcional. Paso a paso abajo.",
     "setup_source_eyebrow": "Método 3 · Desde el código fuente",
     "step1_title": "Clonar e instalar dependencias",
     "setup_comment_dev_branch": "# rama de desarrollo dedicada - sin archivos extra",

@@ -145,6 +145,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Node.js 24 LTS is now Aperio's declared minimum supported runtime,
+  replacing a Node 18 floor that no CI job or install script actually tested.**
+  README, the Manual's Setup & configuration topic (source, HTML, and PDF),
+  and the VM smoke checks (`vms/smoke.sh`, `vms/smoke.ps1`) all quoted Node
+  18+ or 22+ while active GitHub Actions workflows ran Node 26 and
+  `docker/Dockerfile` already built on `node:24-trixie-slim` — three
+  conflicting numbers with no CI evidence behind the lowest two. `package.json`
+  now carries an `engines.node: ">=24.0.0"` declaration and a matching
+  `.nvmrc`; the VM smoke scripts reject anything below Node 24. `(ci) PR
+  Guard`'s WebSocket E2E job and `(ci) Real-app E2E (manual)` now each run a
+  `[24, 26]` Node matrix, so the declared floor is exercised on every PR
+  instead of only the newer, untested-as-floor version; every other CI
+  workflow keeps its single Node 26 leg rather than doubling cost across the
+  board. `test:e2e` and `test:e2e:real` needed no code changes: Node's own
+  `node --test` glob expansion has required Node 22+ all along, so the new
+  Node 24 floor already clears it — the stale Node 18 entry in
+  `id/reference/tech-debt.md` is removed rather than annotated, since its
+  premise no longer holds. `.github/lite/START.sh` and
+  `.github/lite/assets/start.ps1` also had their own `MIN_NODE_VERSION`/
+  `$MinNodeVersion` checks raised from 22 to 24 — Aperio-lite is most users'
+  install path, and npm does not refuse to run on an under-floor runtime by
+  itself (`engines` without `engine-strict` is only an `EBADENGINE` warning),
+  so the launchers are what actually keeps a Node 22/23 user off an
+  unsupported floor.
+
 - **The npm audit gate accepts dated, justified exceptions instead of sitting
   red.** `(ci) npm audit` ran `npm audit --omit=dev --audit-level=high`
   directly, which meant a single high advisory with no upstream fix at all

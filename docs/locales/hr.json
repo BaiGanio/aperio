@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# ponovno pokrenite bilo kada za ažuriranje na mjestu —",
     "setup_comment_preserved": "# vaša baza podataka memorije je sačuvana",
     "setup_method_source": "3 · Iz izvora",
-    "setup_method_source_desc": "<strong>Potpuna kontrola</strong> — klonirajte dev granu i pokrenite sami. Node 18+; SQLite prema zadanim postavkama, Postgres izborno. Korak po korak ispod.",
+    "setup_method_source_desc": "<strong>Potpuna kontrola</strong> — klonirajte dev granu i pokrenite sami. Node 24+; SQLite prema zadanim postavkama, Postgres izborno. Korak po korak ispod.",
     "setup_source_eyebrow": "Metoda 3 · Iz izvora",
     "step1_title": "Klonirajte i instalirajte ovisnosti",
     "setup_comment_dev_branch": "# namjenska razvojna grana - bez dodatnih datoteka",

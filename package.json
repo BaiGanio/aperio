@@ -4,6 +4,9 @@
   "description": "Personal AI memory layer — Postgres + MCP + Claude",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "// 1  server & chat": "── boot the app (server or terminal client) in cloud/local/lite mode ──",
     "mcp": "node mcp/index.js",

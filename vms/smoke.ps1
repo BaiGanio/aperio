@@ -18,7 +18,7 @@ try {
   # Windows PowerShell 5 strips nested quotes when this script is launched
   # through `powershell.exe -File`, so keep the Node expression quote-free.
   $major = [int](node -p 'process.versions.node.match(/^\d+/)[0]')
-  if ($major -lt 22) { throw "Node.js 22+ required (found $major)" }
+  if ($major -lt 24) { throw "Node.js 24+ required (found $major)" }
   if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'npm is not available' }
   Write-Host "+ toolchain: Node $(node --version), npm $(npm --version)"
   if (-not (Test-Path node_modules)) { throw 'node_modules is missing' }

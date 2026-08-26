@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# ponovno zaženi kadarkoli za posodobitev na mestu —",
     "setup_comment_preserved": "# tvoja baza spominov je ohranjena",
     "setup_method_source": "3 · Iz izvorne kode",
-    "setup_method_source_desc": "<strong>Popoln nadzor</strong> — kloniraj razvojno vejo in jo zaženi sam. Node 18+; SQLite privzeto, Postgres opcijsko. Korak za korakom spodaj.",
+    "setup_method_source_desc": "<strong>Popoln nadzor</strong> — kloniraj razvojno vejo in jo zaženi sam. Node 24+; SQLite privzeto, Postgres opcijsko. Korak za korakom spodaj.",
     "setup_source_eyebrow": "Metoda 3 · Iz izvorne kode",
     "step1_title": "Kloniraj in namesti odvisnosti",
     "setup_comment_dev_branch": "# namenska razvojna veja - brez dodatnih datotek",

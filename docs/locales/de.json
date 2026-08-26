@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# jederzeit erneut ausführen, um direkt zu aktualisieren —",
     "setup_comment_preserved": "# Ihre Gedächtnis-Datenbank bleibt erhalten",
     "setup_method_source": "3 · Aus dem Quellcode",
-    "setup_method_source_desc": "<strong>Volle Kontrolle</strong> — klonen Sie den Dev-Branch und führen Sie es selbst aus. Node 18+; SQLite standardmäßig, Postgres optional. Schritt-für-Schritt unten.",
+    "setup_method_source_desc": "<strong>Volle Kontrolle</strong> — klonen Sie den Dev-Branch und führen Sie es selbst aus. Node 24+; SQLite standardmäßig, Postgres optional. Schritt-für-Schritt unten.",
     "setup_source_eyebrow": "Methode 3 · Aus dem Quellcode",
     "step1_title": "Klonen und Abhängigkeiten installieren",
     "setup_comment_dev_branch": "# dedizierter Entwickler-Branch - keine zusätzlichen Dateien",

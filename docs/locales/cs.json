@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# znovu spusťte kdykoli pro aktualizaci na místě –",
     "setup_comment_preserved": "# vaše databáze vzpomínek zůstává zachována",
     "setup_method_source": "3 · Ze zdroje",
-    "setup_method_source_desc": "<strong>Plná kontrola</strong> – naklonujte dev větev a spusťte ji sami. Node 18+; SQLite ve výchozím nastavení, Postgres volitelně. Krok za krokem níže.",
+    "setup_method_source_desc": "<strong>Plná kontrola</strong> – naklonujte dev větev a spusťte ji sami. Node 24+; SQLite ve výchozím nastavení, Postgres volitelně. Krok za krokem níže.",
     "setup_source_eyebrow": "Metoda 3 · Ze zdroje",
     "step1_title": "Klonovat & nainstalovat závislosti",
     "setup_comment_dev_branch": "# vyhrazená vývojářská větev – žádné další soubory",

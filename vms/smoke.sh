@@ -21,7 +21,7 @@ run() { (cd "$ROOT" && HOME="$TMP_HOME" "$@"); }
 
 cd "$ROOT" || fail "cannot enter $ROOT"
 major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-[ "$major" -ge 22 ] || fail "Node.js 22+ required (found ${major:-unknown})"
+[ "$major" -ge 24 ] || fail "Node.js 24+ required (found ${major:-unknown})"
 command -v npm >/dev/null 2>&1 || fail "npm is not available"
 pass "toolchain: Node $(node --version), npm $(npm --version)"
 [ -d node_modules ] || fail "node_modules is missing"

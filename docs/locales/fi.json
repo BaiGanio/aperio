@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# suorita uudelleen milloin tahansa päivittääksesi —",
     "setup_comment_preserved": "# muistitietokantasi säilytetään",
     "setup_method_source": "3 · Lähdekoodista",
-    "setup_method_source_desc": "<strong>Täysi hallinta</strong> — kloonaa kehityshaara ja aja se itse. Node 18+; SQLite oletuksena, Postgres valinnainen. Vaihe vaiheelta alla.",
+    "setup_method_source_desc": "<strong>Täysi hallinta</strong> — kloonaa kehityshaara ja aja se itse. Node 24+; SQLite oletuksena, Postgres valinnainen. Vaihe vaiheelta alla.",
     "setup_source_eyebrow": "Menetelmä 3 · Lähdekoodista",
     "step1_title": "Kloonaa ja asenna riippuvuudet",
     "setup_comment_dev_branch": "# erillinen kehittäjähaara - ei ylimääräisiä tiedostoja",

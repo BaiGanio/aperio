@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# znovu spustite kedykoľvek na aktualizáciu na mieste —",
     "setup_comment_preserved": "# vaša databáza spomienok je zachovaná",
     "setup_method_source": "3 · Zo zdroja",
-    "setup_method_source_desc": "<strong>Plná kontrola</strong> — naklonujte dev vetvu a spustite si ju sami. Node 18+; SQLite štandardne, Postgres voliteľne. Krok za krokom nižšie.",
+    "setup_method_source_desc": "<strong>Plná kontrola</strong> — naklonujte dev vetvu a spustite si ju sami. Node 24+; SQLite štandardne, Postgres voliteľne. Krok za krokom nižšie.",
     "setup_source_eyebrow": "Metóda 3 · Zo zdroja",
     "step1_title": "Naklonovať a nainštalovať závislosti",
     "setup_comment_dev_branch": "# vyhradená vývojárska vetva - žiadne extra súbory",

@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# käivita uuesti igal ajal uuendamiseks —",
     "setup_comment_preserved": "# sinu mälude andmebaas säilitatakse",
     "setup_method_source": "3 · Lähtekoodist",
-    "setup_method_source_desc": "<strong>Täielik kontroll</strong> — klooni arendusharu ja käivita ise. Node 18+; SQLite vaikimisi, Postgres valikuline. Samm-sammult allpool.",
+    "setup_method_source_desc": "<strong>Täielik kontroll</strong> — klooni arendusharu ja käivita ise. Node 24+; SQLite vaikimisi, Postgres valikuline. Samm-sammult allpool.",
     "setup_source_eyebrow": "Meetod 3 · Lähtekoodist",
     "step1_title": "Klooni ja paigalda sõltuvused",
     "setup_comment_dev_branch": "# spetsiaalne arendusharu - pole lisa faile",

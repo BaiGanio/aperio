@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# ath-rith am ar bith le nuashonrú in áit —",
     "setup_comment_preserved": "# tá do bhunachar sonraí cuimhne caomhnaithe",
     "setup_method_source": "3 · Ó fhoinse",
-    "setup_method_source_desc": "<strong>Lánrialú</strong> — clón an brainse dev agus rith é féin. Node 18+; SQLite de réir réamhshocraithe, Postgres roghnach. Céim ar chéim thíos.",
+    "setup_method_source_desc": "<strong>Lánrialú</strong> — clón an brainse dev agus rith é féin. Node 24+; SQLite de réir réamhshocraithe, Postgres roghnach. Céim ar chéim thíos.",
     "setup_source_eyebrow": "Modh 3 · Ó fhoinse",
     "step1_title": "Clón & suiteáil spleáchais",
     "setup_comment_dev_branch": "# brainse forbróra tiomnaithe - gan aon chomhaid bhreise",

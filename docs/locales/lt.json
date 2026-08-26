@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# paleisk iš naujo bet kada, kad atnaujintum vietoje —",
     "setup_comment_preserved": "# tavo atminties duomenų bazė išlieka",
     "setup_method_source": "3 · Iš šaltinio",
-    "setup_method_source_desc": "<strong>Visiška kontrolė</strong> — klonuok dev šaką ir paleisk pats. Node 18+; SQLite pagal nutylėjimą, Postgres neprivalomas. Žingsnis po žingsnio žemiau.",
+    "setup_method_source_desc": "<strong>Visiška kontrolė</strong> — klonuok dev šaką ir paleisk pats. Node 24+; SQLite pagal nutylėjimą, Postgres neprivalomas. Žingsnis po žingsnio žemiau.",
     "setup_source_eyebrow": "3 būdas · Iš šaltinio",
     "step1_title": "Klonuoti ir įdiegti priklausomybes",
     "setup_comment_dev_branch": "# specializuota kūrėjo šaka - be papildomų failų",

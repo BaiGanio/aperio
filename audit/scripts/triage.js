@@ -193,8 +193,8 @@ const TEST_SUITE_ROOTS = [
   // It has to RECURSE, because this table matches on the root as a PREFIX: it
   // accepts `audit/tests/security/foo.test.js` the moment it accepts the root at
   // all. A shell glob was the wrong instrument twice over — `*` does not descend,
-  // and `node --test` does not expand a glob at all on the Node 18 floor README
-  // documents, where the quoted pattern is opened as a literal filename.
+  // and `node --test` only gained its own glob expansion in Node 22 — the
+  // recursive walk here needs no minimum floor at all.
   { root: "audit/tests", file: /\.test\.js$/ },
 ];
 

@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# rulează din nou oricând pentru a actualiza pe loc —",
     "setup_comment_preserved": "# baza ta de date cu memorii este păstrată",
     "setup_method_source": "3 · Din sursă",
-    "setup_method_source_desc": "<strong>Control total</strong> — clonează ramura dev și ruleaz-o singur. Node 18+; SQLite implicit, Postgres opțional. Pas cu pas mai jos.",
+    "setup_method_source_desc": "<strong>Control total</strong> — clonează ramura dev și ruleaz-o singur. Node 24+; SQLite implicit, Postgres opțional. Pas cu pas mai jos.",
     "setup_source_eyebrow": "Metoda 3 · Din sursă",
     "step1_title": "Clonează și instalează dependințele",
     "setup_comment_dev_branch": "# ramură dedicată pentru dezvoltatori - fără fișiere suplimentare",

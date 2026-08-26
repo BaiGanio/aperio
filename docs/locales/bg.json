@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# изпълнете отново по всяко време за обновяване —",
     "setup_comment_preserved": "# базата ви със спомени се запазва",
     "setup_method_source": "3 · От изходния код",
-    "setup_method_source_desc": "<strong>Пълен контрол</strong> — клонирайте dev клона и го стартирайте сами. Node 18+; SQLite по подразбиране, Postgres по избор. Стъпките са по-долу.",
+    "setup_method_source_desc": "<strong>Пълен контрол</strong> — клонирайте dev клона и го стартирайте сами. Node 24+; SQLite по подразбиране, Postgres по избор. Стъпките са по-долу.",
     "setup_source_eyebrow": "Метод 3 · От изходния код",
     "step1_title": "Клониране и инсталиране на зависимостите",
     "setup_comment_dev_branch": "# специален клон за разработка — без допълнителни файлове",

@@ -685,9 +685,8 @@ describe("T8.3 — a code finding owns a red regression test", () => {
     // The roots table matches on a PREFIX, so the moment audit/tests is accepted
     // so is audit/tests/security/foo.test.js. Only a RECURSIVE collector keeps
     // that honest — `scripts/run-tests.js` walks directories itself, which is
-    // also why it works on the Node 18 floor README.md documents, where
-    // `node --test` does not expand a glob at all and would open the pattern as
-    // a literal filename.
+    // also why it needs no minimum Node floor at all — unlike `node --test`,
+    // whose own glob expansion only arrived in Node 22.
     assert.strictEqual(looksLikeTestFile("audit/tests/security/disclosure.test.js"), true);
     const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
     const audit = pkg.scripts["test:audit"];

@@ -306,7 +306,7 @@
     "setup_comment_rerun": "# ré-exécutez à tout moment pour mettre à jour sur place —",
     "setup_comment_preserved": "# votre base de données mémoire est préservée",
     "setup_method_source": "3 · Depuis les sources",
-    "setup_method_source_desc": "<strong>Contrôle total</strong> — clonez la branche de développement et exécutez-le vous-même. Node 18+ ; SQLite par défaut, Postgres optionnel. Pas à pas ci-dessous.",
+    "setup_method_source_desc": "<strong>Contrôle total</strong> — clonez la branche de développement et exécutez-le vous-même. Node 24+ ; SQLite par défaut, Postgres optionnel. Pas à pas ci-dessous.",
     "setup_source_eyebrow": "Méthode 3 · Depuis les sources",
     "step1_title": "Cloner et installer les dépendances",
     "setup_comment_dev_branch": "# branche développeur dédiée - pas de fichiers supplémentaires",

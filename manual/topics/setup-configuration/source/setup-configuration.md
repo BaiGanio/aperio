@@ -30,7 +30,7 @@ routes:
 *Getting started* used Aperio-lite, the ready-made download. That is the easiest way to try Aperio and it's enough for most people. This page is for a different situation: you want Aperio running unattended on a server, or you want to work with the code directly.
 
 <ol class="steps">
-<li>Install <a href="https://nodejs.org/en/download">Node.js 18 or newer</a>, if you don't already have it.</li>
+<li>Install <a href="https://nodejs.org/en/download">Node.js 24 or newer</a>, if you don't already have it.</li>
 <li>Open a terminal and get Aperio's code:
 <pre><code>git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
 cd aperio</code></pre>
