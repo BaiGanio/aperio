@@ -36,6 +36,31 @@ describe("search scope preferences", () => {
     ]);
   });
 
+  test("parses separator-rooted Windows paths without treating prose escapes as paths", () => {
+    const raw = [
+      "[PREFERENCE] Shared search (importance: 4)\nSearch \\\\server\\share\\project first.\nTags: scope:shared\nID: a",
+      "---",
+      "[PREFERENCE] Rooted search (importance: 3)\nSearch \\worktree\\project first.\nTags: scope:rooted\nID: b",
+      "---",
+      "[PREFERENCE] Prose escape (importance: 2)\nTreat \\n as a newline.\nTags: scope:newline\nID: c",
+    ].join("\n");
+
+    assert.deepEqual(parseSearchScopes(raw), [
+      {
+        trigger: "shared",
+        path: "\\\\server\\share\\project",
+        title: "Shared search",
+        content: "Search \\\\server\\share\\project first.",
+      },
+      {
+        trigger: "rooted",
+        path: "\\worktree\\project",
+        title: "Rooted search",
+        content: "Search \\worktree\\project first.",
+      },
+    ]);
+  });
+
   test("ignores malformed, missing-path, and non-scope memories", () => {
     const raw = [
       "[PREFERENCE] No path (importance: 3)\nSearch auth somewhere.\nTags: scope:auth\nID: a",
