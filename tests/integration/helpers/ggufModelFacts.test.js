@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } 
 import { join } from "path";
 import { tmpdir } from "os";
 import { factsFromGguf, findCachedGguf, inspectCachedModel, readGgufMetadata } from "../../../lib/helpers/ggufModelFacts.js";
+import { listCachedModelRepos } from "../../../lib/helpers/modelCache.js";
 import { buildModelsPreset } from "../../../lib/helpers/startLlamaCpp.js";
 
 const roots = [];
@@ -58,6 +59,26 @@ describe("GGUF model facts", () => {
     assert.equal(inspectCachedModel("org/Model-GGUF:Q4_K_M", cache)?.kvBytesPerToken, 20480);
     const preset = buildModelsPreset({ LLAMACPP_MODEL: "org/Model-GGUF:Q4_K_M" }, { totalRamGB: 32, modelCacheDir: cache });
     assert.match(preset, /\[aperio-main\][\s\S]*?ctx-size = 131072/);
+  });
+
+  test("excludes llama.cpp auxiliary GGUFs from weight selection and cache inventory", () => {
+    const cache = mkdtempSync(join(tmpdir(), "aperio-cache-")); roots.push(cache);
+    const repo = join(cache, "models--org--Vision-GGUF");
+    const snap = join(repo, "snapshots", "abc");
+    mkdirSync(join(repo, "refs"), { recursive: true }); mkdirSync(snap, { recursive: true });
+    writeFileSync(join(repo, "refs", "main"), "abc");
+
+    const weights = join(snap, "Vision-Q4_K_M.gguf");
+    fixture(weights);
+    writeFileSync(join(snap, "Vision-mmproj-f32.gguf"), Buffer.alloc(statSync(weights).size + 1024));
+    writeFileSync(join(snap, "Vision-mtp-draft.gguf"), Buffer.alloc(16));
+    writeFileSync(join(snap, "Vision-imatrix.gguf"), Buffer.alloc(16));
+
+    assert.equal(findCachedGguf("org/Vision-GGUF", cache), weights);
+    assert.deepEqual(listCachedModelRepos(cache), [{
+      repo: "org/Vision-GGUF",
+      files: [{ name: "Vision-Q4_K_M.gguf", sizeGB: 0 }],
+    }]);
   });
 
   test("sums every shard when estimating split GGUF weight RAM", () => {

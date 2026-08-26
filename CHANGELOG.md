@@ -19,6 +19,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Cached vision projectors are no longer mistaken for model weights.** GGUF
+  discovery now mirrors llama.cpp's auxiliary-file exclusions (`mmproj`,
+  `mtp-`, and `imatrix`) wherever Aperio selects weights or inventories the
+  Hugging Face cache. Package-prefixed projectors therefore cannot win the
+  largest-file fallback and distort RAM-fit or context-size calculations.
+
 - **Voice input no longer loses everything said before a pause.** The Web Speech
   handler rebuilt the textarea from `event.resultIndex` onward only. After a
   pause the browser finalizes a chunk and advances `resultIndex`, so the next
