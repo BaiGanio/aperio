@@ -8,6 +8,7 @@
 
   <p>
     <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Download Aperio-lite</a>
+    · <a href="https://baiganio.github.io/aperio/manual.html">Manual</a>
     · <a href="https://github.com/BaiGanio/aperio/wiki">Wiki</a>
     · <a href="https://github.com/BaiGanio/aperio/discussions">Discussions</a>
   </p>
@@ -84,6 +85,7 @@ for connection instructions and examples.
 
 ## Help
 
+- [Aperio Manual — six practical A4 guides](https://baiganio.github.io/aperio/manual.html)
 - [Installation and use](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F)
 - [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting)
 - [Commands](https://github.com/BaiGanio/aperio/wiki/Commands)

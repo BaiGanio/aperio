@@ -22,9 +22,4 @@ node "$dir/../_shared/render-tagged-pdf.mjs" \
   "$dir/artifacts/aperio-privacy-upkeep-a4.pdf" \
   "$dir/styles/page-a4.css"
 
-node "$dir/../_shared/render-tagged-pdf.mjs" \
-  "$dir/build/privacy-upkeep.html" \
-  "$dir/artifacts/aperio-privacy-upkeep-letter.pdf" \
-  "$dir/styles/page-letter.css"
-
 pdftoppm -png -r 100 "$dir/artifacts/aperio-privacy-upkeep-a4.pdf" "$dir/tmp/rendered/page"

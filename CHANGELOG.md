@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **The six-topic Aperio Manual is now published from the landing site.** A new
+  English-only Manual page gives readers direct downloads for Getting started,
+  Everyday memory, Files & tools, Connecting Aperio, Setup & configuration, and
+  Privacy & upkeep. The lightweight publication workflow builds and ships A4
+  PDFs only, matching the format readers actually use.
+
 ### Fixed
 
 - **Voice input no longer loses everything said before a pause.** The Web Speech
