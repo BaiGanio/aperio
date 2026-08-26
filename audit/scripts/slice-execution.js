@@ -853,7 +853,7 @@ export function resolveAnchorInTree(file, { root = REPO_ROOT } = {}) {
   const target = resolvePath(rootDir, rel);
   if (!containedIn(rootDir, target)) return { inTree: false, exists: false, lines: 0 };
 
-  const key = `${rootDir} ${rel}`;
+  const key = `${rootDir}\u0000${rel}`;
   const realRoot = canonicalRoot(rootDir);
   if (realRoot === null) return null;
 
