@@ -375,11 +375,11 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
   previews prefer narrower retrieval before loading a full artifact
 - Evidence-gated slow-turn diagnostic — after 3 consecutive local turns below a real-tok/s floor (llama-server's own reported `timings`, not wall-clock), a one-shot UI hint suggests a profile/context change; never fires for cloud providers
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 6082 tests via `npm test` — unit, integration, e2e, the agent-loop
-  harness, the doc-intelligence suite, and the continuous-audit gates — of which
-  113 are e2e (`npm run test:e2e`) and 462 are the audit gates
-  (`npm run test:audit`, also its own CI workflow)
-- Real-app E2E route coverage expansion (`npm run test:e2e:real`, 49 → 82 tests):
+- Test suite via `npm test` — unit, integration, e2e, the agent-loop harness,
+  the doc-intelligence suite, and the continuous-audit gates; e2e and audit
+  gates can also run independently with `npm run test:e2e` and
+  `npm run test:audit` (the latter also has its own CI workflow)
+- Real-app E2E route coverage expansion (`npm run test:e2e:real`):
   agent job lifecycle, session lifecycle, data import round-trips, WS
   `resume_session`/`switch_model`/`set_paths`, the memory inbox, file-write
   interrupts, and a code graph smoke test — plus a scripted real-MCP
