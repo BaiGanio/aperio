@@ -1,0 +1,117 @@
+{
+  "_comment": "WS0 recall eval corpus for memory-compaction EPIC #286. `semantic` queries are natural-language questions (some taken verbatim from .github/capability-exam/sections/01-memory.md drill 1.2, the rest hand-authored against exam.memories.json's Maya Chen persona). `keyword` queries are short literal phrases built from words that actually appear in a target memory's title/content — NOT the drill's original prose ('show me everything tagged X', 'list every decision') from sections/01-memory.md 1.3/1.4, because those drills use recall's structured type/tags filter parameters, not free-text search, and would score a meaningless 0%/100% against search_mode rather than testing FTS lexical match at all. Both categories are run through the SAME recall() call under search_mode=semantic and again under search_mode=fulltext, so hit-rate@k is comparable across modes per #286's acceptance criteria. `expectedTitles` are scored as a hit if ANY listed title appears in the top-k recall results.",
+  "queries": [
+    {
+      "id": "sem-1",
+      "category": "semantic",
+      "query": "What event bus does the Nimbus service use, and why did we pick it?",
+      "expectedTitles": ["Nimbus uses NATS for events, not Kafka"],
+      "source": "exam sections/01-memory.md drill 1.2"
+    },
+    {
+      "id": "sem-2",
+      "category": "semantic",
+      "query": "How did the team fix the slow /quote endpoint?",
+      "expectedTitles": ["Fixed N+1 query in Nimbus pricing endpoint"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-3",
+      "category": "semantic",
+      "query": "What caused Nimbus to open too many Redis connections, and how was it fixed?",
+      "expectedTitles": ["Tamed the Redis connection storm in Nimbus"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-4",
+      "category": "semantic",
+      "query": "What programming languages does Maya use for backend work?",
+      "expectedTitles": ["Maya's primary languages are Go and Rust"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-5",
+      "category": "semantic",
+      "query": "How does Maya prefer to communicate with the team?",
+      "expectedTitles": ["Maya prefers async-first communication"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-6",
+      "category": "semantic",
+      "query": "What mobile app shows Nimbus pricing alerts to field reps?",
+      "expectedTitles": ["Beacon — iOS companion app"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-7",
+      "category": "semantic",
+      "query": "Why did the team choose SwiftUI and iOS 16 as the minimum for Beacon?",
+      "expectedTitles": ["Beacon is SwiftUI, minimum iOS 16"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "sem-8",
+      "category": "semantic",
+      "query": "What's Nimbus's latency and availability target?",
+      "expectedTitles": ["Nimbus SLO: 50ms p99, 99.95% availability"],
+      "source": "hand-authored from exam.memories.json"
+    },
+    {
+      "id": "kw-1",
+      "category": "keyword",
+      "query": "Redis connection storm Nimbus",
+      "expectedTitles": ["Tamed the Redis connection storm in Nimbus", "Nimbus data stores: Postgres + Redis"],
+      "source": "literal phrase from exam.memories.json content, adapted from drill 1.4's intent"
+    },
+    {
+      "id": "kw-2",
+      "category": "keyword",
+      "query": "Nimbus Fly.io blue-green deploy",
+      "expectedTitles": ["Nimbus deploys on Fly.io with blue-green"],
+      "source": "literal phrase from exam.memories.json content/title"
+    },
+    {
+      "id": "kw-3",
+      "category": "keyword",
+      "query": "NATS JetStream consumer tuning",
+      "expectedTitles": ["NATS JetStream tuning post", "Nimbus uses NATS for events, not Kafka"],
+      "source": "literal phrase from exam.memories.json content"
+    },
+    {
+      "id": "kw-4",
+      "category": "keyword",
+      "query": "Beacon SwiftUI iOS 16 NavigationStack",
+      "expectedTitles": ["Beacon is SwiftUI, minimum iOS 16"],
+      "source": "literal phrase from exam.memories.json content"
+    },
+    {
+      "id": "kw-5",
+      "category": "keyword",
+      "query": "Go style guide error wrapping package layout",
+      "expectedTitles": ["Go style guide the team follows"],
+      "source": "literal phrase from exam.memories.json content"
+    },
+    {
+      "id": "kw-6",
+      "category": "keyword",
+      "query": "table-driven tests Go t.Run subtests",
+      "expectedTitles": ["Table-driven tests in Go"],
+      "source": "literal phrase from exam.memories.json content"
+    },
+    {
+      "id": "kw-7",
+      "category": "keyword",
+      "query": "Nimbus on-call rotation weekly Monday",
+      "expectedTitles": ["Nimbus on-call rotation is weekly"],
+      "source": "literal phrase from exam.memories.json content"
+    },
+    {
+      "id": "kw-8",
+      "category": "keyword",
+      "query": "tabs not spaces indentation code-review blocker",
+      "expectedTitles": ["Indentation: tabs, not spaces"],
+      "source": "literal phrase from exam.memories.json content"
+    }
+  ]
+}

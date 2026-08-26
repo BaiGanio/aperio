@@ -1,0 +1,69 @@
+/* ── Aperio stylesheet manifest ──────────────────────────────── */
+@import "styles/tokens.css";
+@import "styles/ambient.css";
+@import "styles/glass-mode.css";
+@import "styles/layout.css";
+@import "styles/modals/settings.css";
+@import "styles/modals/memories.css";
+@import "styles/modals/preview.css";
+@import "styles/modals/memory-table.css";
+@import "styles/modals/confirm.css";
+@import "styles/modals/db-connections.css";
+@import "styles/modals/identity-info.css";
+@import "styles/messages/bubbles.css";
+@import "styles/messages/tables.css";
+@import "styles/messages/roundtable.css";
+@import "styles/messages/misc.css";
+@import "styles/context.css";
+@import "styles/sessions.css";
+@import "styles/lang-map.css";
+@import "styles/input-bar.css";
+@import "styles/tool-and-thinking-indicators.css";
+@import "styles/msg-attachments.css";
+@import "styles/wiki-panel.css";
+@import "styles/db-panel.css";
+@import "styles/codegraph-panel.css";
+@import "styles/agents-panel.css";
+@import "styles/settings-panel.css";
+@import "styles/settings-overlay.css";
+@import "styles/skills-panel.css";
+@import "styles/system-panel.css";
+@import "styles/lite.css";
+/* Mermaid responses keep their source available for copying/debugging while
+   the rendered SVG remains readable inside narrow chat bubbles. */
+.mermaid-block {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--border, #d7d9df);
+  border-radius: 0.55rem;
+  background: var(--surface, #fff);
+  padding: 0.75rem;
+}
+.mermaid-block .mermaid {
+  min-width: 32rem;
+  text-align: center;
+}
+.mermaid-block .mermaid-error {
+  white-space: pre-wrap;
+  text-align: left;
+  font-family: var(--mono, monospace);
+}
+.mermaid-block details {
+  margin-top: 0.5rem;
+  font-size: 0.8em;
+}
+.mermaid-block summary { cursor: pointer; }
+/* A diagram still arriving: its source held as plain text until the closing
+   fence lands. Drawing a half-diagram only paints an error the next frame
+   throws away, which is what made the screen strobe while an answer streamed. */
+.mermaid-block--pending {
+  opacity: 0.7;
+}
+.mermaid-pending {
+  margin: 0;
+  white-space: pre-wrap;
+  text-align: left;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--text-muted, #6b7280);
+}

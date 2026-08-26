@@ -1,0 +1,13 @@
+{
+  "id": "plan-valid-execution",
+  "title": "A valid plan is extracted, executed in order, and tracked with no drift",
+  "userMessage": "Pull the sales data and analyze it.",
+  "providerScript": [
+    { "plan": "APERIO_PLAN:{\"steps\":[{\"tool\":\"fetch_data\",\"purpose\":\"get raw sales data\"},{\"tool\":\"analyze_data\",\"purpose\":\"analyze it\"}]}" },
+    { "tool": "fetch_data", "args": {} },
+    { "tool": "analyze_data", "args": {} },
+    { "text": "Done — pulled and analyzed the data." }
+  ],
+  "expectedToolSequence": ["fetch_data", "analyze_data"],
+  "requiredAnswerTerms": ["data"]
+}

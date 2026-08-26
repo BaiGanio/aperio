@@ -1,0 +1,6 @@
+/* ── Lite profile (issue #186, Phase 5) ───────────────────────────
+   scripts/lite.js stamps data-lite / data-lite-advanced on <html>.
+   .lite-hide  → developer surfaces hidden in lite until Advanced mode is on.
+   .lite-only  → elements that exist only in lite (the Advanced switch row). */
+html[data-lite="on"]:not([data-lite-advanced="on"]) .lite-hide { display: none !important; }
+html:not([data-lite="on"]) .lite-only { display: none !important; }

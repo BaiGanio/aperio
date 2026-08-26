@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Codegraph Atlas — Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/codegraph-panel.css" />
+  <link rel="stylesheet" href="styles/codegraph-atlas.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/mascot/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/mascot/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/mascot/apple-touch-icon.png">
+  <script src="scripts/http-guard.js"></script>
+</head>
+<body>
+  <div class="cga-head">
+    <div class="cga-brand"><span class="cga-brand-icon">A</span></div>
+    <h1>Codegraph Atlas</h1>
+    <div class="cga-search-wrap">
+      <input type="text" id="cgaSearchInput" class="cg-search-input" placeholder="Search symbols…" />
+      <div class="cga-search-results" id="cgaSearchResults" hidden></div>
+    </div>
+    <select id="cgaRepoSelect" class="cg-select"><option value="">Choose a repo…</option></select>
+  </div>
+  <div class="cga-main">
+    <div class="cga-body" id="cgaBody"></div>
+    <!-- Symbol detail slides in over the sky — clicking through several
+         nodes/callers/callees never navigates away from the atlas. -->
+    <div class="cga-detail" id="cgaDetail" hidden></div>
+  </div>
+
+  <script src="scripts/font-scale.js"></script>
+  <script src="scripts/codegraph-map.js"></script>
+  <script src="scripts/codegraph-atlas.js"></script>
+</body>
+</html>
