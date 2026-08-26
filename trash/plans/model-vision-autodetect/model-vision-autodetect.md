@@ -140,6 +140,26 @@ Not-yet-downloaded models: one `GET https://huggingface.co/api/models/{repo}/tre
 the bridge is the safe default. Skip the call entirely when `shouldStartOffline`-style
 offline conditions apply.
 
+> **Resolved in [#509 / W1.2] (2026-08-26):** the call is allowed, boxed in tight:
+> - fires only at boot/preset-build time, never mid-turn;
+> - fires only for a repo `findCachedGguf` reports as **not yet on disk** — the exact
+>   same cached/uncached boundary `shouldStartOffline` (`lib/helpers/llamacpp/models.js:61`)
+>   already uses for its own online/offline call, reused rather than reinvented;
+> - independent of `LLAMACPP_CHECK_UPDATES` — that flag only governs revalidating
+>   already-cached repos; an uncached repo is already going online to download weights
+>   regardless of the flag's value, so there is nothing for it to gate here;
+> - 3 s timeout, matching the two existing `AbortSignal.timeout(3000)` calls already in
+>   `models.js`;
+> - on any failure, fall back to `vision: false` and log one line — the bridge is a safe
+>   default, and the answer self-heals once the real mmproj header lands on disk;
+> - cache the result per repo so it fires at most once per new model, not once per boot.
+>
+> Rationale: this is not a new class of network call. It only ever fires in the exact case
+> where Aperio is already about to pull several GB from the same host to download the
+> model's weights — the metadata GET adds no new exposure over the download that is about
+> to happen anyway. A cached model triggers no call, matching the project's local-first,
+> offline-when-possible default.
+
 Provider-level vision (cloud) is a tiny map next to `resolveProvider`, keyed by **provider
 name, not model name** — this is a provider-API fact and does not grow per model:
 `anthropic`, `gemini`, `codex`, `claude-code` → true; `deepseek` → false.
