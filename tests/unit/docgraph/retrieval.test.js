@@ -984,6 +984,23 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
   // month's consumption, so keying the period on the service period would
   // slide every charge one month backwards (#314).
 
+  test("a June-issued bill for May consumption promotes under the June invoice date, not the May service period (#360)", () => {
+    // Both an invoice_date (June) and a service period (May) are present.
+    // TERMINAL_DATE_ROLES excludes service_period_start/end entirely, so
+    // resolveAssignmentDate() only ever sees the invoice_date here — the
+    // exact scenario the contract exists to prevent (#250, #314).
+    const dates = [
+      { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
+      { role: "service_period_end", raw: "31.05.2026", value: "2026-05-31", confidence: "high" },
+      { role: "invoice_date", raw: "03.06.2026", value: "2026-06-03", confidence: "high" },
+    ];
+    const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "junebill", root_path: "/docs", rel_path: "bills/electricity-june.txt" });
+    assert.match(mem.title, /electricity-june summary — 2026-06/);
+    assert.doesNotMatch(mem.title, /2026-05/);
+    assert.match(mem.content, /Issued 2026-06-03/);
+  });
+
   test("ignores service_period_start entirely — falls back to due_date when it's the only other date", () => {
     // May service period, June due date. The service period is not a period
     // signal here, and no invoice/document date exists, so the memory falls

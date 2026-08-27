@@ -52,6 +52,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Docgraph no longer leaves orphaned memories behind when a document is
+  deleted, renamed, or reindexed while a bridge memory is in flight (#360).**
+  Deleting a file, sweeping missing files, and deleting a whole repo now purge
+  that document's promoted memory in the SAME transaction as the document
+  delete, so a failure in either half rolls back both instead of stranding
+  one. A slow-running promotion (composing a memory, generating its
+  embedding) now revalidates the document still exists immediately before
+  writing, and self-heals by deleting its own just-written memory if the
+  document was retired in the meantime, closing races that could otherwise
+  create a permanent, unreachable duplicate. A new
+  `store.deleteByTagsAndSource()` purges every promoted memory sharing a
+  bridge tag in a few batched queries rather than one per document, and the
+  SQLite backend now refreshes its in-memory cache after every such purge
+  instead of leaving deleted rows visible until an unrelated write happened
+  to refresh it. Two remaining Postgres-only races (a bridge write racing a
+  concurrent delete under READ COMMITTED, and a file-sweep matching a document
+  that was reindexed mid-scan) are tracked in issue #532.
+
 - **Cached vision projectors are no longer mistaken for model weights.** GGUF
   discovery now mirrors llama.cpp's auxiliary-file exclusions (`mmproj`,
   `mtp-`, and `imatrix`) wherever Aperio selects weights or inventories the

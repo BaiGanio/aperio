@@ -483,6 +483,35 @@ export class PostgresStore {
     return rows[0]?.title ?? null;
   }
 
+  // Set-based purge for an owned tag/source namespace — e.g. the docgraph
+  // bridge retiring every memory it promoted for a set of documents that
+  // just left the index (#360). Matches purely at the SQL layer (source
+  // exact-match + `tags && $` array overlap), so a memory with a different
+  // `source` is never touched even when its tags collide, and there is no
+  // row-count cap the way recall() has — every matching row is found and
+  // deleted. Batched by `batchSize` tags per round trip (a few queries
+  // total, not one per document). Returns the number of memories deleted.
+  async deleteByTagsAndSource(tags, source, { batchSize = 500 } = {}) {
+    if (!tags?.length) return 0;
+    let deleted = 0;
+    for (let i = 0; i < tags.length; i += batchSize) {
+      const batch = tags.slice(i, i + batchSize);
+      const { rows } = await this.pool.query(
+        `SELECT id FROM memories WHERE source = $1 AND tags && $2`, [source, batch]
+      );
+      if (!rows.length) continue;
+      const ids = rows.map(r => r.id);
+      await this.pool.query(`
+        UPDATE wiki_articles SET status = 'stale'
+         WHERE status = 'fresh'
+           AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = ANY($1))
+      `, [ids]);
+      await this.pool.query(`DELETE FROM memories WHERE id = ANY($1)`, [ids]);
+      deleted += ids.length;
+    }
+    return deleted;
+  }
+
   // ── Self-memories (the agent's own walled-off store) ──────────────────────
   // A SEPARATE table from `memories`; none of the methods above touch it. No
   // versioning/expiry/pin — updates are in-place.

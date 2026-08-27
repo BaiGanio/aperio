@@ -1067,6 +1067,41 @@ export class SqliteStore {
     return row.title;
   }
 
+  // Set-based purge for an owned tag/source namespace — e.g. the docgraph
+  // bridge retiring every memory it promoted for a set of documents that
+  // just left the index (#360). Matches purely at the SQL layer (source
+  // exact-match + tag overlap), so a memory with a different `source` is
+  // never touched even when its tags collide, and there is no row-count cap
+  // the way recall() has — every matching row is found and deleted. Batched
+  // by `batchSize` tags per round trip (a few queries total, not one per
+  // document) and refreshes the cache once at the end rather than per row.
+  // Returns the number of memories deleted.
+  async deleteByTagsAndSource(tags, source, { batchSize = 500 } = {}) {
+    if (!tags?.length) return 0;
+    let deleted = 0;
+    for (let i = 0; i < tags.length; i += batchSize) {
+      const batch = tags.slice(i, i + batchSize);
+      const tagPlaceholders = batch.map(() => '?').join(',');
+      const rows = this.db.prepare(`
+        SELECT id FROM memories m
+         WHERE m.source = ?
+           AND EXISTS (SELECT 1 FROM json_each(m.tags) je WHERE je.value IN (${tagPlaceholders}))
+      `).all(source, ...batch);
+      if (!rows.length) continue;
+      const ids = rows.map(r => r.id);
+      const idPlaceholders = ids.map(() => '?').join(',');
+      this.db.prepare(`
+        UPDATE wiki_articles SET status = 'stale'
+         WHERE status = 'fresh'
+           AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id IN (${idPlaceholders}))
+      `).run(...ids);
+      this.db.prepare(`DELETE FROM memories WHERE id IN (${idPlaceholders})`).run(...ids);
+      deleted += ids.length;
+    }
+    if (deleted) await this.refreshCache();
+    return deleted;
+  }
+
   // ── Recall (hybrid / semantic / fulltext) ─────────────────────────────────
   async recall(args) {
     return recallMemories(this.db, args);

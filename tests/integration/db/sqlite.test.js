@@ -280,6 +280,73 @@ describe("mergeDuplicate re-points wiki sources to the survivor", () => {
 });
 
 // =============================================================================
+// deleteByTagsAndSource — set-based purge for an owned tag/source namespace
+// (docgraph bridge lifecycle cleanup, #360)
+// =============================================================================
+describe("deleteByTagsAndSource", () => {
+  test("returns 0 and touches nothing when tags is empty", async () => {
+    const n = await store.deleteByTagsAndSource([], "docgraph");
+    assert.equal(n, 0);
+  });
+
+  test("deletes only memories matching BOTH the tag and the exact source", async () => {
+    const owned = await store.insert({
+      type: "fact", title: "bridge row", content: "c", tags: ["dag:xyz"], source: "docgraph",
+    });
+    const userSameTag = await store.insert({
+      type: "fact", title: "user row, same tag", content: "c", tags: ["dag:xyz"], source: "manual",
+    });
+    const differentTag = await store.insert({
+      type: "fact", title: "bridge row, other doc", content: "c", tags: ["dag:other"], source: "docgraph",
+    });
+
+    const n = await store.deleteByTagsAndSource(["dag:xyz"], "docgraph");
+    assert.equal(n, 1);
+    assert.equal(await store.getById(owned.id), null);
+    assert.ok(await store.getById(userSameTag.id), "different source must survive despite the tag match");
+    assert.ok(await store.getById(differentTag.id), "different tag must survive");
+  });
+
+  test("marks a citing wiki article stale before the memory disappears", async () => {
+    const mem = await store.insert({
+      type: "fact", title: "cited bridge row", content: "c", tags: ["dag:cited"], source: "docgraph",
+    });
+    await store.wiki.upsert({
+      slug: "wiki-bridge-cleanup-test", title: "Cites bridge row", summary: "s",
+      body_md: `Cites [[mem:${mem.id}]].`, tags: [],
+      generated_by: "test", source_hash: "h", source_memory_ids: [mem.id],
+    }, null);
+
+    await store.deleteByTagsAndSource(["dag:cited"], "docgraph");
+
+    const a = await store.wiki.get("wiki-bridge-cleanup-test");
+    assert.equal(a.status, "stale");
+  });
+
+  test("batches by batchSize instead of one query per tag", async () => {
+    const tags = [];
+    for (let i = 0; i < 5; i++) {
+      const tag = `dag:batch${i}`;
+      await store.insert({ type: "fact", title: `row ${i}`, content: "c", tags: [tag], source: "docgraph" });
+      tags.push(tag);
+    }
+    const realPrepare = store.db.prepare.bind(store.db);
+    let calls = 0;
+    store.db.prepare = (sql) => { calls++; return realPrepare(sql); };
+    let n;
+    try {
+      n = await store.deleteByTagsAndSource(tags, "docgraph", { batchSize: 2 });
+    } finally {
+      store.db.prepare = realPrepare;
+    }
+    assert.equal(n, 5);
+    // 5 tags at batchSize 2 → 3 batches, each issuing SELECT + UPDATE + DELETE
+    // (9 queries) plus one refreshCache SELECT — never one round trip per tag.
+    assert.ok(calls <= 10, `expected a bounded query count, got ${calls}`);
+  });
+});
+
+// =============================================================================
 // Recall (FTS-only path)
 // =============================================================================
 describe("recall (FTS-only)", () => {

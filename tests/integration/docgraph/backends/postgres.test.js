@@ -391,25 +391,43 @@ describe("refs", () => {
 });
 
 // =============================================================================
-// deleteRepo
+// finalizeRepoDelete (#360: the atomic close of deleteRepo's paging loop —
+// folds the last documents-delete and the repo-row delete into ONE
+// transaction via pool.connect(), so nothing can slip in between them)
 // =============================================================================
 
-describe("deleteRepo", () => {
-  test("returns deleted: true when repo existed", async () => {
-    const store = makeStore(() => []);
-    // Make rowCount > 0
-    const pool = makePool(() => []);
-    pool.query = async () => ({ rows: [], rowCount: 1 });
-    const result = await pg.deleteRepo({ pool }, "/repo/a");
+describe("finalizeRepoDelete", () => {
+  test("returns deleted: true and the deleted rel_paths when the repo existed", async () => {
+    const store = makeStore((sql) => {
+      if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
+      if (sql.includes("DELETE FROM docgraph_documents")) return [{ rel_path: "a.md" }, { rel_path: "b.md" }];
+      if (sql.includes("DELETE FROM docgraph_repos")) return [{ id: 1 }]; // non-empty → rowCount > 0
+      return []; // BEGIN / COMMIT
+    });
+    const result = await pg.finalizeRepoDelete(store, "/repo/a");
     assert.strictEqual(result.deleted, true);
+    assert.deepEqual(result.relPaths.slice().sort(), ["a.md", "b.md"]);
   });
 
-  test("returns deleted: false when repo did not exist", async () => {
-    const store = makeStore(() => []);
-    const pool = makePool(() => []);
-    pool.query = async () => ({ rows: [], rowCount: 0 });
-    const result = await pg.deleteRepo({ pool }, "/repo/nonexistent");
+  test("returns deleted: false and rolls back when the repo did not exist", async () => {
+    const calls = [];
+    const store = makeStore((sql) => { calls.push(sql); return []; }); // repo lookup finds nothing
+    const result = await pg.finalizeRepoDelete(store, "/repo/nonexistent");
     assert.strictEqual(result.deleted, false);
+    assert.deepEqual(result.relPaths, []);
+    assert.ok(calls.some(sql => sql.includes("ROLLBACK")), "must roll back rather than leave the transaction open");
+  });
+
+  test("rolls back and rethrows when a query inside the transaction fails", async () => {
+    const calls = [];
+    const store = makeStore((sql) => {
+      calls.push(sql);
+      if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
+      if (sql.includes("DELETE FROM docgraph_documents")) throw new Error("simulated transient failure");
+      return [];
+    });
+    await assert.rejects(() => pg.finalizeRepoDelete(store, "/repo/a"), /simulated transient failure/);
+    assert.ok(calls.some(sql => sql.includes("ROLLBACK")), "a failed statement must still roll back the transaction");
   });
 });
 
@@ -439,12 +457,16 @@ describe("removeOneFile", () => {
 
 describe("sweepMissingFiles", () => {
   test("removes files that no longer exist", async () => {
-    let callIdx = 0;
+    // Pattern-matched rather than positional (#360 review round 4, P1 & P2):
+    // the delete+purge now happens inside a locked transaction (BEGIN, a
+    // FOR UPDATE lock, wiki staleness, the memories delete, COMMIT), which
+    // adds calls between "list docs" and the confirmed-delete result.
     const store = makeStore((sql) => {
-      callIdx++;
-      if (callIdx === 1) return [{ id: 1 }]; // repo lookup
-      if (callIdx === 2) return [{ rel_path: "gone.md" }, { rel_path: "still-here.md" }]; // list docs
-      return []; // DELETE result
+      if (sql.includes("FOR UPDATE")) return [{ id: 1 }];
+      if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
+      if (sql.includes("SELECT rel_path FROM docgraph_documents")) return [{ rel_path: "gone.md" }, { rel_path: "still-here.md" }];
+      if (sql.includes("DELETE FROM docgraph_documents")) return [{ rel_path: "gone.md" }]; // confirmed by RETURNING
+      return []; // BEGIN / wiki UPDATE / memories DELETE / COMMIT
     });
     const statFn = async (p) => {
       if (p.endsWith("gone.md")) throw new Error("ENOENT");
@@ -454,11 +476,9 @@ describe("sweepMissingFiles", () => {
   });
 
   test("removes nothing when all files exist", async () => {
-    let callIdx = 0;
     const store = makeStore((sql) => {
-      callIdx++;
-      if (callIdx === 1) return [{ id: 1 }];
-      if (callIdx === 2) return [{ rel_path: "exists.md" }];
+      if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
+      if (sql.includes("SELECT rel_path FROM docgraph_documents")) return [{ rel_path: "exists.md" }];
       return [];
     });
     const statFn = async () => {};

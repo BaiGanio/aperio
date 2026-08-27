@@ -183,6 +183,75 @@ describe("PostgresStore — CRUD", () => {
 });
 
 // =============================================================================
+// PostgresStore — deleteByTagsAndSource (#360: docgraph bridge cleanup)
+// =============================================================================
+describe("PostgresStore — deleteByTagsAndSource", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  // init()/seedBaseline() issue their own queries against the same mocked
+  // pool, so every test here creates the store under a harmless default mock
+  // FIRST, then swaps in the recording/counting mock right before calling
+  // the method under test — keeping startup noise out of the assertions.
+  async function initStore() {
+    _poolQuery = async () => ({ rows: [] });
+    return PostgresStore.init();
+  }
+
+  test("returns 0 without querying when tags is empty", async () => {
+    const store = await initStore();
+    let calls = 0;
+    _poolQuery = async () => { calls++; return { rows: [] }; };
+    const n = await store.deleteByTagsAndSource([], "docgraph");
+    assert.equal(n, 0);
+    assert.equal(calls, 0);
+  });
+
+  test("matches by source AND tag overlap, deletes the matched ids, and returns the count", async () => {
+    const store = await initStore();
+    const queries = [];
+    _poolQuery = async (sql, params) => {
+      queries.push({ sql, params });
+      if (sql.includes("SELECT id FROM memories")) return { rows: [{ id: FIXTURE_ID }, { id: FIXTURE_ID_OLD }] };
+      return { rows: [] };
+    };
+    const n = await store.deleteByTagsAndSource(["dag:abc123"], "docgraph");
+    assert.equal(n, 2);
+
+    const select = queries.find(q => q.sql.includes("SELECT id FROM memories"));
+    assert.match(select.sql, /source = \$1/);
+    assert.match(select.sql, /tags && \$2/);
+    assert.deepEqual(select.params, ["docgraph", ["dag:abc123"]]);
+
+    const del = queries.find(q => q.sql.includes("DELETE FROM memories"));
+    assert.match(del.sql, /id = ANY/);
+  });
+
+  test("a tag with no matches issues no wiki-staleness or delete query", async () => {
+    const store = await initStore();
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const n = await store.deleteByTagsAndSource(["dag:nomatch"], "docgraph");
+    assert.equal(n, 0);
+    assert.ok(!queries.some(sql => sql.includes("UPDATE wiki_articles")));
+    assert.ok(!queries.some(sql => sql.includes("DELETE FROM memories")));
+  });
+
+  test("batches by batchSize instead of one round trip per tag", async () => {
+    const store = await initStore();
+    let selectCalls = 0;
+    _poolQuery = async (sql) => {
+      if (sql.includes("SELECT id FROM memories")) { selectCalls++; return { rows: [{ id: FIXTURE_ID }] }; }
+      return { rows: [] };
+    };
+    const tags = Array.from({ length: 5 }, (_, i) => `dag:tag${i}`);
+    const n = await store.deleteByTagsAndSource(tags, "docgraph", { batchSize: 2 });
+    // 5 tags at batchSize 2 → 3 batches (2, 2, 1), never one query per tag.
+    assert.equal(selectCalls, 3);
+    assert.equal(n, 3); // one matched id returned per batch
+  });
+});
+
+// =============================================================================
 // PostgresStore — update
 // =============================================================================
 describe("PostgresStore — update", () => {

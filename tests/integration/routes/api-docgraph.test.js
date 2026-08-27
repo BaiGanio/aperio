@@ -279,7 +279,14 @@ describe("DELETE /docgraph/repos", () => {
 
   test("deletes the folder and updates the allowlist", async () => {
     const store = makeStore(true);
-    store.db.prepare = () => ({ run: () => ({ changes: 1 }) });
+    // deleteRepo now pages through deleteDocumentsPage first (repo lookup via
+    // .get(), delete-and-return via .all()) — this mock simulates a repo
+    // that exists but has no indexed documents left to page through — then
+    // finalizeRepoDelete closes it out in one db.transaction(), so the mock
+    // needs a repo row for the lookup, a pass-through transaction wrapper,
+    // and a .run() reporting a real delete.
+    store.db.prepare = () => ({ get: () => ({ id: 1 }), all: () => [], run: () => ({ changes: 1 }) });
+    store.db.transaction = (fn) => (...args) => fn(...args);
     const router = Router();
     mountDocgraphRoutes(router, { store });
 

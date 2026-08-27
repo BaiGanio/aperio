@@ -25,7 +25,7 @@ import {
 
 function mockPool(routeMap) {
   const routes = Object.entries(routeMap);
-  return {
+  const pool = {
     query: async (sql, params) => {
       for (const [pattern, rows] of routes) {
         if (sql.includes(pattern)) return { rows, rowCount: rows.length };
@@ -33,7 +33,13 @@ function mockPool(routeMap) {
       // Default: empty rows
       return { rows: [], rowCount: 0 };
     },
+    // finalizeRepoDelete (docgraph deleteRepo's atomic close, #360) checks
+    // out a client for BEGIN/…/COMMIT. Dispatches through `pool.query` at
+    // call time (not a captured reference) so a test that reassigns
+    // `pool.query` after construction is still honored here too.
+    connect: async () => ({ query: (...args) => pool.query(...args), release: () => {} }),
   };
+  return pool;
 }
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
@@ -450,8 +456,19 @@ function makeMemoryStore(initial = []) {
   };
 }
 
-function makeBridgeCtx({ docRow = QUALIFYING_DOC_ROW, memoryRows = [], generateEmbedding = async () => FAKE_EMBEDDING, embeddingQueue } = {}) {
-  const pool = mockPool({ "FROM docgraph_documents": [docRow] });
+// `stillIndexed` controls documentExists()'s two-query lookup used by the
+// pre/post-write revalidation checks (#360): true (default) means the
+// document is still present — the ordinary case every non-race test
+// exercises. Route order matters here — mockPool returns on the FIRST
+// substring match, so the specific documentExists queries are listed before
+// the generic "FROM docgraph_documents" route batch()'s own document read
+// uses, or the generic route would shadow them.
+function makeBridgeCtx({ docRow = QUALIFYING_DOC_ROW, memoryRows = [], generateEmbedding = async () => FAKE_EMBEDDING, embeddingQueue, stillIndexed = true } = {}) {
+  const pool = mockPool({
+    "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+    "SELECT 1 FROM docgraph_documents WHERE repo_id": stillIndexed ? [{ "?column?": 1 }] : [],
+    "FROM docgraph_documents": [docRow],
+  });
   const memStore = makeMemoryStore(memoryRows);
   // vectorEnabled matches generateEmbedding presence: when a generator is
   // provided the bridge considers embeddings enabled and checks hasEmbedding;
@@ -602,7 +619,11 @@ describe("batchHandler — docgraph → memory bridge (#314)", () => {
     const rows = [];
     let insertCallCount = 0;
     const store = {
-      pool: mockPool({ "FROM docgraph_documents": [QUALIFYING_DOC_ROW] }),
+      pool: mockPool({
+        "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+        "SELECT 1 FROM docgraph_documents WHERE repo_id": [{ "?column?": 1 }],
+        "FROM docgraph_documents": [QUALIFYING_DOC_ROW],
+      }),
       recall: async ({ tags = [] } = {}) => rows.filter(m => tags.every(t => m.tags.includes(t))),
       insert: async (input) => {
         insertCallCount++;
@@ -627,6 +648,126 @@ describe("batchHandler — docgraph → memory bridge (#314)", () => {
     assert.strictEqual(insertCallCount, 1);
     assert.strictEqual(rows.length, 1);
     assert.strictEqual(rows[0].id, "mem-primary");
+  });
+
+  // #360 review (P2): a concurrent removeFile can retire this exact document
+  // — finding no bridge memory yet, since none existed — while this call is
+  // still generating its embedding. Writing anyway afterward recreates
+  // exactly the orphan the lifecycle cleanup just removed. The handler must
+  // revalidate immediately before the mutation and refuse to (re)create it.
+  test("skips creating a bridge memory when the document was retired from the index while the embedding was generating", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const { ctx, memStore } = makeBridgeCtx({ stillIndexed: false });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0, "must never write a memory for a document that no longer exists");
+  });
+
+  test("self-heals by deleting the just-inserted memory when the document is retired in the narrow window between insert and the post-write check", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    // documentExists() is called twice per promotion here: once before the
+    // write (must say "yes, still indexed" so the insert path is actually
+    // exercised) and once immediately after (must say "no, gone now" —
+    // simulating removeFile completing in that exact window). Toggle on the
+    // SECOND call only, keeping the pre-write check on its normal path.
+    let existsCalls = 0;
+    const pool = mockPool({
+      "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+      "FROM docgraph_documents": [QUALIFYING_DOC_ROW],
+    });
+    const realQuery = pool.query.bind(pool);
+    pool.query = async (sql, params) => {
+      if (sql.includes("SELECT 1 FROM docgraph_documents WHERE repo_id")) {
+        existsCalls++;
+        return { rows: existsCalls === 1 ? [{ "?column?": 1 }] : [], rowCount: existsCalls === 1 ? 1 : 0 };
+      }
+      return realQuery(sql, params);
+    };
+    const memStore = makeMemoryStore([]);
+    const ctx = { store: { pool, ...memStore }, generateEmbedding: async () => FAKE_EMBEDDING, vectorEnabled: () => false };
+
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.insert.mock.callCount(), 1, "the insert itself still happens — the race is caught after, not before");
+    assert.strictEqual(memStore.delete.mock.callCount(), 1, "the just-inserted memory must be deleted once the post-write check sees the document is gone");
+    assert.strictEqual(memStore._rows.length, 0, "no orphan may survive the call");
+  });
+
+  // #360 review round 2 (P2): the post-write self-heal must run even when
+  // the request's own signal happens to abort in the exact window between
+  // the write and that check — an aborted signal is not the caller opting
+  // out of this integrity cleanup, only out of receiving the result.
+  test("still self-heals the just-inserted memory when cancellation fires between insert() and the post-write check", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    let existsCalls = 0;
+    const pool = mockPool({
+      "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+      "FROM docgraph_documents": [QUALIFYING_DOC_ROW],
+    });
+    const realQuery = pool.query.bind(pool);
+    pool.query = async (sql, params) => {
+      if (sql.includes("SELECT 1 FROM docgraph_documents WHERE repo_id")) {
+        existsCalls++;
+        return { rows: existsCalls === 1 ? [{ "?column?": 1 }] : [], rowCount: existsCalls === 1 ? 1 : 0 };
+      }
+      return realQuery(sql, params);
+    };
+    const memStore = makeMemoryStore([]);
+    const controller = new AbortController();
+    // Fires as a side effect of the write itself — every earlier
+    // signal?.aborted check in the promotion loop still sees "not aborted",
+    // so this exercises exactly the ordering the review flagged: only the
+    // check immediately AFTER this exact insert() sees it aborted.
+    memStore.insert.mock.mockImplementationOnce(async (input, embedding) => {
+      controller.abort();
+      const row = { id: "mem-abort-race", ...input };
+      memStore._rows.push(row);
+      return row;
+    });
+    const ctx = { store: { pool, ...memStore }, generateEmbedding: async () => FAKE_EMBEDDING, vectorEnabled: () => false };
+
+    const result = await batchHandler(ctx, qualifyingArgs, controller.signal);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.insert.mock.callCount(), 1);
+    assert.strictEqual(memStore.delete.mock.callCount(), 1,
+      "the self-heal delete must still run even though the signal is now aborted");
+    assert.strictEqual(memStore._rows.length, 0, "no orphan may survive an abort landing in this exact window");
+  });
+
+  test("still self-heals the update replacement when cancellation fires between update() and the post-write check", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    let existsCalls = 0;
+    const pool = mockPool({
+      "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+      "FROM docgraph_documents": [QUALIFYING_DOC_ROW],
+    });
+    const realQuery = pool.query.bind(pool);
+    pool.query = async (sql, params) => {
+      if (sql.includes("SELECT 1 FROM docgraph_documents WHERE repo_id")) {
+        existsCalls++;
+        return { rows: existsCalls === 1 ? [{ "?column?": 1 }] : [], rowCount: existsCalls === 1 ? 1 : 0 };
+      }
+      return realQuery(sql, params);
+    };
+    // A row that differs from what composeMemoryFromDoc would produce, so
+    // the no-op check fails and the real update() path actually runs
+    // instead of short-circuiting before ever reaching a write.
+    const memStore = makeMemoryStore([matchingBridgeRow({ id: "mem-old", content: "stale content forces a real update" })]);
+    const controller = new AbortController();
+    memStore.update.mock.mockImplementationOnce(async (id, input, embedding) => {
+      controller.abort();
+      const idx = memStore._rows.findIndex(r => r.id === id);
+      memStore._rows[idx] = { ...memStore._rows[idx], ...input };
+      return memStore._rows[idx];
+    });
+    const ctx = { store: { pool, ...memStore }, generateEmbedding: async () => FAKE_EMBEDDING, vectorEnabled: () => false };
+
+    const result = await batchHandler(ctx, qualifyingArgs, controller.signal);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.update.mock.callCount(), 1);
+    assert.strictEqual(memStore.delete.mock.callCount(), 1,
+      "the self-heal delete must still run even though the signal is now aborted");
+    assert.strictEqual(memStore._rows.length, 0, "no orphan may survive an abort landing in this exact window");
   });
 
   test("does not touch the memory store for a skipped (unread) document", async () => {
@@ -823,11 +964,14 @@ describe("deleteRepoHandler", () => {
   });
 
   test("deletes repo when path provided", async () => {
+    // Realistic shape for the new deleteRepo (deleteDocumentsPage's paging
+    // loop + finalizeRepoDelete's atomic close, #360): the repo exists but
+    // has no documents left, and the final repo-row DELETE succeeds.
     const pool = mockPool({
-      "DELETE FROM docgraph_repos": [],
+      "SELECT id FROM docgraph_repos WHERE root_path": [{ id: 1 }],
+      "DELETE FROM docgraph_documents": [],
+      "DELETE FROM docgraph_repos": [{ id: 1 }], // non-empty rows → rowCount > 0 → deleted: true
     });
-    // Need rowCount > 0 for deleted: true. Override the default mock.
-    pool.query = async () => ({ rows: [], rowCount: 1 });
     const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
     const result = await deleteRepoHandler(ctx, { path: "/repo/a" });
     const payload = JSON.parse(result.content[0].text);
@@ -843,7 +987,12 @@ describe("deleteRepoHandler", () => {
   });
 
   test("returns error when backend throws", async () => {
-    const pool = { query: async () => { throw new Error("delete failed"); } };
+    // Use mockPool (not a bare { query }) so its connect() is present too —
+    // deleteDocumentsPage/finalizeRepoDelete now check out a client for
+    // their locked transaction (#360 review round 4, P1 & P2), same as
+    // finalizeRepoDelete already did before this round.
+    const pool = mockPool({});
+    pool.query = async () => { throw new Error("delete failed"); };
     const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
     const result = await deleteRepoHandler(ctx, { path: "/repo" });
     assert.ok(isError(result));
