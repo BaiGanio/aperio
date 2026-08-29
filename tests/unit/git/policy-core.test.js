@@ -11,6 +11,7 @@
 // the "no process spawned for a denied mutation" case still be asserted.
 
 import { describe, test, after, mock } from "node:test";
+import { EventEmitter } from "node:events";
 import assert from "node:assert/strict";
 import { tmpdir } from "os";
 import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, rmSync, existsSync, readdirSync, readFileSync, chmodSync, realpathSync, symlinkSync } from "fs";
@@ -30,9 +31,20 @@ const cp = require("child_process");
 const { execFileSync } = cp;
 
 let execFileSpyCalls = 0;
+// Set to a version string (e.g. "2.38.5") to make ONLY the runner's
+// `git --version` probe answer as that release. Everything else still runs
+// real git, so the old-git tests exercise the real refusal path rather than a
+// simulation of it. Building and shipping a second git binary just to age the
+// version probe would test git, not this gate.
+let fakeGitVersion = null;
 const realExecFile = cp.execFile.bind(cp);
 mock.method(cp, "execFile", (...args) => {
   execFileSpyCalls++;
+  const [, argv, , callback] = args;
+  if (fakeGitVersion && Array.isArray(argv) && argv.includes("--version") && typeof callback === "function") {
+    process.nextTick(() => callback(null, `git version ${fakeGitVersion}\n`, ""));
+    return undefined;
+  }
   return realExecFile(...args);
 });
 
@@ -47,7 +59,19 @@ mock.method(fsp, "readdir", async (...args) => {
   return readdirDirentRewrite ? readdirDirentRewrite(entries) : entries;
 });
 
-const { runGit, resolveRemoteTrackingSha, spawnGit } = await import("../../../lib/git/runner.js");
+// Same before-the-ESM-import requirement as the execFile spy, for the same
+// reason (tests/integration/mcp/tools/shell.test.js does this for spawn too).
+// Transparent passthrough until a test sets `taskkillStub` to make a
+// `taskkill` spawn answer with a chosen exit code — the only way to exercise
+// killWindowsTree()'s decision table off win32.
+const realSpawn = cp.spawn.bind(cp);
+let taskkillStub = null;
+mock.method(cp, "spawn", (...args) => {
+  if (taskkillStub && args[0] === "taskkill") return taskkillStub(args[1]);
+  return realSpawn(...args);
+});
+
+const { runGit, resolveRemoteTrackingSha, spawnGit, killWindowsTree, signalChild } = await import("../../../lib/git/runner.js");
 const {
   buildStageArgv, buildForceWithLeaseArgv, rejectPlainForce,
   isAllowedRemoteUrl, MAX_OUTPUT_BYTES, SAFE_GIT_CONFIG,
@@ -63,11 +87,35 @@ const RUNNER_SRC = readFileSync(new URL("../../../lib/git/runner.js", import.met
 // /var -> /private/var symlink, but `git rev-parse --show-toplevel` (what
 // runGit compares against the write-path allowlist) resolves it, so an
 // unresolved ROOT would never match what runWithPaths([dir], ...) allows.
+// resolveGitPaths() runs --show-toplevel, --absolute-git-dir and
+// --git-common-dir as three SEPARATE rev-parse invocations, because a single
+// three-flag call returns newline-separated records and a POSIX path may
+// itself contain newlines (see resolveGitPaths() in lib/git/runner.js). So
+// "the repo was resolved and nothing else ran" is three execFile calls, not
+// one — named here so the count reads as a fact about resolution rather than
+// a magic number.
+const REPO_RESOLUTION_CALLS = 3;
+
 const ROOT = realpathSync(mkdtempSync(join(tmpdir(), "aperio-git-copilot-")));
 after(() => {
   mock.restoreAll();
   rmSync(ROOT, { recursive: true, force: true });
 });
+
+// A SIGKILLed process stays visible to kill(pid, 0) as a zombie until it is
+// reaped, so "is it gone" is a short poll, never a single immediate probe.
+async function waitForPidToDisappear(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return true;
+    }
+    if (Date.now() >= deadline) return false;
+    await new Promise(r => setTimeout(r, 25));
+  }
+}
 
 function initRepo(name) {
   const dir = join(ROOT, name);
@@ -115,8 +163,8 @@ describe("runGit — repo resolution + read/write-path scoping (WS2.1, read gate
         return true;
       }
     );
-    // Only the rev-parse resolution call ran — the mutating add never spawned.
-    assert.equal(execFileSpyCalls, before + 1);
+    // Only the rev-parse resolution calls ran — the mutating add never spawned.
+    assert.equal(execFileSpyCalls, before + REPO_RESOLUTION_CALLS);
   });
 
   test("mutating call succeeds once the repo is under an allowed write path", async () => {
@@ -172,8 +220,8 @@ describe("git-dir indirection cannot smuggle an outside repo through an allowed 
         }
       );
     });
-    // Only the rev-parse resolution call ran — the mutating add never spawned.
-    assert.equal(execFileSpyCalls, before + 1);
+    // Only the rev-parse resolution calls ran — the mutating add never spawned.
+    assert.equal(execFileSpyCalls, before + REPO_RESOLUTION_CALLS);
   });
 
   test("both read and write succeed once the main repo's git-dir is allowed too", async () => {
@@ -1943,5 +1991,845 @@ describe("a staging pathspec cannot traverse a symlink out of the repo (P1 revie
       const result = await runGit({ cwd: dir, argv: buildStageArgv(["inner/a.txt"]), mutating: true });
       assert.doesNotMatch(result.stderr, /traverses a symlink/);
     });
+  });
+});
+
+describe("a partial clone's lazy fetch cannot turn a read-only command into a remote operation (P1 review fix)", () => {
+  // In a partial clone, git silently fetches a MISSING object from the
+  // promisor remote in the middle of `show`/`log`/`diff` — commands
+  // assertAllowedRemote() does not gate, because they are not fetch/push.
+  // Verified empirically (git 2.50.1) before the fix: a read-only
+  // `git show HEAD:f.txt` under SAFE_GIT_CONFIG executed a PATH binary named
+  // git-remote-ssh three times (remote.origin.vcs=ssh), and reached the
+  // network on an ordinary https promisor. GIT_NO_LAZY_FETCH=1 stops the
+  // fetch; the now-unconditional helper check stops the helper even on a git
+  // too old to know that variable.
+  let promisorCounter = 0;
+  function initPartialCloneWithMissingBlob(name, remoteUrl) {
+    const dir = initRepo(`${name}-${++promisorCounter}`);
+    writeFileSync(join(dir, "f.txt"), "lazily-fetched content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    const sha = execFileSync("git", ["-C", dir, "rev-parse", "HEAD:f.txt"]).toString().trim();
+
+    execFileSync("git", ["-C", dir, "config", "core.repositoryformatversion", "1"]);
+    execFileSync("git", ["-C", dir, "config", "extensions.partialClone", "origin"]);
+    execFileSync("git", ["-C", dir, "config", "remote.origin.url", remoteUrl]);
+    execFileSync("git", ["-C", dir, "config", "remote.origin.promisor", "true"]);
+    // The object git will now go to the remote for.
+    rmSync(join(dir, ".git", "objects", sha.slice(0, 2), sha.slice(2)), { force: true });
+    return dir;
+  }
+
+  test("the lazy fetch never happens — a read-only show fails locally instead of dialling the promisor remote", async () => {
+    // SAFE_GIT_CONFIG pins core.sshCommand=ssh, so a fake `ssh` first on PATH
+    // is an exact, offline detector for "git actually tried to reach the
+    // remote": it can only run if the fetch was attempted. Verified both ways
+    // against real git — it runs without GIT_NO_LAZY_FETCH and does not run
+    // with it.
+    const dir = initPartialCloneWithMissingBlob("promisor-egress", "ssh://git@example.invalid/x.git");
+    const binDir = join(ROOT, `promisor-egress-bin-${promisorCounter}`);
+    mkdirSync(binDir, { recursive: true });
+    const marker = join(ROOT, `SSH_RAN-${promisorCounter}`);
+    writeFileSync(join(binDir, "ssh"), `#!/bin/sh\ntouch "${marker}"\nexit 1\n`);
+    chmodSync(join(binDir, "ssh"), 0o755);
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${binDir}:${originalPath}`;
+    let result;
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+      });
+    } finally {
+      process.env.PATH = originalPath;
+    }
+
+    assert.equal(existsSync(marker), false, "a read-only git_* call must never dial the promisor remote");
+    // It fails on the missing object, which is the accepted trade: git_fetch
+    // is how a partial clone materializes a blob, not an implicit side effect
+    // of reading.
+    assert.notEqual(result.code, 0);
+  });
+
+  test("remote.<name>.vcs is rejected on a read-only command too, and the planted helper never runs", async () => {
+    // The pre-fix escape: assertNoRemoteHelperOverride() ran only for
+    // fetch/push, so `show` reached the helper. It is unconditional now —
+    // GIT_NO_LAZY_FETCH needs git 2.41+, this check needs nothing.
+    const dir = initPartialCloneWithMissingBlob("promisor-vcs", "https://example.invalid/x.git");
+    execFileSync("git", ["-C", dir, "config", "remote.origin.vcs", "ssh"]);
+
+    const binDir = join(ROOT, `promisor-vcs-bin-${promisorCounter}`);
+    mkdirSync(binDir, { recursive: true });
+    const marker = join(ROOT, `PROMISOR_HELPER_RAN-${promisorCounter}`);
+    writeFileSync(join(binDir, "git-remote-ssh"), `#!/bin/sh\ntouch "${marker}"\nexit 1\n`);
+    chmodSync(join(binDir, "git-remote-ssh"), 0o755);
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${binDir}:${originalPath}`;
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.ok(err instanceof GitPolicyError);
+            assert.match(err.message, /remote helper override not allowed/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      process.env.PATH = originalPath;
+    }
+
+    assert.equal(existsSync(marker), false, "the repo-selected remote helper must never be executed");
+  });
+
+  test("an ordinary repo is unaffected — reads still work, and fetch/push keep their lazy-fetch allowance", async () => {
+    // Guards the over-correction: the suppression must not break normal reads,
+    // and must not be applied to the two commands whose whole purpose is to
+    // talk to the remote.
+    const dir = initRepo("promisor-clean");
+    writeFileSync(join(dir, "f.txt"), "ordinary\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+
+    await runWithPaths([dir], [dir], null, async () => {
+      const result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /ordinary/);
+    });
+
+    assert.match(
+      RUNNER_SRC,
+      /const allowLazyFetch = REMOTE_TOUCHING_COMMANDS\.has\(argv\[0\]\)/,
+      "fetch/push must keep lazy fetching — they have already cleared both remote checks"
+    );
+  });
+});
+
+describe("repository paths are parsed unambiguously, even with newlines in them (P1 review fix)", () => {
+  // POSIX allows newlines in a path. Asking rev-parse for --show-toplevel,
+  // --absolute-git-dir and --git-common-dir in ONE call returns three
+  // newline-separated records, so splitting on "\n" mis-assigns the fields.
+  // Verified empirically (git 2.50.1) with a linked worktree named "wt\nX\nY":
+  // the single-call parse produced repoRoot=".../allowed/wt", gitDir="X",
+  // gitCommonDir="Y" — the real, OUTSIDE main-repo .git was never checked at
+  // all, and assertNoEscapingMetadataSymlinks() then walked the nonexistent
+  // "X"/"Y", hit ENOENT and returned clean, skipping the whole metadata scan.
+  let nlCounter = 0;
+  function initNewlineWorktree() {
+    const n = ++nlCounter;
+    const main = initRepo(`nl-main-${n}`);
+    execFileSync("git", ["-C", main, "commit", "-q", "--allow-empty", "-m", "c1"]);
+    const holder = join(ROOT, `nl-allowed-${n}`);
+    mkdirSync(holder, { recursive: true });
+    // The DECOY: the path the broken split truncates the worktree name down
+    // to. Making it a real, allowed directory is what let the pre-fix code
+    // sail through every boundary check instead of failing on a missing cwd.
+    mkdirSync(join(holder, "wt"), { recursive: true });
+    const worktree = join(holder, "wt\nX\nY");
+    execFileSync("git", ["-C", main, "worktree", "add", "-q", worktree, "-b", `nl-branch-${n}`]);
+    return { main, holder, worktree };
+  }
+
+  test("a newline-named worktree cannot smuggle an out-of-bounds main repo past the boundary", async () => {
+    const { holder, worktree } = initNewlineWorktree();
+    // Only the holder is allowed; the main repo (and so the real git-dir and
+    // common-dir) is not.
+    await runWithPaths([holder], [holder], null, async () => {
+      await assert.rejects(
+        () => runGit({ cwd: worktree, argv: ["show", "HEAD:.gitignore"], mutating: false }),
+        (err) => {
+          assert.ok(err instanceof GitPolicyError);
+          assert.match(err.message, /not an allowed read path/);
+          // The denial must name the REAL out-of-bounds git-dir, not the
+          // "X"/"Y" fragments the broken split invented.
+          assert.match(err.message, /nl-main-/);
+          return true;
+        }
+      );
+    });
+  });
+
+  test("the same worktree resolves verbatim and works once its main repo is allowed too", async () => {
+    // The other half: the fix must not corrupt or reject a legitimate path
+    // merely for containing a newline.
+    const { main, holder, worktree } = initNewlineWorktree();
+    await runWithPaths([main, holder], [main, holder], null, async () => {
+      const result = await runGit({ cwd: worktree, argv: ["status", "--porcelain"], mutating: false });
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.repoRoot, worktree, "the resolved root must be the full path, newlines included");
+    });
+  });
+
+  test("rev-parse output is never trim()ed — one flag per call, one terminator stripped", () => {
+    // Structural: trim() would also eat a legitimate trailing newline or space
+    // in a path, and a re-combined multi-flag call would reintroduce the
+    // ambiguity this whole suite exists for.
+    assert.doesNotMatch(
+      RUNNER_SRC,
+      /rev-parse["'],\s*["']--show-toplevel["'],\s*["']--absolute-git-dir["']/,
+      "the three rev-parse flags must not be combined back into one ambiguous call"
+    );
+    assert.match(RUNNER_SRC, /stdout\.endsWith\("\\n"\)\s*\?\s*stdout\.slice\(0,\s*-1\)/);
+  });
+});
+
+describe("timeout teardown reaches descendants on Windows too (P1 review fix)", () => {
+  // The POSIX half is covered behaviourally above ("a SIGTERM-ignoring git
+  // whose child holds the stdio pipes still settles"). Windows has no process
+  // groups and no signals, so child.kill() there reaches ONLY git: a spawned
+  // ssh or remote helper survives the timeout and can still finish a push we
+  // reported as cancelled. This assertion is structural because the behaviour
+  // cannot be exercised off win32 — it is NOT a substitute for a run on
+  // Windows, which this fix has not had.
+  test("the non-POSIX branch tears down the process tree with taskkill /T, not a bare child.kill", () => {
+    assert.match(RUNNER_SRC, /spawn\(\s*["']taskkill["']/, "Windows teardown must use taskkill");
+    assert.match(RUNNER_SRC, /["']\/T["']/, "taskkill must be invoked with /T to reach descendants");
+    assert.match(RUNNER_SRC, /args\.push\(["']\/F["']\)/, "the SIGKILL rung must force-terminate");
+    assert.match(
+      RUNNER_SRC,
+      /else if \(!SUPPORTS_PROCESS_GROUPS\) \{\s*\n\s*return killWindowsTree\(child, sig === "SIGKILL"\);/,
+      "the Windows tree kill must sit on the non-process-group branch of signalChild"
+    );
+  });
+
+  // The decision table below is RUN, not pattern-matched. Three review rounds
+  // found real bugs in exactly this logic while structural assertions on the
+  // source text kept passing, so it is driven directly through a taskkill
+  // spawn stub. What still cannot be checked off win32 is whether real
+  // taskkill emits these codes for these situations.
+  describe("killWindowsTree — what counts as a confirmed teardown", () => {
+    // A fake taskkill process: only the two events killWindowsTree listens for.
+    function fakeTaskkill({ exitCode = 0, spawnError = false, throwOnSpawn = false } = {}) {
+      return () => {
+        if (throwOnSpawn) throw new Error("spawn EACCES");
+        const emitter = new EventEmitter();
+        process.nextTick(() => {
+          if (spawnError) emitter.emit("error", new Error("spawn ENOENT"));
+          else emitter.emit("close", exitCode);
+        });
+        return emitter;
+      };
+    }
+
+    // Records whether the child.kill() last resort was reached.
+    function fakeChild() {
+      const calls = [];
+      return { pid: 4242, kill: (sig) => { calls.push(sig); }, calls };
+    }
+
+    async function run(child, force, stub) {
+      taskkillStub = stub;
+      try {
+        return await killWindowsTree(child, force);
+      } finally {
+        taskkillStub = null;
+      }
+    }
+
+    test("exit 0 is the only confirmation, and it does not also child.kill()", async () => {
+      const child = fakeChild();
+      assert.equal(await run(child, true, fakeTaskkill({ exitCode: 0 })), true);
+      assert.deepEqual(child.calls, []);
+    });
+
+    test("exit 128 is NOT confirmation — the parent was gone, so no descendant was examined", async () => {
+      // The review finding this round. `taskkill /T` discovers descendants by
+      // walking down from the parent PID; if git already exited there is
+      // nothing to walk, and a detached helper can still be running. Reporting
+      // that as a clean cancellation is precisely the false guarantee.
+      const child = fakeChild();
+      assert.equal(await run(child, true, fakeTaskkill({ exitCode: 128 })), false);
+      // child.kill() is pointless here — the parent is already gone — so it
+      // must not be attempted just to look busy.
+      assert.deepEqual(child.calls, []);
+    });
+
+    test("any other nonzero exit is unconfirmed AND falls back to child.kill", async () => {
+      const child = fakeChild();
+      assert.equal(await run(child, true, fakeTaskkill({ exitCode: 1 })), false);
+      assert.deepEqual(child.calls, ["SIGKILL"], "git itself must still be killed when the walk failed");
+    });
+
+    test("a taskkill that cannot start at all falls back and reports unconfirmed", async () => {
+      for (const stub of [fakeTaskkill({ spawnError: true }), fakeTaskkill({ throwOnSpawn: true })]) {
+        const child = fakeChild();
+        assert.equal(await run(child, false, stub), false);
+        assert.deepEqual(child.calls, ["SIGTERM"], "the soft rung falls back to a soft kill");
+      }
+    });
+
+    test("/F is added only for the forced rung, and /T always", async () => {
+      const seen = [];
+      const capture = (args) => { seen.push(args); return fakeTaskkill({ exitCode: 0 })(); };
+      await run(fakeChild(), false, capture);
+      await run(fakeChild(), true, capture);
+      assert.deepEqual(seen[0], ["/pid", "4242", "/T"]);
+      assert.deepEqual(seen[1], ["/pid", "4242", "/T", "/F"]);
+    });
+
+    test("a child that never got a pid is unconfirmed, and taskkill is not spawned", async () => {
+      let spawned = false;
+      const result = await run({ pid: undefined, kill: () => {} }, true, () => { spawned = true; return fakeTaskkill()(); });
+      assert.equal(result, false);
+      assert.equal(spawned, false);
+    });
+
+    test("taskkill is not unref'd — the teardown waits on its exit status", () => {
+      assert.doesNotMatch(
+        RUNNER_SRC,
+        /killer\.unref/,
+        "unref'ing taskkill would abandon the exit status the teardown now waits on"
+      );
+    });
+  });
+
+  test("POSIX still uses the process group, and taskkill is never reached there", () => {
+    // The Windows branch must be unreachable on this platform — a stray
+    // taskkill spawn on POSIX would be an error, not a fallback.
+    assert.match(RUNNER_SRC, /process\.kill\(-child\.pid, sig\)/);
+    assert.match(RUNNER_SRC, /const SUPPORTS_PROCESS_GROUPS = process\.platform !== "win32"/);
+  });
+});
+
+describe("signalChild — a POSIX group-kill failure must not be reported as confirmed (P2 review fix)", () => {
+  // Pre-fix, any failure of process.kill(-pid, sig) other than the process
+  // already being gone fell through to the single-process fallback and
+  // resolved with THAT call's own return value. But a successful
+  // child.kill(sig) only confirms the parent git process was signalled — it
+  // says nothing about descendants git itself forked, which is exactly what
+  // the process-group kill exists to reach. Reporting the fallback's "true"
+  // as success mislabels a possibly-still-running tree as a confirmed
+  // teardown. This drives process.kill through a mock so the EPERM/ESRCH
+  // distinction can be forced without needing a real process this test does
+  // not own the permissions of.
+  test("a non-ESRCH group-kill failure is unconfirmed even when the fallback kill itself succeeds", async () => {
+    if (process.platform === "win32") return; // this is the POSIX branch
+
+    let groupKillAttempted = false;
+    const killSpy = mock.method(process, "kill", (pid) => {
+      if (pid < 0) {
+        groupKillAttempted = true;
+        const err = new Error("EPERM: operation not permitted");
+        err.code = "EPERM";
+        throw err;
+      }
+      throw new Error("unexpected non-group process.kill call in this test");
+    });
+    try {
+      const fallbackKill = mock.fn(() => true); // the single process WAS signalled...
+      const fakeChild = { pid: 999999, kill: fallbackKill };
+      const result = await signalChild(fakeChild, "SIGKILL");
+      assert.ok(groupKillAttempted, "expected the process-group kill to be attempted first");
+      assert.equal(fallbackKill.mock.callCount(), 1, "expected exactly one single-process fallback kill");
+      // ...but descendants were never reached, so this must still be unconfirmed.
+      assert.equal(result, false, "a single-process fallback can never confirm the whole tree is gone");
+    } finally {
+      killSpy.mock.restore();
+    }
+  });
+
+  test("a non-ESRCH group-kill failure is unconfirmed when the fallback kill also fails", async () => {
+    if (process.platform === "win32") return;
+
+    const killSpy = mock.method(process, "kill", (pid) => {
+      if (pid < 0) {
+        const err = new Error("EPERM: operation not permitted");
+        err.code = "EPERM";
+        throw err;
+      }
+      throw new Error("unexpected non-group process.kill call in this test");
+    });
+    try {
+      const fakeChild = { pid: 999999, kill: mock.fn(() => false) };
+      const result = await signalChild(fakeChild, "SIGKILL");
+      assert.equal(result, false, "a failed fallback kill must be reported as unconfirmed");
+    } finally {
+      killSpy.mock.restore();
+    }
+  });
+
+  test("ESRCH (the group is already gone) is still reported as success", async () => {
+    if (process.platform === "win32") return;
+
+    const killSpy = mock.method(process, "kill", (pid) => {
+      if (pid < 0) {
+        const err = new Error("ESRCH: no such process");
+        err.code = "ESRCH";
+        throw err;
+      }
+      throw new Error("unexpected non-group process.kill call in this test");
+    });
+    try {
+      const fakeChild = { pid: 999999, kill: mock.fn(() => true) };
+      const result = await signalChild(fakeChild, "SIGKILL");
+      assert.equal(result, true, "an already-gone process group is the outcome we wanted");
+    } finally {
+      killSpy.mock.restore();
+    }
+  });
+});
+
+describe("a Git too old to suppress lazy fetch is refused, not trusted (P1 review fix)", () => {
+  // GIT_NO_LAZY_FETCH is only honoured from git 2.39 on. Established by
+  // reading the release tarballs: the string is absent from the 2.30.2,
+  // 2.34.8, 2.35.8, 2.36.6, 2.37.7 and 2.38.5 trees and present in 2.39.5 at
+  // promisor-remote.c:24. A locally built 2.39.5 was then driven through the
+  // fake-ssh probe both ways and behaved as the source says.
+  //
+  // Note this corrects the review that prompted the check: it named 2.41 as
+  // the floor and Debian 12 (git 2.39) as an exposed target. 2.39 is in fact
+  // the FIRST release that honours the variable, so Debian 12 — and every
+  // other platform vms/Vagrantfile and CI target — was already covered. The
+  // gate below exists for the genuinely older hosts nothing stops an install
+  // on (Ubuntu 22.04 is 2.34, Debian 11 is 2.30).
+  let oldGitCounter = 0;
+  function initPartialClone(name) {
+    const dir = initRepo(`${name}-${++oldGitCounter}`);
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    execFileSync("git", ["-C", dir, "config", "core.repositoryformatversion", "1"]);
+    execFileSync("git", ["-C", dir, "config", "extensions.partialClone", "origin"]);
+    execFileSync("git", ["-C", dir, "config", "remote.origin.url", "https://example.invalid/x.git"]);
+    execFileSync("git", ["-C", dir, "config", "remote.origin.promisor", "true"]);
+    return dir;
+  }
+
+  test("on git 2.38 a partial-clone read is refused — the suppression would be a silent no-op there", async () => {
+    const dir = initPartialClone("oldgit-partial");
+    fakeGitVersion = "2.38.5";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.ok(err instanceof GitPolicyError);
+            assert.match(err.message, /partial clone/);
+            assert.match(err.message, /GIT_NO_LAZY_FETCH/);
+            assert.match(err.message, /2\.39/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("on git 2.39 the same read is allowed through — 2.39 is the floor, not 2.41", async () => {
+    // The half the review got backwards. Verified against a locally built
+    // 2.39.5 binary, not just this version string.
+    const dir = initPartialClone("newgit-partial");
+    fakeGitVersion = "2.39.0";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        const result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+        assert.equal(result.code, 0, result.stderr);
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("an old git is fine on an ORDINARY repo — only a partial clone can lazy-fetch", async () => {
+    // The gate must not become "Aperio requires git 2.39". A normal repo (and
+    // a shallow `clone --depth 1`, which is not a partial clone) has no
+    // promisor remote, so no lazy fetch is possible at any git version.
+    const dir = initRepo("oldgit-ordinary");
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        const result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+        assert.equal(result.code, 0, result.stderr);
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("an old git does not block fetch/push — reaching the remote is their purpose", async () => {
+    const dir = initPartialClone("oldgit-fetch");
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        // Denied on the transport rule it really violates, never on the
+        // lazy-fetch gate, which does not apply to fetch/push at all.
+        execFileSync("git", ["-C", dir, "config", "remote.origin.url", `file://${dir}`]);
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["fetch", "origin"], mutating: false }),
+          (err) => {
+            assert.match(err.message, /remote transport not allowed/);
+            assert.doesNotMatch(err.message, /GIT_NO_LAZY_FETCH/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("an unparseable git --version fails closed, not open", async () => {
+    const dir = initPartialClone("oldgit-garbled");
+    fakeGitVersion = "not-a-version";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.ok(err instanceof GitPolicyError);
+            assert.match(err.message, /could not parse the installed Git version/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("an explicitly-false promisor flag is not read as a partial clone", async () => {
+    // git's boolean spelling: `remote.x.promisor` with no value is TRUE, with
+    // an empty or "false" value is FALSE — verified empirically that
+    // --get-regexp prints the valueless form with no trailing space and the
+    // empty one with one, and the two mean opposite things.
+    const dir = initRepo("oldgit-promisor-false");
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    execFileSync("git", ["-C", dir, "config", "remote.origin.promisor", "false"]);
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        const result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+        assert.equal(result.code, 0, result.stderr);
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("a valueless promisor key IS a partial clone — git's implicit true", async () => {
+    const dir = initRepo("oldgit-promisor-implicit");
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    appendFileSync(join(dir, ".git", "config"), '[remote "a"]\n\tpromisor\n');
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.match(err.message, /partial clone/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("the promisor scan costs no extra spawn — it rides the existing remote-config read", () => {
+    // Structural: a separate `config --get-regexp` for the promisor keys would
+    // add one process per git_* call. It is folded into the remote.*.vcs scan.
+    const scans = RUNNER_SRC.match(/"config", "-z", "--get-regexp"/g) ?? [];
+    assert.equal(scans.length, 2, "expected exactly two config scans: drivers, and remote+promisor");
+    assert.ok(
+      RUNNER_SRC.includes("^(remote\\\\..*\\\\.(vcs|promisor)|extensions\\\\.partialclone)$"),
+      "the remote scan must cover vcs, promisor and extensions.partialclone in one pattern"
+    );
+    assert.doesNotMatch(
+      RUNNER_SRC,
+      /"config", "--get-regexp"/,
+      "every config scan must be NUL-delimited — a space-split key skips spaced subsection names"
+    );
+  });
+});
+
+describe("a timed-out call does not settle while a descendant is still running (P1 review fix)", () => {
+  // Raised as a Windows-only concern (taskkill's status ignored). It is not:
+  // the same hole reproduced on POSIX against the pre-fix runner. "close"
+  // fires when git has exited AND its pipes are closed, which says nothing
+  // about a descendant that ignored SIGTERM and never held those pipes — so
+  // the early close settled the promise and cleared the SIGKILL timer, and the
+  // grandchild outlived the cancellation. Measured before the fix: settled in
+  // 1007ms, grandchild still alive 300ms later.
+  //
+  // This is the case the existing "SIGTERM-ignoring git" test does NOT cover:
+  // there the grandchild holds the pipes, so close never arrives early and the
+  // escalation runs to completion on its own.
+  test("a grandchild that ignores SIGTERM and does not hold the pipes is killed before the promise resolves", async () => {
+    const binDir = join(ROOT, "close-race-bin");
+    mkdirSync(binDir, { recursive: true });
+    const pidFile = join(ROOT, "close-race-grandchild.pid");
+    writeFileSync(join(binDir, "git"), [
+      "#!/bin/sh",
+      // Grandchild ignores TERM and sends its stdio to /dev/null, so it does
+      // NOT keep git's stdout/stderr pipes open.
+      `sh -c "trap '' TERM; echo \\$\\$ > '${pidFile}'; sleep 120" >/dev/null 2>&1 &`,
+      // git itself takes the DEFAULT TERM disposition, so the first rung kills
+      // it and "close" arrives almost immediately.
+      "sleep 120",
+    ].join("\n") + "\n");
+    chmodSync(join(binDir, "git"), 0o755);
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${binDir}:${originalPath}`;
+    let result;
+    const started = Date.now();
+    try {
+      result = await spawnGit(["status"], { cwd: ROOT, timeout: 1000 });
+    } finally {
+      process.env.PATH = originalPath;
+    }
+    const elapsed = Date.now() - started;
+
+    assert.notEqual(result.code, 0, "a timed-out command must not report success");
+    assert.match(result.stderr, /timed out after 1000ms/);
+    assert.ok(elapsed < 15_000, `expected a bounded teardown, took ${elapsed}ms`);
+
+    // The whole point: the SIGKILL is delivered before the promise resolves,
+    // so the descendant is already dying by the time the caller has an answer.
+    // The poll is for REAPING, not for the kill — a SIGKILLed process lingers
+    // as a zombie until its parent (here, the already-dead fake git, so init)
+    // collects it, and process.kill(pid, 0) still finds a zombie. Pre-fix the
+    // grandchild was not signalled at all and stayed alive indefinitely:
+    // measured still running 300ms after resolve, and it holds its own 120s
+    // sleep, so this poll cannot pass by luck.
+    const grandchildPid = Number(readFileSync(pidFile, "utf-8").trim());
+    assert.ok(grandchildPid > 0, "the fake git must have recorded its grandchild's pid");
+    const gone = await waitForPidToDisappear(grandchildPid, 5_000);
+    assert.ok(gone, `descendant ${grandchildPid} outlived the cancellation it was supposed to be killed by`);
+  });
+
+  test("the forced kill is issued once and awaited, never cancelled by an early close", () => {
+    // Structural guard on the shape the behavioural test depends on: a future
+    // edit that goes back to finish()ing straight from "close" would silently
+    // reopen the leak on any platform where the descendant drops the pipes.
+    assert.match(RUNNER_SRC, /const startForcedKill = \(\) => \{/);
+    assert.match(RUNNER_SRC, /const confirmed = await startForcedKill\(\);/);
+    assert.match(
+      RUNNER_SRC,
+      /if \(timedOut\) \{\s*\n\s*void settleTimedOut\(/,
+      "an early close during teardown must route through settleTimedOut, not finish()"
+    );
+  });
+
+  test("an unconfirmed teardown is reported, not hidden behind a clean cancellation", () => {
+    assert.match(RUNNER_SRC, /could not confirm every process git spawned was terminated/);
+  });
+
+  test("the teardown wait is bounded — an unkillable tree still settles", async () => {
+    // The opposite failure: waiting on a kill that never confirms would
+    // restore the "advertised timeout is not hard" bug the escalation chain
+    // exists to prevent. withKillDeadline() caps every such wait.
+    assert.match(RUNNER_SRC, /function withKillDeadline\(promise, ms\)/);
+    assert.match(RUNNER_SRC, /withKillDeadline\(signalChild\(child, "SIGKILL"\), KILL_GRACE_MS\)/);
+
+    // And the normal path is still untouched by any of it.
+    const dir = initRepo("teardown-normal");
+    const result = await spawnGit(["-C", dir, "status", "--porcelain"], { cwd: dir, timeout: 30_000 });
+    assert.equal(result.code, 0);
+    assert.doesNotMatch(result.stderr, /timed out|could not confirm/);
+  });
+});
+
+describe("config keys with spaces in the subsection name are not skipped (P1 review fix)", () => {
+  // `git config --get-regexp` separates key from value with ONE SPACE, and a
+  // config subsection may itself contain spaces. Verified empirically (git
+  // 2.50.1): `[remote "foo bar"] promisor = true` prints as
+  //     remote.foo bar.promisor true
+  // so a space-split key reads "remote.foo" and matches nothing — the entry is
+  // skipped silently. Both halves of that bypass were verified to WORK against
+  // real git before this fix: a promisor remote named with a space lazy-fetched
+  // during `git show`, and with a matching `remote.foo bar.vcs = ssh` it
+  // executed a planted git-remote-ssh from PATH. `-z` output is what removes
+  // the ambiguity.
+  function initSpacedRemoteRepo(name, extra) {
+    const dir = initRepo(name);
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    appendFileSync(join(dir, ".git", "config"), extra);
+    return dir;
+  }
+
+  test("a promisor remote whose name contains a space is still seen as a partial clone", async () => {
+    // Deliberately NO extensions.partialClone key: that one has no space in
+    // it, so the old space-split parse still found it and the test would pass
+    // for the wrong reason. The spaced `remote.foo bar.promisor` must be the
+    // only thing that marks this repo as a partial clone.
+    const dir = initSpacedRemoteRepo("spaced-promisor", [
+      '[remote "foo bar"]',
+      "\turl = ssh://git@example.invalid/x.git",
+      "\tpromisor = true",
+      "",
+    ].join("\n"));
+
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.ok(err instanceof GitPolicyError);
+            assert.match(err.message, /partial clone/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
+  });
+
+  test("a remote helper override on a space-named remote is still rejected, and the helper never runs", async () => {
+    // This half is version-independent: the vcs key is the only thing standing
+    // between a fetch/push and an arbitrary PATH binary.
+    const dir = initSpacedRemoteRepo("spaced-vcs", [
+      '[remote "foo bar"]',
+      "\turl = https://example.invalid/x.git",
+      "\tvcs = ssh",
+      "",
+    ].join("\n"));
+
+    const binDir = join(ROOT, "spaced-vcs-bin");
+    mkdirSync(binDir, { recursive: true });
+    const marker = join(ROOT, "SPACED_HELPER_RAN");
+    writeFileSync(join(binDir, "git-remote-ssh"), `#!/bin/sh\ntouch "${marker}"\nexit 1\n`);
+    chmodSync(join(binDir, "git-remote-ssh"), 0o755);
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${binDir}:${originalPath}`;
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["fetch", "foo bar"], mutating: false }),
+          (err) => {
+            assert.ok(err instanceof GitPolicyError);
+            assert.match(err.message, /remote helper override not allowed/);
+            assert.match(err.message, /remote\.foo bar\.vcs/, "the full spaced key must survive parsing");
+            return true;
+          }
+        );
+      });
+    } finally {
+      process.env.PATH = originalPath;
+    }
+    assert.equal(existsSync(marker), false, "the repo-selected remote helper must never be executed");
+  });
+
+  test("a driver whose name contains a space is discovered and blanked", async () => {
+    // Not reachable today — verified that `.gitattributes` cannot select such a
+    // driver, because attribute values are space-delimited too
+    // (`path filter=my filter` parses as filter=my). Parsed correctly anyway so
+    // the guarantee does not rest on that second fact holding forever.
+    const dir = initRepo("spaced-driver");
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    appendFileSync(join(dir, ".git", "config"), [
+      '[filter "my filter"]',
+      "\tclean = /bin/echo pwned",
+      "",
+    ].join("\n"));
+
+    await runWithPaths([dir], [dir], null, async () => {
+      const result = await runGit({ cwd: dir, argv: buildStageArgv(["f.txt"]), mutating: true });
+      assert.equal(result.code, 0, result.stderr);
+    });
+    // The blanking argv is what proves the driver was seen at all.
+    assert.match(RUNNER_SRC, /filter\.\$\{name\}\.clean=/);
+  });
+
+  test("a multi-line config value cannot shift the parse onto the wrong key", () => {
+    // -z records are NUL-terminated and the FIRST newline splits key from
+    // value, so a value containing newlines stays part of that value.
+    assert.match(RUNNER_SRC, /function parseConfigRecords\(stdout\)/);
+    assert.match(RUNNER_SRC, /const nl = record\.indexOf\("\\n"\);/);
+    assert.match(RUNNER_SRC, /stdout\.split\("\\0"\)/);
+  });
+});
+
+describe("git boolean spellings are read the way git reads them (P2 review fix)", () => {
+  // git_config_bool() tries the words first and otherwise parses an INTEGER,
+  // where any zero is false. Verified against real git with `git config
+  // --bool`: "00", "+0", "-0" and "0k" all report false; "1", "true", "yes",
+  // "on" report true. Matching only the literal "0" made an ordinary repo look
+  // like a partial clone and rejected every local command on an old git.
+  function repoWithPromisorValue(name, rawConfig) {
+    const dir = initRepo(name);
+    writeFileSync(join(dir, "f.txt"), "content\n");
+    execFileSync("git", ["-C", dir, "add", "f.txt"]);
+    execFileSync("git", ["-C", dir, "commit", "-q", "-m", "c1"]);
+    appendFileSync(join(dir, ".git", "config"), rawConfig);
+    return dir;
+  }
+
+  // Indexed, not derived from the value: "+0" and "-0" sanitize to the same
+  // string and would silently share one fixture repo.
+  for (const [index, falsey] of ["0", "00", "+0", "-0", "0k", "false", "no", "off", ""].entries()) {
+    test(`promisor = "${falsey}" is FALSE — an ordinary repo, allowed on an old git`, async () => {
+      const dir = repoWithPromisorValue(
+        `bool-false-${index}`,
+        `[remote "origin"]\n\tpromisor = ${falsey}\n`
+      );
+      fakeGitVersion = "2.30.2";
+      try {
+        await runWithPaths([dir], [dir], null, async () => {
+          const result = await runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false });
+          assert.equal(result.code, 0, result.stderr);
+        });
+      } finally {
+        fakeGitVersion = null;
+      }
+    });
+  }
+
+  for (const [index, truthy] of ["1", "01", "-1", "2", "true", "yes", "on"].entries()) {
+    test(`promisor = "${truthy}" is TRUE — a partial clone, refused on an old git`, async () => {
+      const dir = repoWithPromisorValue(
+        `bool-true-${index}`,
+        `[remote "origin"]\n\tpromisor = ${truthy}\n`
+      );
+      fakeGitVersion = "2.30.2";
+      try {
+        await runWithPaths([dir], [dir], null, async () => {
+          await assert.rejects(
+            () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+            (err) => {
+              assert.match(err.message, /partial clone/);
+              return true;
+            }
+          );
+        });
+      } finally {
+        fakeGitVersion = null;
+      }
+    });
+  }
+
+  test("a value git itself would reject as a boolean fails closed, treated as a partial clone", async () => {
+    const dir = repoWithPromisorValue("bool-garbage", '[remote "origin"]\n\tpromisor = maybe\n');
+    fakeGitVersion = "2.30.2";
+    try {
+      await runWithPaths([dir], [dir], null, async () => {
+        await assert.rejects(
+          () => runGit({ cwd: dir, argv: ["show", "HEAD:f.txt"], mutating: false }),
+          (err) => {
+            assert.match(err.message, /partial clone/);
+            return true;
+          }
+        );
+      });
+    } finally {
+      fakeGitVersion = null;
+    }
   });
 });

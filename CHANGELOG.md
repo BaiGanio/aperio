@@ -23,6 +23,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   script relying on either tool needs you to set `APERIO_ENABLE_SHELL=1`
   yourself to keep working.
 
+- **Git co-pilot: a failed process-group kill could be reported as a confirmed
+  teardown.** When a timed-out `git_*` command's process-group signal failed
+  for a reason other than "already gone" (e.g. `EPERM`, or the child was never
+  a group leader), the runner fell back to signalling only the single git
+  process, then reported the teardown as confirmed regardless — so a
+  descendant git had forked (an `ssh` helper, for example) could still be
+  running while the caller was told it was gone. That fallback path now always
+  reports "unconfirmed," since signalling one process is never proof the whole
+  tree is dead. Windows keeps its own known limitation on this front, moved
+  from tech-debt to [#538](https://github.com/BaiGanio/aperio/issues/538).
+
 ### Added
 
 - **The six-topic Aperio Manual is now published from the landing site.** A new

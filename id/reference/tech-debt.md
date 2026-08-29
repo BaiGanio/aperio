@@ -698,49 +698,6 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   `splitStatements()` and every `classify()` caller; deliberately not done for
   a case with no reachable consequence.
 
-## Git co-pilot runner — three boundary/lifecycle findings open (#343, WS2)
-
-Raised in review of `lib/git/runner.js`, deliberately left unfixed for a dedicated
-session. Nothing here is user-reachable yet: no `git_*` MCP tool is registered and
-the runner has no consumers outside its own test file, so these are pre-ship defects,
-not live exposure. Each needs its own empirical check before a fix is written —
-the review's severity labels are its own, not yet confirmed.
-
-- 2026-08-29 **Promisor/partial-clone lazy fetch escapes the remote gate.**
-  `assertAllowedRemote()` returns early for anything outside
-  `REMOTE_TOUCHING_COMMANDS` (`fetch`/`push`). In a partial-clone repo with a
-  missing object, a nominally local `show`/`log`/`diff` fetches it from the
-  promisor remote — so neither the URL allowlist nor the new `remote.*.vcs`
-  rejection runs on a command that does reach the network. Claimed consequence:
-  `remote.origin.vcs=ssh` makes `git show HEAD:path` execute a PATH-resolved
-  `git-remote-ssh`. Likely fix is a lazy-fetch kill switch on non-sync commands
-  (`-c` on the fetch path) plus applying the helper/transport checks to every
-  invocation, not just the two subcommands. **Unverified** — needs a real
-  promisor repo with a genuinely absent object to confirm both the fetch and
-  the helper execution.
-
-- 2026-08-29 **`rev-parse` output is parsed as newline-delimited records.**
-  `resolveGitPaths()` runs one `rev-parse --show-toplevel --absolute-git-dir
-  --git-common-dir` and splits `stdout` on `\n`. POSIX paths may contain
-  newlines, so a worktree whose directory name carries two crafted newlines can
-  shift the fields: parts of the worktree name are read as `gitDir`/`gitCommonDir`
-  and the real metadata paths — the ones that would fail the allowlist — are
-  dropped past index 2 and never gated. Fix direction: `-z` output if the flags
-  support it, otherwise separate invocations, or reject any resolved path
-  containing `\n` outright. **Unverified** — needs a check of whether git quotes
-  or escapes such a path in `rev-parse` output before the parsing is assumed
-  ambiguous.
-
-- 2026-08-29 **Windows teardown does not reach descendants.**
-  `signalChild()` group-signals via `process.kill(-pid, …)` on POSIX only; on
-  Windows it falls back to `child.kill()`, which signals git alone. A helper or
-  `ssh` git spawned survives, so `spawnGit()` can report a timeout, destroy its
-  pipes, and leave a push still completing — the opposite of the cancellation
-  guarantee the timeout advertises. Fix direction: `taskkill /T /F /PID` (or an
-  equivalent job-object teardown) on `win32`. Note the POSIX path is verified
-  working (test: "a SIGTERM-ignoring git whose child holds the stdio pipes still
-  settles"); only the Windows branch is open, and it is untested on this machine.
-
 ---
 
 ## Intentional deferrals
