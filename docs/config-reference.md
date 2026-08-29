@@ -209,7 +209,7 @@ Lets the model run a single allowlisted shell command inside the session workspa
 
 boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)*
 
-Gates the run_shell tool ONLY (single allowlisted command in the session workspace). NOT a sandbox — grants host execution as your user. It does NOT gate run_node_script or run_python_script: those always run, because the bundled pptx/docx/pdf skills generate documents by writing a script and running it. A connected model can therefore execute code as your user with this unset; see SECURITY.md. Only enable for trusted models/content.
+Gates run_shell, run_node_script, and run_python_script alike. NOT a sandbox — grants host execution as your user. Leave unset to disable all three; the bundled pptx/docx/pdf skills that write and run a script to generate documents also stay off until this is set. See SECURITY.md. Only enable for trusted models/content.
 
 #### `APERIO_SHELL_LOCAL`
 

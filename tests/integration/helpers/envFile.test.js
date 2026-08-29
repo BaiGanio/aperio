@@ -176,6 +176,12 @@ describe("writeEnvFromWizard", () => {
     assert.doesNotMatch(env, /^AI_PROVIDER=/m);
   });
 
+  test("fresh install: APERIO_ENABLE_SHELL defaults on so bundled doc-gen skills keep working (WS8)", () => {
+    writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^APERIO_ENABLE_SHELL="1"$/m);
+  });
+
   test("validation still gates codex cached-login (no key needed)", () => {
     // codex uses cached CLI auth — must not throw without an apiKey
     writeEnvFromWizard({ provider: "codex" });

@@ -9,6 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Security
+
+- **`run_node_script` and `run_python_script` now require `APERIO_ENABLE_SHELL=1`.**
+  These two tools could run arbitrary Node/Python scripts even with shell access
+  fully disabled — the same host-execution capability `run_shell` already gates,
+  reachable through a different door. They now check the same switch, at the
+  first line of each handler. **Fresh installs get the switch on by default**
+  (the setup wizard bakes `APERIO_ENABLE_SHELL=1` into the `.env` it creates),
+  so the bundled pptx/docx/pdf skills keep working out of the box. **Existing
+  installs are never touched** — an upgrade never rewrites your `.env`, so if
+  you never set this, it stays off exactly as before, and any custom skill
+  script relying on either tool needs you to set `APERIO_ENABLE_SHELL=1`
+  yourself to keep working.
+
 ### Added
 
 - **The six-topic Aperio Manual is now published from the landing site.** A new

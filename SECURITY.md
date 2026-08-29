@@ -37,47 +37,44 @@ Only the versions below actively receive security patches:
 Aperio is **local-first**: by default the server binds to loopback (`127.0.0.1`)
 and is meant to run on a machine you trust.
 
-- **`run_shell` is not a sandbox.** When enabled (`APERIO_ENABLE_SHELL=1`), the
-  model runs allow-listed programs with your user's privileges. Only enable it
-  for models and content you trust.
-- **`run_shell` is not the only tool that executes code, and it is the only one
-  behind a switch — by decision, not by oversight.** `run_node_script` and
-  `run_python_script` (`mcp/tools/shell.js`) spawn `node` and `python3` on the
-  same host with the same privileges. Neither is gated by `APERIO_ENABLE_SHELL`
-  — the `SHELL_ENABLED` check exists in `runShellHandler` only. Neither appears
-  in `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`), so neither is
-  confirm-before-run. Both ship in the default `file-generate` tool profile
-  (`lib/agent/tool-profiles.js`), which loads on ordinary "make me a
-  deck/spreadsheet/document" requests. That is intended. Eight bundled skills
-  (`pptx`, `docx`, `docx-advanced`, `pdf`, `design-randomizer`,
-  `agent-conduct`) build their output by writing a script and then running it.
-  Putting these two tools behind an env switch would leave a fresh install
-  unable to produce a deck or a document until the user edits `.env`; putting
-  them behind a confirm prompt would charge several clicks per document.
-  Aperio deliberately keeps document generation working for people who should
-  not have to know what a shell switch is, and states the cost here rather than
-  hiding it. The cost is real: the only boundaries on these two tools are the
-  file extension (`.js` / `.py`) and the requirement that the script already
-  exist inside an allowed write path — there is no allowlist of what the script
-  may do. The spawned child inherits the server's full environment, including
-  any provider API keys and tokens present in it. Once running, the script is a
-  normal process: it can open sockets, read any file the OS lets your user
-  read, and spawn further programs.
+- **`run_shell`, `run_node_script`, and `run_python_script` are not a sandbox.**
+  All three (`mcp/tools/shell.js`) are gated behind the same switch,
+  `APERIO_ENABLE_SHELL=1`. When it is set, the model can run allow-listed
+  programs, or spawn `node`/`python3` against any `.js`/`.py` script inside an
+  allowed write path, all with your user's privileges. Only enable it for
+  models and content you trust. **Fresh installs get this switch on by
+  default** (baked into the `.env` the setup wizard creates on first run,
+  `lib/helpers/envFile.js`) — the bundled `pptx`, `docx`, `docx-advanced`,
+  `pdf`, `design-randomizer`, and `agent-conduct` skills build their output by
+  writing a script and running it, and would otherwise be unable to produce a
+  document out of the box. **Upgrades are never touched**: an existing `.env`
+  is never rewritten, so an install that had the switch off (or never set it)
+  keeps that exact posture after upgrading.
+  The cost of enabling it is real: the only boundaries on `run_node_script`/
+  `run_python_script` are the file extension (`.js` / `.py`) and the
+  requirement that the script already exist inside an allowed write path —
+  there is no allowlist of what the script may do. Neither tool appears in
+  `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`), so neither is
+  confirm-before-run once the switch is on. The spawned child inherits the
+  server's full environment, including any provider API keys and tokens
+  present in it. Once running, the script is a normal process: it can open
+  sockets, read any file the OS lets your user read, and spawn further
+  programs.
 - **The model can create the script it then executes, with no confirmation.**
   `write_file` / `edit_file` / `append_file` run directly for any target inside
   the allowed write paths; the confirm flow (`mcp/tools/files/interrupt.js`)
   fires only when the turn has already read untrusted content (the `__tainted`
-  path, INJECT-01). A clean turn can therefore write a `.js` file into the
-  session workspace and call `run_node_script` on it without a single confirm
-  click and with `APERIO_ENABLE_SHELL` unset. This write-then-run path follows
-  directly from the decision above and is not separately gated. **Treat
-  arbitrary code execution as the Aperio user as the baseline capability of any
-  model you connect, not as something the shell switch turns on.**
-  `APERIO_ENABLE_SHELL` widens that surface to real binaries; it does not
-  create it. The boundary that actually matters is the allowed-paths list and
-  the trust you place in the model and in the content it reads. If that
-  baseline is unacceptable for your deployment, do not rely on a setting —
-  run Aperio in an isolated host or container.
+  path, INJECT-01). With `APERIO_ENABLE_SHELL=1` set, a clean turn can
+  therefore write a `.js` file into the session workspace and call
+  `run_node_script` on it without a single confirm click. This write-then-run
+  path is not separately gated. **Treat arbitrary code execution as the Aperio
+  user as the baseline capability of any model you connect once the switch is
+  on, not something a confirm prompt will catch.** The boundary that actually
+  matters is the allowed-paths list, the `APERIO_ENABLE_SHELL` switch itself,
+  and the trust you place in the model and in the content it reads. If that
+  baseline is unacceptable for your deployment, turn the switch off (upgrades
+  already default it off unless you set it) or run Aperio in an isolated host
+  or container.
 - **The Codex provider is a coding agent, not a secret boundary.** Keep
   `CODEX_SANDBOX=workspace-write` (or `read-only`) and use it only in trusted
   workspaces. The sandbox constrains writes, but Codex and code it runs can read

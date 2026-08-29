@@ -272,6 +272,9 @@ function collectOutput(child, label) {
 }
 
 export async function runNodeScriptHandler({ script, args = [] }) {
+  if (!SHELL_ENABLED) {
+    return { content: [{ type: "text", text: `❌ run_node_script is disabled. Set APERIO_ENABLE_SHELL=1 to enable it.` }] };
+  }
   const recovered = recoverInlineNodeArgs(script);
   if (recovered) ({ script, args } = recovered);
   if (extname(script).toLowerCase() !== ".js") {
@@ -341,6 +344,9 @@ export async function runNodeScriptHandler({ script, args = [] }) {
 // docx office/unpack.py, pack.py, validate.py). If python3 is absent the spawn
 // fails with a clear, actionable hint rather than a cryptic error.
 export async function runPythonScriptHandler({ script, args = [] }) {
+  if (!SHELL_ENABLED) {
+    return { content: [{ type: "text", text: `❌ run_python_script is disabled. Set APERIO_ENABLE_SHELL=1 to enable it.` }] };
+  }
   if (script.includes(" ")) {
     logger.warn(`[run_python_script] script path contains spaces (args mixed in): ${script}`);
     return { content: [{ type: "text", text: `❌ run_python_script: the "script" param must be the file path only — put arguments in the "args" array, not in the path.\n\nIf you are trying to read a .docx file, use the read_docx tool instead — it is faster and does not need a Python script.` }] };

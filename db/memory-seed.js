@@ -52,7 +52,7 @@ export const MEMORY_SEED = [
   {
     type: 'fact',
     title: 'Shell access is guarded — allowlist and operator restrictions',
-    content: 'Aperio\'s shell execution is off by default (set APERIO_ENABLE_SHELL=1 to enable). Only allowlisted programs can run: node, npm, git, ls, cat, grep, rg, find, head, tail, python3, soffice, pdftoppm. Shell operators like ;, &&, ||, &, <, >, backticks, and $() are blocked. A single pipe (|) is allowed. run_node_script and run_python_script enforce file extensions (.js/.py) on their targets.',
+    content: 'Aperio\'s shell execution is guarded by APERIO_ENABLE_SHELL (on by default for fresh installs; upgrades keep whatever they had). It gates run_shell, run_node_script, and run_python_script alike. run_shell only runs allowlisted programs: node, npm, git, ls, cat, grep, rg, find, head, tail, python3, soffice, pdftoppm. Shell operators like ;, &&, ||, &, <, >, backticks, and $() are blocked. A single pipe (|) is allowed. run_node_script and run_python_script enforce file extensions (.js/.py) on their targets.',
     tags: ['aperio', 'shell', 'security', 'guardrails'],
     importance: 4,
   },
