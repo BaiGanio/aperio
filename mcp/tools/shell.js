@@ -13,7 +13,7 @@ import { ALLOWED_CMDS, parsePipeline, validatePipeline } from "./shell/command.j
 // APERIO_SHELL_MAX_OUTPUT_BYTES. The cap is TAIL-BIASED — the head plus the LAST
 // bytes survive and the middle is dropped — because a run's verdict/error lives
 // at the end, which the old head-only cap discarded entirely once output grew.
-const MAX_OUTPUT_BYTES = parseInt(process.env.APERIO_SHELL_MAX_OUTPUT_BYTES || "48000", 10);
+export const MAX_OUTPUT_BYTES = parseInt(process.env.APERIO_SHELL_MAX_OUTPUT_BYTES || "48000", 10);
 const HEAD_BYTES       = Math.floor(MAX_OUTPUT_BYTES / 4);
 const TAIL_BYTES       = MAX_OUTPUT_BYTES - HEAD_BYTES;
 const TIMEOUT_MS       = 60_000;

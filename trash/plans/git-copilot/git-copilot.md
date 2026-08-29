@@ -40,7 +40,9 @@ flowchart TD
     GM --> CAP
 
     LOAD --> POLICY["Git policy/runner<br/>reuses isWritePathAllowed/isReadPathAllowed<br/>(lib/routes/paths.js, unchanged)"]
-    POLICY -->|read-only| RUN["execFile git, shell:false<br/>allowed on any repo"]
+    POLICY -->|read-only| RSCOPE{"repo root under an<br/>allowed read path?"}
+    RSCOPE -->|no| DENY
+    RSCOPE -->|yes| RUN["spawn git, shell:false"]
     POLICY -->|mutating| SCOPE{"repo root under an<br/>allowed write path?"}
     SCOPE -->|no| DENY["Deny"]
     SCOPE -->|yes| CONFIRM["Confirm chassis<br/>CONFIRMABLE_TOOLS + git_ token regex<br/>+ api-interrupts.js dispatch<br/>stat-summary preview, 2min TTL (#534, accepted-short)"]
@@ -172,12 +174,18 @@ in WS3–WS8 ships until this does.
 
 1. Build the shared repo-resolution + argv-safe runner: resolve the real repo root
    (`git rev-parse --show-toplevel` via `execFile`, `shell: false`), classify each
-   tool call as read-only (allowed on any resolvable repo) or mutating (must pass
-   `isWritePathAllowed` on the resolved root — reuse `lib/routes/paths.js` exports
-   unmodified, per #348).
+   tool call as read-only (must pass `isReadPathAllowed`) or mutating (must pass
+   `isWritePathAllowed`) on the resolved root — reuse `lib/routes/paths.js` exports
+   unmodified, per #348.
    *Works when:* a read-only call (e.g. status) against a repo outside any allowed
-   write path succeeds; a mutating call against the same repo is denied with a
-   clear "not an allowed write path" message.
+   read path is denied with a clear "not an allowed read path" message; a mutating
+   call against a repo outside any allowed write path is denied with a clear "not
+   an allowed write path" message.
+   **SUPERSEDED 2026-08-29** (security review): this originally read "read-only
+   (allowed on any resolvable repo)" — reversed because a read-only call can still
+   return full file contents (`git show HEAD:path`, `git log -p`), so it needs the
+   same boundary as any other read tool. AGENTS.md: "no read-only tier" — one
+   allowed-folders list covers read and write alike, no broader exception for git.
 2. Enforce explicit staging: the stage tool accepts only an explicit `paths: []`
    array — no `.`/`-A`/empty-means-everything semantics anywhere in the git argv
    builder (#348, #533's "commits another session's work" guard).
@@ -201,10 +209,11 @@ in WS3–WS8 ships until this does.
 1. Implement `git_status`, `git_diff`, `git_log` per #343's original schemas
    (branch/HEAD/upstream/ahead-behind/staged/modified/untracked/conflicts for
    status; bounded working/staged/base patch + file stats for diff; bounded
-   structured history for log). Read-only — usable on any resolvable repo per
-   WS2.1, no confirm flow.
+   structured history for log). Read-only, no confirm flow — but per WS2.1's
+   superseded decision (2026-08-29), still gated by `isReadPathAllowed`, not
+   usable against an arbitrary resolvable repo.
    *Works when:* each tool returns structured JSON (not raw porcelain text) and
-   works against a repo outside any allowed write path.
+   works against a repo under an allowed read path; is denied against one outside it.
 
 ### WS4 — `git-write` tools (confirm required)
 
