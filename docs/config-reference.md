@@ -223,22 +223,6 @@ number · tier 1 (Settings UI, restart to apply) · default: `48000` · advanced
 
 Max bytes of shell output captured before truncation.
 
-### Git co-pilot (git_* tools)
-
-Structured Git tools (status/diff/log/stage/commit/branch/integrate/sync) — no free-form shell access to git. Off by default.
-
-#### `APERIO_ENABLE_GIT`
-
-boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
-
-Turn on the git_* tools (status/diff/log/stage/commit/branch/integrate/sync). Off unless set to exactly 'on'.
-
-#### `APERIO_GIT_MODE`
-
-select · tier 1 (Settings UI, restart to apply) · default: `confirm` · options: `confirm | autonomous` · advanced
-
-confirm (default): mutating git_* calls need a confirm token before they run. autonomous: they run without one. Only used when APERIO_ENABLE_GIT is on.
-
 ### Capable local models
 
 Local llama.cpp models are lean chat models by default; list trusted ones to grant them tools + memory.
