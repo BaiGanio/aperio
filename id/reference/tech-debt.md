@@ -700,6 +700,21 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
 
 ---
 
+## Terminal standalone mode — zero test coverage on the interactive command loop
+
+- 2026-08-30 Live-verifying native model vision (map #507) found `/attach <path>` in
+  standalone (no-server) mode completely broken: `lib/terminal/standalone.js` called
+  `join(scratchDir, "attachments")` without importing `join` from `path` — every attach
+  threw `ReferenceError: join is not defined`, silently swallowed into the printed
+  `attach failed: …` line. Fixed (one-line import). `tests/integration/terminal/standalone.test.js`
+  only covers pure helper functions extracted from the `runStandalone` closure
+  (`buildHistoryText`, `normalizeMessages`) — none of `/attach`, `/help`, `/restart`, etc.
+  are exercised against the real interactive loop, so a mistake like this ships silently.
+  `runStandalone(initialReasoning)` takes no injectable stdin/stdout/agent, so testing it
+  needs either a refactor to accept them or a child-process-driven integration test (see
+  the live demo transcript that caught this one). Worth a real harness if this file keeps
+  growing; not done here — out of scope for the fix itself.
+
 ## Intentional deferrals
 
 These are intentional deferrals. Do not "fix" them without discussion.

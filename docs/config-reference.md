@@ -578,6 +578,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `300000` · advance
 
 Timeout for the local VLM image-analysis bridge (the local vision model — see LLAMACPP_MODEL).
 
+#### `LLAMACPP_VLM_IDLE_UNLOAD_MS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `600000` · advanced
+
+On a cloud text-only provider (e.g. DeepSeek), the local vision model is started on demand for image turns and otherwise sits idle holding RAM. It is stopped after this many ms with no further vision turn, then restarted on demand again next time. Never applies to LLAMACPP_MODEL itself — only to this on-demand bridge instance.
+
 #### `CODEX_COMPLETION_TIMEOUT_MS`
 
 number · tier 1 (Settings UI, restart to apply) · default: `120000` · advanced

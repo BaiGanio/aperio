@@ -196,11 +196,10 @@ describe("isLocalProvider / isCloudProvider", () => {
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
 });
 
-// providerDropsImages / IMAGE_DROPPING_PROVIDERS were deleted 2026-08-26
-// (model-vision-autodetect plan, WS2): every image now either reaches the
-// model natively or goes through the local VLM bridge (ensureVisionEngine on
-// a cloud text-only provider) — there is no longer a "silently drop the
-// image" path to guard against.
+// providerDropsImages / IMAGE_DROPPING_PROVIDERS were deleted 2026-08-26:
+// every image now either reaches the model natively or goes through the
+// local VLM bridge (ensureVisionEngine on a cloud text-only provider) —
+// there is no longer a "silently drop the image" path to guard against.
 
 // ── machineCapacityPct — estimated model + KV footprint as % of RAM ───────────
 describe("machineCapacityPct", () => {

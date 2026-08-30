@@ -647,10 +647,9 @@ describe("tool-profiles — CSV classification (issue #300)", () => {
 });
 
 // isCapableModel / needsRecallScaffold (issue #188 capability-gate doctrine)
-// were deleted 2026-08-26 (model-vision-autodetect plan, WS2): every model now
-// gets tools + the memory pointer, and the model-name-list recall scaffold
-// this described is gone with them. See model-capabilities.test.js for the
-// measured-from-the-GGUF replacement.
+// were deleted 2026-08-26: every model now gets tools + the memory pointer,
+// and the model-name-list recall scaffold this described is gone with them.
+// See model-capabilities.test.js for the measured-from-the-GGUF replacement.
 
 // ---------------------------------------------------------------------------
 // Phase 5a (issue #307): pure category-2 helpers extracted from the inline

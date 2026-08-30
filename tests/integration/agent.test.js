@@ -695,9 +695,8 @@ describe("run_shell cwd injection", () => {
 
 // The forced auto-recall scaffold gate (issue #188) — needsRecallScaffold,
 // isCapableModel, APERIO_CAPABLE_MODELS/APERIO_RECALL_SCAFFOLD_MODELS — was
-// deleted 2026-08-26 (model-vision-autodetect plan, WS2): every model gets
-// tools + the memory pointer now, and the forced-injection override this
-// described no longer exists.
+// deleted 2026-08-26: every model gets tools + the memory pointer now, and
+// the forced-injection override this described no longer exists.
 
 // ---------------------------------------------------------------------------
 // Deterministic document-index inventory
@@ -1736,7 +1735,7 @@ describe("Provider resolution - DeepSeek", () => {
     assert.strictEqual(p.llamacppBaseURL, undefined);
   });
 
-  test("deepseek is a provider-level blind, regardless of the specific model (model-vision-autodetect plan — no more per-model name list)", () => {
+  test("deepseek is a provider-level blind, regardless of the specific model (no more per-model name list)", () => {
     process.env.AI_PROVIDER = "deepseek";
     process.env.DEEPSEEK_API_KEY = "sk-test";
 

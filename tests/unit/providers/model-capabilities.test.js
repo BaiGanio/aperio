@@ -1,8 +1,7 @@
 // tests/unit/providers/model-capabilities.test.js
 //
 // Coverage for lib/providers/model-capabilities.js and the two ggufModelFacts.js
-// helpers it builds on (hasCachedMmproj, hasToolCallingTemplate). Companion to
-// trash/plans/model-vision-autodetect/model-vision-autodetect-tests.md (G1-G4).
+// helpers it builds on (hasCachedMmproj, hasToolCallingTemplate).
 //
 // This replaces isVisionModel/isToollessVLM's name-regex tests: vision and
 // tool-calling are now measured from the model file itself (a cached mmproj

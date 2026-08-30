@@ -9,6 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **`/attach` in standalone (no-server) terminal mode was completely broken.** A missing
+  `path` import (`join`) made every attach throw, silently degraded to an
+  `attach failed: join is not defined` line. Found while live-verifying native model
+  vision end to end.
+
 ### Added
 
 - **The six-topic Aperio Manual is now published from the landing site.** A new
@@ -39,6 +46,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   text-only and 400 on image content, so every DeepSeek image turn goes
   through the local bridge; there is no DeepSeek model that receives images
   natively.
+- **The on-demand local vision engine now idles itself out.** DeepSeek's local
+  vision bridge previously stayed resident (several GB of RAM) until Aperio
+  itself shut down, even after a single photo. It now stops after
+  `LLAMACPP_VLM_IDLE_UNLOAD_MS` (default 10 minutes) of no further vision
+  turn, and restarts on demand exactly as before the next time one arrives.
+  Never applies to a directly-configured `LLAMACPP_MODEL` main engine.
 
 ### Removed
 

@@ -114,9 +114,8 @@ test("the same scenario still warns when the mutation tool IS actually available
 
 // The second P2 finding this file used to cover (modelIsCapable() gating on
 // APERIO_CAPABLE_MODELS) no longer applies: that name-list capability gate
-// was deleted 2026-08-26 (model-vision-autodetect plan, WS2) — every model
-// gets tools now, so there is no "incapable model never offered any tools"
-// state left to guard against.
+// was deleted 2026-08-26 — every model gets tools now, so there is no
+// "incapable model never offered any tools" state left to guard against.
 
 function sseChunk(obj) { return `data: ${JSON.stringify(obj)}\n\n`; }
 

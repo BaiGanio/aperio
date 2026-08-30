@@ -91,10 +91,10 @@ function fakeKill(result) {
 // Every test in this suite must stay network-free and deterministic, and the
 // existing mockFetchSequence helper below intercepts globalThis.fetch wholesale
 // for /health and /v1/models — so the HF tree-lookup URL is special-cased
-// FIRST, answered from this small allowlist mirroring the plan's real-cache
-// ground truth (model-vision-autodetect.md), and never consumes a sequence
-// slot meant for a health/models check. Anything not listed here resolves as
-// blind, matching the safe default a real uncached/unknown repo gets.
+// FIRST, answered from this small allowlist mirroring real cached repos'
+// ground truth, and never consumes a sequence slot meant for a health/models
+// check. Anything not listed here resolves as blind, matching the safe
+// default a real uncached/unknown repo gets.
 const VISION_REPOS = new Set([
   "unsloth/gemma-4-E4B-it-qat-GGUF",
   "unsloth/gemma-4-E2B-it-qat-GGUF",
@@ -1071,6 +1071,57 @@ describe("ensureVisionEngine", () => {
     assert.equal(getLlamaCppPid(), 62002, "the second (different-preset) call's spawn is left owning the engine, matching what it actually asked for");
   });
 });
+
+// =============================================================================
+// A2D follow-up (2026-08-30): the on-demand vision engine ensureVisionEngine
+// spawns for a cloud text-only provider never idle-unloaded — it sat resident
+// until app shutdown after describing a single photo. LLAMACPP_VLM_IDLE_UNLOAD_MS
+// stops it after N ms with no further vision turn; the next turn restarts it
+// on demand exactly as ensureVisionEngine already does for a cold cache.
+describe("ensureVisionEngine — idle-unload", () => {
+  afterEach(() => { delete process.env.LLAMACPP_VLM_IDLE_UNLOAD_MS; });
+
+  test("stops the on-demand engine after LLAMACPP_VLM_IDLE_UNLOAD_MS of no further vision turn", async () => {
+    process.env.LLAMACPP_VLM_IDLE_UNLOAD_MS = "50";
+    mockFetchSequence({ ok: false }, { ok: false }, { ok: true });
+    const trackerSpawn = () => ({ on: () => {}, unref: () => {}, pid: 63001 });
+    let killedPid = null;
+    const fakeKill = async (pid) => { killedPid = pid; return true; };
+
+    await ensureVisionEngine(null, trackerSpawn, fakeKill, () => null);
+    assert.equal(getLlamaCppPid(), 63001, "the on-demand engine is up");
+    assert.equal(killedPid, null, "must not stop immediately after starting");
+
+    await new Promise(r => setTimeout(r, 250)); // past the 50ms idle window
+    assert.equal(killedPid, 63001, "the idle timer must auto-stop the engine it spawned");
+    assert.equal(getLlamaCppPid(), null, "ownership is released once stopped");
+  });
+
+  test("a fresh vision turn before the idle window elapses re-arms the timer instead of letting it fire", async () => {
+    process.env.LLAMACPP_VLM_IDLE_UNLOAD_MS = "150";
+    mockFetchSequence({ ok: false }, { ok: false }, { ok: true });
+    const trackerSpawn = () => ({ on: () => {}, unref: () => {}, pid: 63002 });
+    let killCalls = 0;
+    const fakeKill = async () => { killCalls++; return true; };
+
+    await ensureVisionEngine(null, trackerSpawn, fakeKill, () => null);
+
+    await new Promise(r => setTimeout(r, 90)); // partway through the window — a new turn arrives
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith("/health")) return { ok: true };
+      if (String(url).endsWith("/v1/models")) return jsonResponse({ data: [{ id: "aperio-vlm" }] });
+      return { ok: false };
+    };
+    await ensureVisionEngine(null, trackerSpawn, fakeKill, () => null); // no-op fast path, but must rearm
+
+    await new Promise(r => setTimeout(r, 100)); // 190ms since start, only 100ms since rearm
+    assert.equal(killCalls, 0, "a fresh turn must reset the idle clock, not let the original window fire");
+
+    await new Promise(r => setTimeout(r, 100)); // now past the rearmed window
+    assert.equal(killCalls, 1, "the rearmed timer must still fire once the (new) window elapses");
+  });
+});
+
 describe("killByPid — process-group teardown", () => {
   // llama-server's router forks a child model worker into its own process group
   // (we spawn the router detached). killByPid must signal the GROUP (negative

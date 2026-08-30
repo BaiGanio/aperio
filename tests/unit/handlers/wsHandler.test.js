@@ -703,11 +703,10 @@ describe("message type: chat", () => {
   });
 
   // capability_notice / images_dropped (provider-ux-parity WS6/F1) was
-  // deleted 2026-08-26 (model-vision-autodetect plan, WS2): every provider
-  // now either carries an image natively or routes it through the local
-  // vision bridge (ensureVisionEngine for a cloud text-only provider), so
-  // there is no longer a "this provider silently can't see images" case to
-  // notify the user about.
+  // deleted 2026-08-26: every provider now either carries an image natively
+  // or routes it through the local vision bridge (ensureVisionEngine for a
+  // cloud text-only provider), so there is no longer a "this provider
+  // silently can't see images" case to notify the user about.
 });
 
 // ─── "stop" message ───────────────────────────────────────────────────────────
