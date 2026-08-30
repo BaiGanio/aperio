@@ -154,7 +154,13 @@ describe("github webhook — full middleware chain", () => {
 
   after(async () => {
     delete process.env.GITHUB_WEBHOOK_SECRET;
-    await new Promise((resolve) => server.close(resolve));
+    await new Promise((resolve, reject) => {
+      server.close((err) => err ? reject(err) : resolve());
+      // Node's global fetch keeps HTTP/1.1 connections pooled. Do not let an
+      // Undici keep-alive socket make this hook wait indefinitely when the
+      // file runs inside the full coverage suite.
+      server.closeAllConnections();
+    });
   });
 
   test("valid-HMAC delivery with no X-Aperio-Client header reaches and is accepted by the route", async () => {
@@ -163,6 +169,7 @@ describe("github webhook — full middleware chain", () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        "connection": "close",
         "x-github-event": "issues",
         "x-hub-signature-256": sign(raw),
         // deliberately no X-Aperio-Client — GitHub can never send it
@@ -179,7 +186,7 @@ describe("github webhook — full middleware chain", () => {
   test("other state-changing /api/* routes still require X-Aperio-Client (exemption is scoped to the webhook path only)", async () => {
     const res = await fetch(`${baseUrl}/api/some-other-route`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "connection": "close" },
       body: "{}",
     });
     assert.equal(res.status, 403);

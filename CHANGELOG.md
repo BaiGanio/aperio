@@ -52,6 +52,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The install-matrix workflow now uses the verification each ARM runner can
+  actually support.** Linux and macOS ARM continue to run the full Node test
+  suite, while Windows ARM runs the packaged PowerShell installation smoke
+  contract instead of failing throughout the suite on unavailable native
+  dependencies and POSIX-only filesystem assertions.
+
+- **CI vision tests no longer depend on a removed capability override or a
+  developer's local model cache.** Each test now creates an isolated fake GGUF
+  cache containing a projector, exercises measured vision detection, and
+  removes the fixture afterward.
+
+- **The GitHub webhook integration test now releases its HTTP connections under
+  coverage.** Requests opt out of keep-alive and teardown closes pooled
+  connections before awaiting the server, preventing the full CI process from
+  hanging after the assertions pass.
+
 - **Docgraph no longer leaves orphaned memories behind when a document is
   deleted, renamed, or reindexed while a bridge memory is in flight (#360).**
   Deleting a file, sweeping missing files, and deleting a whole repo now purge

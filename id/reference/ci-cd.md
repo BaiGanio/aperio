@@ -38,7 +38,11 @@ GitHub Actions workflows in `.github/workflows/`:
   otherwise ship green.
 - `ci.install-matrix.yml` — the release-facing install flows end to end: the
   one-liner installer on `ubuntu-latest` and `macos-latest`, the packaged
-  Windows zip launcher flow, and an opt-in `full_suite` job on ARM runners.
+  Windows zip launcher flow, and opt-in extended ARM verification. The full
+  Node test suite runs on `ubuntu-24.04-arm` and `macos-latest`; Windows ARM
+  runs the shared PowerShell installation smoke contract instead, because the
+  full suite depends on native modules and POSIX filesystem semantics that are
+  not supported on `windows-11-arm`.
   Triggered by PRs touching `.github/lite/**`, `vms/**`, `server.js`, `db/**`,
   or the manifests; nightly at 03:17 UTC (scheduled runs are `dev`-only); or by
   dispatch. Both POSIX and Windows jobs drive the shared `vms/smoke` contract,

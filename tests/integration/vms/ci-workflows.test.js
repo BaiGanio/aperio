@@ -49,13 +49,16 @@ test("install matrix packages the Windows launcher and runs PowerShell smoke", a
   assert.match(workflow, /node_modules\/\.package-lock\.json/);
 });
 
-test("nightly/full-suite job is pinned to ARM runner labels", async () => {
+test("nightly full suite uses supported ARM runners and Windows ARM runs its installation contract", async () => {
   const workflow = await readFile(resolve(ROOT, ".github/workflows/ci.install-matrix.yml"), "utf8");
   assert.match(workflow, /ubuntu-24\.04-arm/);
   assert.match(workflow, /windows-11-arm/);
   assert.match(workflow, /full-suite-arm/);
+  assert.match(workflow, /windows-arm-smoke/);
+  assert.match(workflow, /os: \[ubuntu-24\.04-arm, macos-latest\]/);
   assert.match(workflow, /npm run test:ci/);
   assert.match(workflow, /name: Run full test suite\s+shell: bash\s+run: npm run test:ci/);
+  assert.match(workflow, /name: Run Windows ARM installation smoke contract\s+shell: pwsh\s+run: \.\\vms\\smoke\.ps1 \./);
 });
 
 test("Codecov refreshes complete coverage and test dashboards", async () => {

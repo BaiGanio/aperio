@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       full_suite:
-        description: Run the full test suite on ARM runners
+        description: Run the extended ARM verification jobs
         required: false
         default: false
         type: boolean
@@ -150,7 +150,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-arm, macos-latest, windows-11-arm]
+        os: [ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -164,3 +164,20 @@ jobs:
       - name: Run full test suite
         shell: bash
         run: npm run test:ci
+
+  windows-arm-smoke:
+    name: install smoke (windows-11-arm)
+    if: github.event_name == 'schedule' || inputs.full_suite == true
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Windows ARM installation smoke contract
+        shell: pwsh
+        run: .\vms\smoke.ps1 .

@@ -105,6 +105,25 @@ const stubMcpTransport = (t) => {
   return { start, close, listTools };
 };
 
+function useCachedVisionModel(t, model) {
+  const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-agent-vision-cache-"));
+  const repoDir = path.join(cacheRoot, "models--" + model.replaceAll("/", "--"));
+  const snapshot = path.join(repoDir, "snapshots", "abc");
+  fs.mkdirSync(path.join(repoDir, "refs"), { recursive: true });
+  fs.mkdirSync(snapshot, { recursive: true });
+  fs.writeFileSync(path.join(repoDir, "refs", "main"), "abc");
+  fs.writeFileSync(path.join(snapshot, "model-Q4_K_M.gguf"), Buffer.alloc(16));
+  fs.writeFileSync(path.join(snapshot, "mmproj-BF16.gguf"), Buffer.alloc(16));
+
+  const previousCache = process.env.LLAMA_CACHE;
+  process.env.LLAMA_CACHE = cacheRoot;
+  t.after(() => {
+    fs.rmSync(cacheRoot, { recursive: true, force: true });
+    if (previousCache === undefined) delete process.env.LLAMA_CACHE;
+    else process.env.LLAMA_CACHE = previousCache;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // agent.js – core
 // ---------------------------------------------------------------------------
@@ -1061,25 +1080,8 @@ describe("Agent Integration with Emitter", () => {
   test("a native-vision local model strips read_image/preprocess_image/describe_image for an inline upload", async (t) => {
     stubMcpTransport(t);
 
-    // modelHandlesInlineImage is now measured from a cached mmproj file
-    // (model-capabilities.js), not a name allowlist. Give this model a real
-    // fixture cache entry so it resolves as native-vision.
     const model = "harness-org/agent-vision-test-GGUF";
-    const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-agent-vision-cache-"));
-    const repoDir = path.join(cacheRoot, "models--" + model.replaceAll("/", "--"));
-    const snap = path.join(repoDir, "snapshots", "abc");
-    fs.mkdirSync(path.join(repoDir, "refs"), { recursive: true });
-    fs.mkdirSync(snap, { recursive: true });
-    fs.writeFileSync(path.join(repoDir, "refs", "main"), "abc");
-    fs.writeFileSync(path.join(snap, "model-Q4_K_M.gguf"), Buffer.alloc(16));
-    fs.writeFileSync(path.join(snap, "mmproj-BF16.gguf"), Buffer.alloc(16));
-    const prevLlamaCache = process.env.LLAMA_CACHE;
-    process.env.LLAMA_CACHE = cacheRoot;
-    t.after(() => {
-      fs.rmSync(cacheRoot, { recursive: true, force: true });
-      if (prevLlamaCache === undefined) delete process.env.LLAMA_CACHE;
-      else process.env.LLAMA_CACHE = prevLlamaCache;
-    });
+    useCachedVisionModel(t, model);
 
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
@@ -1124,9 +1126,8 @@ describe("Agent Integration with Emitter", () => {
     // otherwise leftover tools (recall/self_recall) give a weak local model
     // something to hallucinate a malformed call against.
     stubMcpTransport(t);
-    const prev = process.env.APERIO_CAPABLE_MODELS;
-    process.env.APERIO_CAPABLE_MODELS = "unsloth/gemma-4-e4b-it-qat-gguf:q4_k_xl";
-    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+    const model = "harness-org/task-shaped-vision-test-GGUF";
+    useCachedVisionModel(t, model);
 
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
@@ -1135,7 +1136,7 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({
       root: FAKE_ROOT, version: "1.0.0",
-      providerConfig: { name: "llamacpp", model: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL" },
+      providerConfig: { name: "llamacpp", model },
     });
     await agent.buildGreeting();
 
@@ -1154,9 +1155,8 @@ describe("Agent Integration with Emitter", () => {
 
   test("a mixed-intent visual request (explicit db/save language) keeps non-image tools but still drops image tools", async (t) => {
     stubMcpTransport(t);
-    const prev = process.env.APERIO_CAPABLE_MODELS;
-    process.env.APERIO_CAPABLE_MODELS = "unsloth/gemma-4-e4b-it-qat-gguf:q4_k_xl";
-    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+    const model = "harness-org/mixed-intent-vision-test-GGUF";
+    useCachedVisionModel(t, model);
 
     // The shared stub's tool list omits database tools — add them so the
     // database profile has something real to offer.
@@ -1173,7 +1173,7 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({
       root: FAKE_ROOT, version: "1.0.0",
-      providerConfig: { name: "llamacpp", model: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL" },
+      providerConfig: { name: "llamacpp", model },
     });
     await agent.buildGreeting();
 
