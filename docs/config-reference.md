@@ -628,7 +628,7 @@ Token + webhook secret for the issue-triage tools. Both can also be set in the a
 
 secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
-Personal access token for the github tools. Read needs no token for public repos; write (create/update issue) requires a `repo`-scoped token. github.com/settings/tokens
+Personal access token for the github tools. Read needs no token for public repos; write (create/update issue) requires a `repo`-scoped token. github.com/settings/tokens. Setting this also lets run_shell's git push/clone/pull/fetch (when APERIO_ENABLE_SHELL=1) target a bare https://github.com/<owner>/<repo>.git URL, authenticated automatically — never pass credentials in the URL yourself. Named remotes (origin), ssh URLs, and any non-github.com host remain blocked.
 
 #### `GITHUB_WEBHOOK_SECRET`
 

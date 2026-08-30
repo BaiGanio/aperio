@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
-import { ALLOWED_CMDS, parsePipeline, validatePipeline } from "./shell/command.js";
+import { ALLOWED_CMDS, parsePipeline, validatePipeline, withGithubToken } from "./shell/command.js";
 
 // Hard cap on captured stdout/stderr, applied per stream. Small-context local
 // models drown in long logs (a 4B model can't use 24K tokens of build output),
@@ -411,7 +411,11 @@ function displayPipeline(pipeline) {
   return pipeline.map(argv => argv.map(value => /\s/.test(value) ? JSON.stringify(value) : value).join(" ")).join(" | ");
 }
 
-function collectPipeline(pipeline, cwd, timeoutMs) {
+function redactToken(text, token) {
+  return token && text ? text.split(token).join("[REDACTED]") : text;
+}
+
+function collectPipeline(pipeline, cwd, timeoutMs, githubToken) {
   return new Promise((resolveResult) => {
     const outBuf = makeTailBiasedSink();
     const errBuf = makeTailBiasedSink();
@@ -426,8 +430,8 @@ function collectPipeline(pipeline, cwd, timeoutMs) {
       resolveResult({
         exitCode: exitCodes.find(code => code !== null && code !== 0) ?? exitCodes.at(-1) ?? null,
         timedOut,
-        stdout: outBuf.toString().trimEnd(),
-        stderr: errBuf.toString().trimEnd(),
+        stdout: redactToken(outBuf.toString().trimEnd(), githubToken),
+        stderr: redactToken(errBuf.toString().trimEnd(), githubToken),
         stdoutBytes: outBuf.bytes,
         stderrBytes: errBuf.bytes,
         ...extra,
@@ -443,7 +447,7 @@ function collectPipeline(pipeline, cwd, timeoutMs) {
 
     try {
       for (let i = 0; i < pipeline.length; i++) {
-        const [program, ...args] = pipeline[i];
+        const [program, ...args] = githubToken ? withGithubToken(pipeline[i], githubToken) : pipeline[i];
         const child = spawn(program, args, {
           cwd,
           stdio: [i === 0 ? "ignore" : "pipe", "pipe", "pipe"],
@@ -552,13 +556,18 @@ export async function runShellHandler({ command, steps, stop_on_error = true, cw
   // spawn doesn't throw ENOENT when the directory hasn't been created yet.
   try { mkdirSync(cwd, { recursive: true }); } catch { /* non-fatal */ }
 
+  // GITHUB_TOKEN being set is the opt-in for git push/clone to github.com — no
+  // separate flag. Read live (never cached at module load — see command.js's
+  // githubRemoteEnabled for why).
+  const githubToken = process.env.GITHUB_TOKEN || null;
+
   const meta = sessionMeta(cwd);
   const deadline = Date.now() + TIMEOUT_MS;
   const outputs = [];
   for (const [index, pipeline] of normalized.pipelines.entries()) {
     const label = displayPipeline(pipeline);
     logger.info(`[run_shell] step ${index + 1}/${normalized.pipelines.length}: ${label} (cwd=${cwd})`);
-    const r = await collectPipeline(pipeline, cwd, deadline - Date.now());
+    const r = await collectPipeline(pipeline, cwd, deadline - Date.now(), githubToken);
     if (r.spawnError) {
       const missing = r.spawnError.code === "ENOENT";
       const text = missing
@@ -666,7 +675,7 @@ export function register(server) {
   server.registerTool(
     "run_shell",
     {
-      description: `Run allowlisted programs directly and return stdout/stderr. ⚠️ Enabling run_shell (APERIO_ENABLE_SHELL=1) grants host-level process execution as the Aperio user — the cwd check is NOT an OS sandbox. For one command or a pipeline, pass command. For safe sequential chaining, pass structured steps [{ program, args }]; steps stop at the first failure unless stop_on_error is false. Programs are spawned directly without sh, so shell expansion and control operators (; && || & < > backticks, $(), and newlines) are unavailable. To create a script, call write_file first—never use echo > file—then use run_node_script/run_python_script or a structured step. Pipes ('|') remain available in command. Allowed programs: ${[...ALLOWED_CMDS].join(", ")}. Interpreters cannot run inline code; file arguments must resolve inside allowed paths; use fetch_url instead of curl.`,
+      description: `Run allowlisted programs directly and return stdout/stderr. ⚠️ Enabling run_shell (APERIO_ENABLE_SHELL=1) grants host-level process execution as the Aperio user — the cwd check is NOT an OS sandbox. For one command or a pipeline, pass command. For safe sequential chaining, pass structured steps [{ program, args }]; steps stop at the first failure unless stop_on_error is false. Programs are spawned directly without sh, so shell expansion and control operators (; && || & < > backticks, $(), and newlines) are unavailable. To create a script, call write_file first—never use echo > file—then use run_node_script/run_python_script or a structured step. Pipes ('|') remain available in command. Allowed programs: ${[...ALLOWED_CMDS].join(", ")}. Interpreters cannot run inline code; file arguments must resolve inside allowed paths; use fetch_url instead of curl. git: read-only subcommands, plus init/add/commit/push/pull/fetch/clone against a local filesystem path — named remotes (origin) and ssh URLs are always rejected. push/pull/fetch/clone MAY also target a bare https://github.com/<owner>/<repo>.git URL with no embedded credentials — the token is added automatically from GITHUB_TOKEN when it is set in .env.`,
       inputSchema: z.object({
         command: z.string().max(16_000).optional().describe('One command or pipeline, e.g. node /abs/path/read.js out.pptx | grep -iE "lorem|ipsum"'),
         steps: z.array(z.object({

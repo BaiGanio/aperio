@@ -17,7 +17,7 @@ All tools registered in `mcp/index.js`. Each tool file in `mcp/tools/` exports a
 | Wiki | `wiki_get`, `wiki_write`, `wiki_list`, `wiki_search`, `propose_wiki` | `wiki.js` |
 | Code graph | `code_search`, `code_context`, `code_outline`, `code_callers`, `code_callees`, `code_repos`, `code_neighbors`, `code_path`, `code_insights` | `codegraph.js` |
 | Doc graph | `doc_search`, `doc_context`, `doc_outline`, `doc_refs`, `doc_repos`, `doc_manifest`, `doc_batch` | `docgraph.js` |
-| GitHub | `fetch_github_issue`, `create_github_issue`, `update_github_issue`, `list_github_issues`, `record_issue_triage` | `github.js` |
+| GitHub | `fetch_github_issue`, `create_github_issue`, `update_github_issue`, `list_github_issues`, `list_github_repos`, `record_issue_triage` | `github.js` |
 | Data | `export_data`, `import_data` | `data.js` |
 | Database | `db_query`, `db_execute`, `db_schema`, `db_connections` (external DB connections) | `database.js` |
 | Extraction | `extraction_template_list`, `extraction_template_get`, `extraction_template_match`, `extraction_template_propose`, `extraction_template_delete`, `extraction_apply`, `extraction_log_check`, `extraction_log_record` | `extraction.js` |

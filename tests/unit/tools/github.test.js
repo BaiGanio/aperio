@@ -11,6 +11,7 @@ import {
   createGithubIssueHandler,
   updateGithubIssueHandler,
   listGithubIssuesHandler,
+  listGithubReposHandler,
   recordIssueTriageHandler,
   register,
 } from "../../../mcp/tools/github.js";
@@ -450,6 +451,57 @@ describe("list_github_issues", () => {
       const text = res.content[0].text;
       assert.doesNotMatch(text, /#1 ·/, "already-triaged issue is excluded");
       assert.match(text, /#2 ·/, "pending issue is included");
+    }));
+});
+
+// =============================================================================
+// list_github_repos
+// =============================================================================
+
+const REPOS = [
+  { full_name: "octocat/hello", private: false, updated_at: "2026-06-01T00:00:00Z", description: "Say hi" },
+  { full_name: "octocat/secret", private: true, updated_at: "2026-06-02T00:00:00Z", description: null },
+];
+
+function reposResponse(items) {
+  return async () => jsonResponse(items);
+}
+
+describe("list_github_repos", () => {
+  test("no token and no owner returns a friendly error, no fetch", async () => {
+    let called = false;
+    await withMockFetch(async () => { called = true; throw new Error("should not fetch"); }, async () => {
+      const res = await listGithubReposHandler({}, { store: fakeStore() });
+      assert.match(res.content[0].text, /No GitHub token configured/);
+      assert.equal(called, false);
+    });
+  });
+
+  test("with token: lists the authenticated user's repos", () =>
+    withMockFetch(reposResponse(REPOS), async () => {
+      const res = await listGithubReposHandler({}, { store: fakeStore({ "github.token": "test-token" }) });
+      const text = res.content[0].text;
+      assert.match(text, /octocat\/hello · public/);
+      assert.match(text, /octocat\/secret · private/);
+      assert.match(text, /2 found/);
+    }));
+
+  test("with owner: lists that account's public repos, no token needed", () =>
+    withMockFetch(reposResponse(REPOS), async () => {
+      const res = await listGithubReposHandler({ owner: "octocat" }, { store: fakeStore() });
+      assert.match(res.content[0].text, /octocat\/hello/);
+    }));
+
+  test("no repos found", () =>
+    withMockFetch(reposResponse([]), async () => {
+      const res = await listGithubReposHandler({ owner: "nobody" }, { store: fakeStore() });
+      assert.match(res.content[0].text, /no repos found for nobody/);
+    }));
+
+  test("returns error on non-200 API response", () =>
+    withMockFetch(async () => ({ ok: false, status: 401, text: async () => "Bad credentials", json: async () => ({}) }), async () => {
+      const res = await listGithubReposHandler({}, { store: fakeStore({ "github.token": "bad-token" }) });
+      assert.match(res.content[0].text, /GitHub API error 401/);
     }));
 });
 

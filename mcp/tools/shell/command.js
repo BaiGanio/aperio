@@ -5,12 +5,53 @@ import { isReadPathAllowed, isWritePathAllowed } from "../../../lib/routes/paths
 // executor consumes argv arrays directly (shell:false); this parser exists only
 // for the backwards-compatible `command` string and supports quoting + pipes.
 export const ALLOWED_CMDS = new Set([
-  "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
+  "node", "npm", "git", "mkdir", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
   "python3", "soffice", "pdftoppm",
 ]);
 
 const READ_UTILS   = new Set(["cat", "head", "tail", "grep", "rg", "wc", "ls"]);
 const GIT_READONLY = new Set(["log", "status", "diff", "show", "remote", "branch", "rev-parse", "ls-files", "describe", "blame"]);
+// "init" is the one git write subcommand allowed via run_shell — it only ever
+// creates a repo at a path, which the write-path check below still gates.
+const GIT_INIT       = "init";
+// add/commit only ever touch the repo at cwd (already write-path-gated by
+// run_shell's cwd check), so they carry no remote/network risk.
+const GIT_CWD_WRITE   = new Set(["add", "commit"]);
+// push/pull/fetch/clone are allowed ONLY against a literal local filesystem
+// path — never a URL, an ssh shorthand (user@host:path), or a named remote
+// like "origin" (which resolves to whatever the repo's config points at).
+// This is the same anti-exfiltration line that keeps curl off ALLOWED_CMDS:
+// a network destination cannot be constrained by the path allowlist.
+const GIT_LOCAL_REMOTE = new Set(["push", "pull", "fetch", "clone"]);
+
+function isLocalGitPath(value) {
+  return looksLikePath(value) && !/:\/\//.test(value) && !/^[^\s@]+@[^\s:]+:/.test(value);
+}
+
+// GITHUB_TOKEN being set IS the opt-in — no separate on/off flag. Read live,
+// never cached at module load — .env is loaded by mcp/index.js's module body,
+// which can run after this module is first evaluated (see mcp/tools/github.js's
+// resolveToken for the same load-order note).
+function githubRemoteEnabled() {
+  return Boolean(process.env.GITHUB_TOKEN);
+}
+
+// Real URL parsing, not a substring test: "https://github.com@evil.com/x" has
+// hostname "evil.com" and must be rejected, not matched on "github.com"
+// appearing anywhere in the string. Credentials must be absent — the caller
+// passes a bare URL and the trusted spawn layer adds the token, so the model
+// (or anything that tricked it) never gets to embed its own auth in argv where
+// it would end up in logs.
+function isGithubRemoteUrl(value) {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  return url.protocol === "https:" && url.hostname.toLowerCase() === "github.com" &&
+    !url.username && !url.password;
+}
+
+function looksLikeGithubUrl(value) {
+  return /^https?:\/\//i.test(value) && /(^|[./@])github\.com([/:]|$)/i.test(value);
+}
 const FIND_ACTIONS = new Set(["-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprintf", "-fprint", "-fls"]);
 
 function syntaxError(message, operator = null) {
@@ -147,8 +188,66 @@ export function validateCommand(program, args, cwd) {
       if (value === "-c" || /^--exec-path=/.test(value)) return `git "${value}" is not allowed — it can execute arbitrary commands.`;
     }
     const subcommand = args.find(value => !value.startsWith("-"));
+    const subcommandIndex = args.indexOf(subcommand);
+
+    if (subcommand === GIT_INIT) {
+      const target = args.find(value => value !== GIT_INIT && !value.startsWith("-"));
+      if (target) {
+        const error = pathError(program, target, "write", cwd);
+        if (error) return error;
+      }
+      return null;
+    }
+
+    if (GIT_CWD_WRITE.has(subcommand)) {
+      for (const [i, value] of args.entries()) {
+        if (i === subcommandIndex || value.startsWith("-") || !looksLikePath(value)) continue;
+        const error = pathError(program, value, "write", cwd);
+        if (error) return error;
+      }
+      return null;
+    }
+
+    if (GIT_LOCAL_REMOTE.has(subcommand)) {
+      const positionals = args.filter((value, i) => i !== subcommandIndex && !value.startsWith("-"));
+      const remoteHelp = githubRemoteEnabled() ? "a local filesystem path, or a bare https://github.com/<owner>/<repo>.git URL (no embedded credentials — the token is added automatically)" : "a local filesystem path";
+      if (!positionals.length) {
+        return `git "${subcommand}" needs an explicit target via run_shell — bare invocations and named remotes (e.g. "origin") are not allowed because they can resolve to an unexpected address. Pass ${remoteHelp}.`;
+      }
+
+      const target = positionals[0];
+      if (isLocalGitPath(target)) {
+        const remoteCapability = subcommand === "push" ? "write" : "read";
+        const error = pathError(program, target, remoteCapability, cwd);
+        if (error) return error;
+      } else if (githubRemoteEnabled() && isGithubRemoteUrl(target)) {
+        // allowed — token presence already confirmed by githubRemoteEnabled()
+      } else if (looksLikeGithubUrl(target)) {
+        return githubRemoteEnabled()
+          ? `git "${subcommand}" target "${target}" is not a valid bare GitHub URL — use exactly https://github.com/<owner>/<repo>.git with no embedded credentials; the token is added automatically.`
+          : `git "${subcommand}" to github.com needs GITHUB_TOKEN set in .env.`;
+      } else {
+        return `git "${subcommand}" target "${target}" must be ${remoteHelp} — ssh remotes and named remotes are not allowed (they can send this repo's contents to an unexpected destination).`;
+      }
+
+      if (subcommand === "clone" && positionals[1]) {
+        const error = pathError(program, positionals[1], "write", cwd);
+        if (error) return error;
+      }
+      return null;
+    }
+
     if (!subcommand || !GIT_READONLY.has(subcommand)) {
-      return `git "${subcommand ?? "(no subcommand)"}" is not allowed via run_shell — only read-only git: ${[...GIT_READONLY].join(", ")}.`;
+      return `git "${subcommand ?? "(no subcommand)"}" is not allowed via run_shell — allowed: read-only (${[...GIT_READONLY].join(", ")}), "${GIT_INIT}", ${[...GIT_CWD_WRITE].join(", ")}, and ${[...GIT_LOCAL_REMOTE].join(", ")} (local paths, or github.com if enabled).`;
+    }
+    return null;
+  }
+
+  if (program === "mkdir") {
+    for (const value of args) {
+      if (value.startsWith("-")) continue;
+      const error = pathError(program, value, "write", cwd);
+      if (error) return error;
     }
     return null;
   }
@@ -201,6 +300,27 @@ export function validateCommand(program, args, cwd) {
   // trusted, host-level run_shell surface. Its filesystem reach cannot be
   // contained by argument inspection; cwd is still pinned by the caller.
   return null;
+}
+
+// Called only by the spawn layer, never during validation/logging: takes an
+// already-validated argv and, if it targets a bare github.com URL, returns a
+// NEW argv with the token embedded as userinfo. The model's own argv (and
+// every log line built from it) never contains the token — this is the one
+// place it gets added, right before the child process starts.
+export function withGithubToken(argv, token) {
+  if (argv[0] !== "git" || !token) return argv;
+  const args = argv.slice(1);
+  const subcommand = args.find(value => !value.startsWith("-"));
+  if (!GIT_LOCAL_REMOTE.has(subcommand)) return argv;
+  const subcommandIndex = args.indexOf(subcommand);
+  const targetIndex = args.findIndex((value, i) => i !== subcommandIndex && !value.startsWith("-"));
+  if (targetIndex === -1 || !isGithubRemoteUrl(args[targetIndex])) return argv;
+  const url = new URL(args[targetIndex]);
+  url.username = "x-access-token";
+  url.password = token;
+  const next = [...argv];
+  next[targetIndex + 1] = url.toString(); // args[targetIndex] === argv[targetIndex + 1]
+  return next;
 }
 
 export function validatePipeline(pipeline, cwd) {
