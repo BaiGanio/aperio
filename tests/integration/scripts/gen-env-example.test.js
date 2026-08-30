@@ -11,11 +11,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG, GROUPS, SECTIONS } from "../../../lib/config.js";
-
-const sectionGroup = Object.fromEntries(SECTIONS.map((s) => [s.id, s.group]));
-const groupSafe = Object.fromEntries(GROUPS.map((g) => [g.id, !!g.safe]));
-const isStartGroup = (e) => !!groupSafe[sectionGroup[e.section]];
+import { CONFIG } from "../../../lib/config.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = join(ROOT, "scripts", "gen-env-example.js");
@@ -50,7 +46,7 @@ describe("gen-env-example (#252 group C)", () => {
     assert.match(text, /STOP HERE/);
   });
 
-  test("C1 edge: each key is active only when `show: \"set\"` AND its group is \"start\"", () => {
+  test("C1 edge: each key's active state follows its registry `show` metadata", () => {
     run([], dir);
     const text = readFileSync(join(dir, ".env.example"), "utf8");
     const lines = text.split("\n");
@@ -58,26 +54,22 @@ describe("gen-env-example (#252 group C)", () => {
       const assignLine = lines.find((l) => l.replace(/^#\s*/, "").startsWith(`${e.key}=`));
       assert.ok(assignLine, `${e.key} assignment line missing`);
       const isActive = !assignLine.trimStart().startsWith("#");
-      const expected = e.show === "set" && isStartGroup(e);
+      const expected = e.show === "set";
       assert.equal(isActive, expected,
         `${e.key} should be ${expected ? "active" : "commented"}`);
     }
   });
 
-  // Regression for the P1 review finding: a plain `cp .env.example .env` must
-  // never activate the Postgres block. Its known-default password/URL would
-  // otherwise initialize a real Docker Postgres with a public credential while
-  // assertNonDefaultDbUrl() rejects that same URL and silently falls back to
-  // SQLite — confusing and, for the Docker container, actually insecure.
-  test("C1 edge: Postgres block ships fully commented regardless of registry `show`", () => {
+  test("C1 edge: the selected fresh-install Postgres profile ships active", () => {
     run([], dir);
     const text = readFileSync(join(dir, ".env.example"), "utf8");
     const lines = text.split("\n");
     for (const key of ["POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "DATABASE_URL"]) {
       const assignLine = lines.find((l) => l.replace(/^#\s*/, "").startsWith(`${key}=`));
       assert.ok(assignLine, `${key} assignment line missing`);
-      assert.ok(assignLine.trimStart().startsWith("#"), `${key} must render commented`);
+      assert.ok(!assignLine.trimStart().startsWith("#"), `${key} must render active`);
     }
+    assert.match(text, /^APERIO_ALLOW_DEFAULT_DB_PASSWORD=1$/m);
   });
 
   test("C2: reference page contains every registry key and its help", () => {

@@ -123,11 +123,11 @@ boundary that the lower rings are measured against.
 | Indexed-repo sync, user-triggered indexing | Persist new allowlist entries |
 
 **Enforcement**
-- **Shell is opt-in and off by default**: `run_shell` refuses unless
+- **Shell is gated by one switch, shipped on**: `run_shell` refuses unless
   `APERIO_ENABLE_SHELL=1` — `mcp/tools/shell.js:70` (`SHELL_ENABLED`), re-checked
-  at the handler `mcp/tools/shell.js:462`. It is also gated *per model*
-  (`isShellAllowedFor()`, `lib/agent/tool-profiles.js:90`) — local llama.cpp models
-  need an additional `APERIO_SHELL_LOCAL=1`.
+  at the handler `mcp/tools/shell.js:462`. The same switch controls whether the
+  tool is offered to every provider via `isShellAllowedFor()` in
+  `lib/agent/tool-profiles.js`.
 - Shell is **not** a raw shell: a command allowlist (`ALLOWED_CMDS`,
   `mcp/tools/shell.js:81`), banned command-chaining/redirect operators
   (`checkBannedOperators()`, `:327`), and per-program argument rules (`:360`+)

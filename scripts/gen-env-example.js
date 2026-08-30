@@ -5,8 +5,8 @@
 //
 //   .env.example              the complete list of every variable Aperio
 //                             reads, grouped by risk, each keeping its own
-//                             commented/uncommented state from the registry
-//                             (`show`) — dev users get everything in one file.
+//                             commented/uncommented shipped state from the
+//                             registry (`show`).
 //   docs/config-reference.md  the same complete inventory as readable
 //                             markdown for GitHub. Any of them still works in
 //                             a hand-written .env (see APERIO_CONFIG_PRECEDENCE).
@@ -40,7 +40,7 @@ const HEADER = `# Aperio — configuration bootstrap (AUTO-GENERATED)
 # grouped by how risky it is to touch. Only the START HERE block is normally edited.
 # The same inventory, as readable markdown, is in ${REF_LINK}.
 # Copy to \`.env\`, edit the START HERE values, and run \`npm start\`.
-# As shipped this runs fully local — llama.cpp + SQLite, no keys needed.
+# As shipped this runs fully local with no API keys needed.
 # The Settings UI wins over .env by default; see APERIO_CONFIG_PRECEDENCE below to flip that.
 # Use \`npm run gen:env:check\` to detect drift.`;
 
@@ -63,23 +63,17 @@ const groupOf = (e) => sectionGroup[e.section];
 // ── complete .env.example ─────────────────────────────────────────────────────
 // Every registry entry belongs in this file — dev users get the full
 // inventory in one place, not split across .env.example + config-reference.md.
-// Only the "start" GROUP honors an entry's `show: "set"`; every other group
-// renders commented regardless of `show`, so a plain `cp .env.example .env`
-// activates the START HERE block only — never a known-default Postgres
-// password or a tier-1 default that would silently outrank a Settings value
-// once APERIO_CONFIG_PRECEDENCE=env is in play.
-function renderTemplateEntry(e, groupSafe) {
+// `show` is the source of truth for the shipped fresh-install profile. Most
+// advanced entries stay commented, but explicitly selected defaults may be
+// active outside START HERE. Sensitive values require deliberate registry
+// metadata and visible warnings in their generated help text.
+function renderTemplateEntry(e) {
   const out = [];
   if (e.help) out.push(commentBlock(e.help));
   if (e.type === "select" && e.options) out.push(`# options: ${e.options.join(" | ")}`);
   const value = e.example !== undefined ? e.example : e.default;
   const assign = `${e.key}=${value}`;
-  // `show: "set"` only takes effect inside the "start" group (GROUPS[].safe).
-  // A cp .env.example .env flow must only activate the START HERE block —
-  // everything past the STOP banner stays commented no matter what an
-  // individual entry's `show` says, so a known-default value (e.g. the
-  // Postgres block's aperio_secret password) never gets silently switched on.
-  const active = groupSafe && e.show === "set";
+  const active = e.show === "set";
   out.push(active ? assign : `# ${assign}`);
   return out.join("\n");
 }
@@ -104,7 +98,7 @@ function buildTemplate() {
       const entries = inGroup.filter((e) => e.section === section.id);
       if (!entries.length) continue;
       parts.push(rule(section.title));
-      parts.push(entries.map((e) => renderTemplateEntry(e, group.safe)).join("\n\n"));
+      parts.push(entries.map(renderTemplateEntry).join("\n\n"));
       parts.push("");
     }
   }

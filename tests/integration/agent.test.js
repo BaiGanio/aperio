@@ -609,21 +609,18 @@ describe("llama.cpp Loop Logic - Health Check", () => {
 // (the MCP boundary).
 
 describe("run_shell cwd injection", () => {
-  // run_shell is only offered to the model when shell is enabled (globally + for
-  // local llama.cpp models) AND the model is trusted (listed in APERIO_CAPABLE_MODELS).
-  // These gates landed after this test was written; set them so run_shell actually
-  // reaches the model and the cwd-injection hook runs.
+  // run_shell is only offered when shell is enabled and the model is trusted
+  // (listed in APERIO_CAPABLE_MODELS). Set both gates so the call reaches the
+  // model and the cwd-injection hook runs.
   let savedEnv;
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
     delete process.env.LLAMACPP_MODEL;
     savedEnv = {
       APERIO_ENABLE_SHELL:   process.env.APERIO_ENABLE_SHELL,
-      APERIO_SHELL_LOCAL:    process.env.APERIO_SHELL_LOCAL,
       APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
     };
     process.env.APERIO_ENABLE_SHELL   = "1";
-    process.env.APERIO_SHELL_LOCAL    = "1";
     process.env.APERIO_CAPABLE_MODELS = "llama3.1";
   });
   afterEach(() => {
@@ -1376,15 +1373,13 @@ describe("Agent Integration with Emitter", () => {
 // ---------------------------------------------------------------------------
 
 describe("setProvider (real agent)", () => {
-  let prevEnableShell, prevShellLocal, prevCapable;
+  let prevEnableShell, prevCapable;
   beforeEach(() => {
     prevEnableShell = process.env.APERIO_ENABLE_SHELL;
-    prevShellLocal = process.env.APERIO_SHELL_LOCAL;
     prevCapable = process.env.APERIO_CAPABLE_MODELS;
   });
   afterEach(() => {
     if (prevEnableShell === undefined) delete process.env.APERIO_ENABLE_SHELL; else process.env.APERIO_ENABLE_SHELL = prevEnableShell;
-    if (prevShellLocal === undefined) delete process.env.APERIO_SHELL_LOCAL; else process.env.APERIO_SHELL_LOCAL = prevShellLocal;
     if (prevCapable === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prevCapable;
   });
 
@@ -1434,10 +1429,9 @@ describe("setProvider (real agent)", () => {
     assert.doesNotMatch(afterPrompt, /SELF —/, "selfMemCtx must be cleared immediately on switching to a cloud provider");
   });
 
-  test("re-evaluates shell tool availability from the new provider", async (t) => {
+  test("keeps globally enabled shell available across a provider switch", async (t) => {
     stubMcpTransport(t);
     process.env.APERIO_ENABLE_SHELL = "1";
-    delete process.env.APERIO_SHELL_LOCAL; // local providers stay disallowed unless explicitly opted in
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
 
     t.mock.method(Client.prototype, "listTools", async () => ({
@@ -1453,7 +1447,7 @@ describe("setProvider (real agent)", () => {
     });
 
     const beforeTools = agent.getOpenAiTools("run a shell command to check status", []).map(t => t.function?.name);
-    assert.ok(!beforeTools.includes("run_shell"), "local provider without APERIO_SHELL_LOCAL must not get run_shell");
+    assert.ok(beforeTools.includes("run_shell"), "APERIO_ENABLE_SHELL must enable run_shell for a local provider");
 
     agent.setProvider({ name: "anthropic", model: "claude-haiku-4-5-20251001" });
 
@@ -1462,7 +1456,7 @@ describe("setProvider (real agent)", () => {
     // string here would return the stale cached turn instead of exercising the
     // post-switch shellBox state.
     const afterTools = agent.getOpenAiTools("run a shell command to check status now", []).map(t => t.function?.name);
-    assert.ok(afterTools.includes("run_shell"), "cloud provider with APERIO_ENABLE_SHELL=1 must get run_shell after switching");
+    assert.ok(afterTools.includes("run_shell"), "APERIO_ENABLE_SHELL must remain effective after switching providers");
   });
 });
 

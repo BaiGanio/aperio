@@ -26,6 +26,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`APERIO_ENABLE_SHELL=1` is now the only shell feature gate, and it ships
+  on by default in `.env.example`.** It enables `run_shell` for local and
+  cloud providers alike; the redundant local-only gate has been removed. A
+  fresh `cp .env.example .env` now grants host shell execution out of the box —
+  only enable for trusted models/content.
 - **Model vision detection is now measured, not configured.** Aperio used to
   decide "can this model see pictures?" with a hand-kept regex over model
   names — it was already wrong for at least one cached model. Vision is now

@@ -144,12 +144,12 @@ describe("writeEnvFromWizard", () => {
 
   // ── Success paths ───────────────────────────────────────────────────────────
 
-  test("llamacpp: creates .env with NO uncommented tier-1 lines (#252 — those live in DB)", () => {
+  test("llamacpp: seeds .env with the complete shipped profile", () => {
     writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.doesNotMatch(env, /^AI_PROVIDER=/m, "provider choice belongs in DB settings");
-    assert.doesNotMatch(env, /^LLAMACPP_MODEL=/m, "model choice belongs in DB settings");
-    assert.match(env, /^# AI_PROVIDER=/m, "template line kept as a commented escape hatch");
+    assert.equal(env, readFileSync(EXAMPLE_PATH, "utf8"));
+    assert.match(env, /^AI_PROVIDER=llamacpp$/m);
+    assert.match(env, /^LLAMACPP_MODEL=unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL$/m);
   });
 
   test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
@@ -173,7 +173,7 @@ describe("writeEnvFromWizard", () => {
     assert.doesNotMatch(env, /^[A-Z_]*_API_KEY=/m, "no uncommented key line may exist");
     assert.ok(!env.includes("sk-ant-xxx"), "the key value must never touch the file");
     assert.doesNotMatch(env, /^ANTHROPIC_MODEL=/m);
-    assert.doesNotMatch(env, /^AI_PROVIDER=/m);
+    assert.match(env, /^AI_PROVIDER=llamacpp$/m, "shipped profile remains intact; DB stores the wizard choice");
   });
 
   test("validation still gates codex cached-login (no key needed)", () => {

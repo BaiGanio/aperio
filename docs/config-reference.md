@@ -211,12 +211,6 @@ boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)*
 
 Gates the run_shell tool ONLY (single allowlisted command in the session workspace). NOT a sandbox — grants host execution as your user. It does NOT gate run_node_script or run_python_script: those always run, because the bundled pptx/docx/pdf skills generate documents by writing a script and running it. A connected model can therefore execute code as your user with this unset; see SECURITY.md. Only enable for trusted models/content.
 
-#### `APERIO_SHELL_LOCAL`
-
-boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
-
-By default only cloud providers get run_shell. Set to also offer it to the local llama.cpp model.
-
 #### `APERIO_SHELL_MAX_OUTPUT_BYTES`
 
 number · tier 1 (Settings UI, restart to apply) · default: `48000` · advanced

@@ -32,6 +32,13 @@ const logger = (msg, level = 'info') => {
   if (!clean) return;
   if (!logStream) logStream = createWriteStream('./var/bootstrap.log', { flags: 'a' });
   logStream.write(`[${new Date().toISOString()}] [${level.toUpperCase()}] ${clean}\n`);
+  // First-run setup (Node/deps checks, engine install, multi-GB model
+  // download) used to be silent on the terminal — visible only via the
+  // browser wizard's SSE stream. Anyone running headless, over SSH, or just
+  // watching the terminal instead of the auto-opened tab saw nothing for
+  // minutes and reasonably assumed the process had hung. Mirror progress
+  // to the terminal so `npm run start` / `start:local` never look stuck.
+  (level === 'error' ? console.error : console.log)(clean);
   bootstrapEvents.emit('progress', { message: clean, level, ts: Date.now() });
 };
 
