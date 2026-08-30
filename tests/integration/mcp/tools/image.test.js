@@ -8,12 +8,16 @@ import { join } from "path";
 import { installMemfs } from "../../../helpers/memfs.js";
 
 // ─── In-memory workspace (zero real disk access) ──────────────────────────────
-// Install the fs mock BEFORE importing image.js so its named fs bindings read
-// from the in-RAM map. Image bytes are written/read entirely in memory.
+// Install the fs mock BEFORE importing image.js (or anything else that reads
+// fs by name, e.g. lib/routes/paths.js's own `import { existsSync } from
+// "fs"`) so their named fs bindings read from the in-RAM map. A static
+// top-level `import` of paths.js here would be hoisted ahead of installMemfs()
+// and silently see the real fs, so it is a dynamic import below like image.js.
 const mem = installMemfs({ root: "/mem/img" });
 const {
   detectMime,
   readImageHandler,
+  preprocessImageHandler,
   isLlamaCppProvider,
   isVisionEngineAvailable,
   describeImageViaLlamaCpp,
@@ -22,9 +26,16 @@ const {
   resolveDescribeModelId,
   isDegenerateVlmOutput,
 } = await import("../../../../mcp/tools/image.js");
+const { setAllowlist } = await import("../../../../lib/routes/paths.js");
 after(() => mem.restore());
 
 const sandbox = { root: mem.root };
+
+// The three handlers now gate every file-path read through the app-wide
+// allowlist (F-R3-02) — scope it to the memfs sandbox so the existing
+// "valid file" tests below still resolve, and so the rejection tests further
+// down have a real path to compare against.
+await setAllowlist([sandbox.root]);
 
 // resolveDescribeModel's vision check (modelCapabilitiesSync) now reads the
 // HF cache from disk. A path outside memfs's root falls through to the REAL
@@ -147,6 +158,30 @@ describe("readImageHandler (file path)", () => {
     } catch {
       // skip if system can't allocate 21 MB in tmp
     }
+  });
+});
+
+// ─── Path allowlist (F-R3-02 regression) ──────────────────────────────────────
+// All three file-path handlers must reject a path outside APERIO_ALLOWED_PATHS
+// before ever touching the filesystem — previously they read straight off
+// disk with no check at all.
+
+describe("path allowlist rejection (F-R3-02)", () => {
+  const outsidePath = "/mem/other-root/secret.png";
+
+  test("readImageHandler rejects a path outside the allowlist", async () => {
+    const result = await readImageHandler({ path: outsidePath });
+    assert.ok(result.content[0].text.includes("❌ File not in allowed read path"));
+  });
+
+  test("preprocessImageHandler rejects a path outside the allowlist", async () => {
+    const result = await preprocessImageHandler({ path: outsidePath });
+    assert.ok(result.content[0].text.includes("❌ File not in allowed read path"));
+  });
+
+  test("describeImageHandler rejects a path outside the allowlist", async () => {
+    const result = await describeImageHandler({ path: outsidePath, prompt: "Describe" });
+    assert.ok(result.content[0].text.includes("❌ File not in allowed read path"));
   });
 });
 

@@ -10,7 +10,9 @@
 
 import { z }                                    from "zod";
 import { readFileSync, existsSync, statSync }   from "fs";
-import { extname }                              from "path";
+import { extname, resolve as resolvePath }      from "path";
+import { homedir }                              from "os";
+import { isReadPathAllowed, getActivePaths }    from "../../lib/routes/paths.js";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
 import { LLAMACPP_MAIN_ALIAS, LLAMACPP_VLM_ALIAS } from "../../lib/helpers/llamacppAliases.js";
@@ -154,6 +156,22 @@ export async function describeImageViaLlamaCpp(base64, prompt, model, mainAliasE
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Expands a leading `~` to the home directory and makes the path absolute. */
+function expandImagePath(filePath) {
+  const expanded = filePath.startsWith("~") ? filePath.replace(/^~/, homedir()) : filePath;
+  return resolvePath(expanded);
+}
+
+/** Resolves and allowlist-checks a file path; returns an error content block on rejection. */
+function resolveAllowedImagePath(filePath) {
+  const resolved = expandImagePath(filePath);
+  if (!isReadPathAllowed(resolved)) {
+    const { readPaths } = getActivePaths();
+    return { error: { content: [{ type: "text", text: `❌ File not in allowed read path: ${resolved}\nAllowed paths: ${readPaths.join(", ")}` }] } };
+  }
+  return { resolved };
+}
+
 export function detectMime(buffer, ext) {
   if (buffer[0] === 0x89 && buffer[1] === 0x50) return "image/png";
   if (buffer[0] === 0xFF && buffer[1] === 0xD8) return "image/jpeg";
@@ -173,7 +191,8 @@ export async function readImageHandler({ path: filePath, data: rawData, mime_typ
   let base64, mimeType;
 
   if (filePath) {
-    const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+    const { resolved, error } = resolveAllowedImagePath(filePath);
+    if (error) return error;
 
     if (!existsSync(resolved))
       return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
@@ -232,7 +251,8 @@ export async function preprocessImageHandler({
 
     if (filePath) {
       // ── File path input ──────────────────────────────────────────────────────
-      const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+      const { resolved, error } = resolveAllowedImagePath(filePath);
+      if (error) return error;
 
       if (!existsSync(resolved))
         return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
@@ -302,7 +322,8 @@ export async function describeImageHandler({
 
   try {
     if (filePath) {
-      const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+      const { resolved, error } = resolveAllowedImagePath(filePath);
+      if (error) return error;
 
       if (!existsSync(resolved))
         return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
