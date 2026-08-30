@@ -285,25 +285,6 @@ textarea::placeholder { color: var(--text-muted); }
 .discuss-btn--on:hover { opacity: 0.9; }
 .discuss-btn:disabled { cursor: not-allowed; }
 
-/* ── Branch button (labeled) ──────────────────────────────────── */
-.branch-btn-labeled {
-  display: flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--fs-micro); font-weight: 500;
-  cursor: pointer; flex-shrink: 0;
-  transition: all var(--transition);
-}
-.branch-btn-labeled i { font-size: var(--fs-chrome); }
-.branch-btn-labeled:hover {
-  border-color: var(--accent); color: var(--accent);
-  background: var(--accent-soft);
-}
-
 /* ── "+" actions menu ─────────────────────────────────────────── */
 .plus-wrap { position: relative; flex-shrink: 0; display: flex; }
 .plus-menu {
@@ -333,29 +314,6 @@ textarea::placeholder { color: var(--text-muted); }
 .plus-item-tx { display: flex; flex-direction: column; gap: 2px; }
 .plus-item-ti { font-size: var(--fs-chrome); font-weight: 600; }
 .plus-item-de { font-size: var(--fs-micro); color: var(--text-muted); line-height: 1.4; }
-
-/* ── Friendly branch confirm card ─────────────────────────────── */
-.branch-confirm-card {
-  margin-top: 10px; padding: 12px 14px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  font-size: var(--fs-chrome); color: var(--text);
-  display: flex; flex-direction: column; gap: 8px;
-  animation: fadeDown .18s ease;
-}
-.branch-confirm-card b { font-size: var(--fs-ui); }
-.branch-confirm-row { display: flex; gap: 8px; }
-.branch-confirm-btn {
-  font-family: var(--font-sans);
-  font-size: var(--fs-micro); font-weight: 600;
-  padding: 5px 14px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--bg-panel); color: var(--text);
-  cursor: pointer; transition: all var(--transition);
-}
-.branch-confirm-btn:hover { border-color: var(--accent); }
-.branch-confirm-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.branch-confirm-btn--primary:hover { opacity: .88; }
 
 /* ── Autocomplete dropdown ( /skill and @ ) ──────────────────────── */
 .autocomplete-dropdown {

@@ -59,9 +59,8 @@ discussBtn?.addEventListener("click", () => {
 
 _applyDiscussVisualState();
 
-// ── "+" actions menu (attach / branch) ────────────────────────
-// The attach button doubles as a small menu so Branch has a discoverable home
-// next to the file affordance it's often reached for. Clicking the button
+// ── "+" actions menu (attach) ────────────────────────
+// The attach button doubles as a small menu. Clicking the button
 // toggles the menu; a click anywhere else closes it.
 const plusMenu = document.getElementById("plusMenu");
 function closePlusMenu() {
@@ -85,35 +84,6 @@ document.getElementById("pmAttach")?.addEventListener("click", () => {
   closePlusMenu();
   fileInput.click();
 });
-
-// ── Branch button + friendly confirm card ─────────────────────
-// Branching saves the current conversation as-is and opens a new conversation
-// seeded with its latest summary, or excerpts from its last four messages when
-// no summary exists. The original stays in Sessions.
-function askBranchConfirm() {
-  closePlusMenu();
-  if (document.getElementById("branchConfirmCard")) return; // already asking
-  const card = document.createElement("div");
-  card.className = "branch-confirm-card";
-  card.id = "branchConfirmCard";
-  card.innerHTML =
-    `<b>${t("branch_card_title")}</b>` +
-    `<span>${t("branch_card_body")}</span>` +
-    `<div class="branch-confirm-row">` +
-      `<button type="button" class="branch-confirm-btn branch-confirm-btn--primary" id="branchGo">${t("branch_card_go")}</button>` +
-      `<button type="button" class="branch-confirm-btn" id="branchStay">${t("branch_card_stay")}</button>` +
-    `</div>`;
-  const wrap = document.querySelector(".input-bar .input-wrap");
-  wrap?.insertAdjacentElement("afterend", card);
-  card.querySelector("#branchStay").addEventListener("click", () => card.remove());
-  card.querySelector("#branchGo").addEventListener("click", () => {
-    card.remove();
-    window.safeSend?.(JSON.stringify({ type: "branch_conversation" }));
-  });
-}
-
-document.getElementById("branchBtn")?.addEventListener("click", askBranchConfirm);
-document.getElementById("pmBranch")?.addEventListener("click", askBranchConfirm);
 
 function updateSendBtn() {
   const hasText  = chatInput.value.trim().length > 0;
