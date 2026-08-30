@@ -23,9 +23,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   decide "can this model see pictures?" with a hand-kept regex over model
   names — it was already wrong for at least one cached model. Vision is now
   read straight from the model file: a local model sees iff its Hugging Face
-  cache holds a companion `mmproj*.gguf` projector; a cloud model's vision is
-  a fixed, provider-level fact. When the main model can't see, the bridge is
-  always gemma-4-E4B — the same curated model that boots by default — instead
+  cache holds a companion `mmproj*.gguf` projector; cloud vision is resolved
+  from the provider API's model contract. When the main model can't see, the
+  bridge is always gemma-4-E4B — the same curated model that boots by default — instead
   of a second, separately downloaded 7B vision model. Tool-calling support is
   now read from each model's own chat template the same way. Every model now
   gets tools and the memory pointer; the old `APERIO_CAPABLE_MODELS` allowlist
@@ -35,7 +35,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   with an attached image quietly fetched a dead port and degraded to a text
   label — DeepSeek image support had never actually worked. The engine now
   starts on demand, with a progress message, the first time a DeepSeek turn
-  needs it.
+  needs it. `deepseek-v4-flash-vision-exp` instead receives normalized PNG
+  uploads natively; DeepSeek Pro, standard Flash, and older models continue
+  through the local bridge.
 
 ### Removed
 

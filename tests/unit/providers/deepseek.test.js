@@ -214,12 +214,46 @@ describe("runDeepSeekLoop — error paths", () => {
 describe("runDeepSeekLoop — image error retry", () => {
   afterEach(() => { reset(); });
 
-  test("retries without images when API rejects image content", async () => {
+  test("sends normalized PNG as native image_url and keeps selected tools for the vision model", async () => {
+    let capturedBody;
+    mock.method(globalThis, "fetch", async (_url, options) => {
+      capturedBody = JSON.parse(options.body);
+      return {
+        ok: true, status: 200,
+        body: sseStream(textSSEChunks("A blue square")),
+        text: async () => "",
+      };
+    });
+
+    const messages = [{
+      role: "user",
+      content: [
+        { type: "text", text: "Describe this image" },
+        { type: "image", source: { media_type: "image/png", data: "cGl4ZWxz" } },
+      ],
+    }];
+    const ctx = baseCtx({
+      provider: { ...baseCtx().provider, model: "deepseek-v4-flash-vision-exp", vision: true },
+      getOpenAiTools: () => [{ type: "function", function: { name: "recall", description: "Recall", parameters: { type: "object", properties: {} } } }],
+    });
+
+    const result = await runDeepSeekLoop(messages, { send: mock.fn() }, {}, undefined, () => {}, ctx);
+
+    assert.equal(result, "A blue square");
+    assert.equal(capturedBody.model, "deepseek-v4-flash-vision-exp");
+    assert.equal(capturedBody.messages[1].content[1].type, "image_url");
+    assert.equal(capturedBody.messages[1].content[1].image_url.url, "data:image/png;base64,cGl4ZWxz");
+    assert.equal(capturedBody.tools[0].function.name, "recall", "normal tool selection must survive native image conversion");
+  });
+
+  test("retries without images when the API reports that the model does not support them", async () => {
     let fetchCount = 0;
+    const requestBodies = [];
 
     mock.method(globalThis, "fetch", async (url, options) => {
       fetchCount++;
       const body = JSON.parse(options.body);
+      requestBodies.push(body);
       const hasImages = body.messages.some(m =>
         Array.isArray(m.content) && m.content.some(b => b.type === "image_url")
       );
@@ -228,7 +262,7 @@ describe("runDeepSeekLoop — image error retry", () => {
         // First request has images → reject
         return {
           ok: false, status: 400,
-          text: async () => JSON.stringify({ error: { message: "unknown variant `image_url`" } }),
+          text: async () => JSON.stringify({ error: { message: "This model does not support image" } }),
           body: null,
         };
       }
@@ -249,14 +283,16 @@ describe("runDeepSeekLoop — image error retry", () => {
       ],
     }];
     const emitter = { send: mock.fn() };
-    // Use a vision-capable provider so the bridge is skipped
+    // Use the native-vision model so the first request carries the image.
     const ctx = baseCtx({
-      provider: { ...baseCtx().provider, vision: true },
+      provider: { ...baseCtx().provider, model: "deepseek-v4-flash-vision-exp", vision: true },
     });
 
     const result = await runDeepSeekLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.equal(result, "Text-only response");
     assert.equal(fetchCount, 2, "should retry once after image error");
+    assert.ok(requestBodies[0].messages.some(m => Array.isArray(m.content) && m.content.some(b => b.type === "image_url")));
+    assert.ok(!requestBodies[1].messages.some(m => Array.isArray(m.content) && m.content.some(b => b.type === "image_url")), "retry must remove every image_url block");
     assert.ok(warnCalls.some(a => a[0].includes("rejected image content")),
       "should warn about image rejection");
   });

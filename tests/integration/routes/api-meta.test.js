@@ -589,6 +589,7 @@ describe("GET /models", () => {
         assert.strictEqual(body.model, "claude-haiku-4-5");
         assert.ok(Array.isArray(body.providers.anthropic));
         assert.ok(Array.isArray(body.providers.deepseek));
+        assert.ok(body.providers.deepseek.includes("deepseek-v4-flash-vision-exp"));
       })
       .finally(() => {
         globalThis.fetch = originalFetch;

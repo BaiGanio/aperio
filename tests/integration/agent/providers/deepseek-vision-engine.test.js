@@ -1,12 +1,10 @@
 // tests/integration/agent/providers/deepseek-vision-engine.test.js
 //
-// WS4 (model-vision-autodetect plan): DeepSeek is a provider-level vision
-// blind, so an image turn routes through the local VLM bridge — and since
-// server.js only boots llama-server for AI_PROVIDER=llamacpp, that engine may
-// not be running yet on a DeepSeek install. runDeepSeekLoop now calls
-// ensureVisionEngine() first. This file covers the wiring: the no-op fast
-// path when the engine is already up, and the user-facing notice when it
-// fails to start.
+// DeepSeek Pro, standard Flash, and legacy models route image turns through
+// the local VLM bridge. Since server.js only boots llama-server for
+// AI_PROVIDER=llamacpp, that engine may not be running yet on a DeepSeek
+// install. This file covers the bridge wiring for standard Flash and a legacy
+// model; native request construction is covered in the provider unit tests.
 //
 // Isolated from tests/unit/providers/deepseek.test.js because it needs its
 // own child_process.spawn mock, installed before startLlamaCpp.js (imported
@@ -47,7 +45,7 @@ function baseCtx(overrides = {}) {
   return {
     provider: {
       name: "deepseek",
-      model: "deepseek-chat",
+      model: "deepseek-v4-flash",
       baseURL: "https://api.deepseek.com",
       apiKey: "sk-test",
       contextWindow: 64000,
@@ -94,17 +92,19 @@ const imageMessages = () => [{
 afterEach(() => { spawnCalls = []; });
 
 describe("runDeepSeekLoop — ensureVisionEngine wiring", () => {
-  test("already-up llama-server: no spawn, image still gets bridged normally", async (t) => {
+  test("standard Flash uses the already-running local bridge without spawning another engine", async (t) => {
     t.mock.method(globalThis, "fetch", async (url) => {
       if (String(url).endsWith("/health")) return { ok: true };
       return { ok: true, status: 200, body: sseStream(textSSEChunks("It's red.")), text: async () => "" };
     });
 
     const emitter = { send: mock.fn() };
-    const result = await runDeepSeekLoop(imageMessages(), emitter, {}, undefined, () => {}, baseCtx());
+    const ctx = baseCtx();
+    const result = await runDeepSeekLoop(imageMessages(), emitter, {}, undefined, () => {}, ctx);
 
     assert.equal(result, "It's red.");
     assert.equal(spawnCalls.length, 0, "an already-up engine must never be spawned");
+    assert.equal(ctx.callTool.mock.callCount(), 1, "standard Flash must describe the image through the local VLM tool");
   });
 
   test("a failed vision-engine start surfaces a user-facing notice and still answers text-only", { timeout: 20_000 }, async (t) => {
@@ -115,7 +115,8 @@ describe("runDeepSeekLoop — ensureVisionEngine wiring", () => {
     t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 
     const emitter = { send: mock.fn() };
-    const p = runDeepSeekLoop(imageMessages(), emitter, {}, undefined, () => {}, baseCtx());
+    const legacyCtx = baseCtx({ provider: { ...baseCtx().provider, model: "deepseek-coder" } });
+    const p = runDeepSeekLoop(imageMessages(), emitter, {}, undefined, () => {}, legacyCtx);
 
     // Let ensureVisionEngine's internal ensureLlamaCpp reach its spawn-poll
     // wait loop, then fast-forward past MAX_WAIT_MS (30s) so it times out.
