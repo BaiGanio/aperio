@@ -483,6 +483,23 @@ function renderFileModal(name, text, { artifactUrl = null } = {}) {
 }
 
 function openFileModal(att) {
+  const isPdf = att.type === "application/pdf" || /\.pdf$/i.test(att.name || "");
+  if (isPdf) {
+    // A data: URL is blocked by the page's frame-src CSP, so hand the iframe a
+    // blob: URL instead (allow-listed, and revoked on close in closeFileModal).
+    let blobUrl = null;
+    try {
+      const base64 = (att.dataUrl || "").split(",")[1] || "";
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    } catch (_) {
+      // fall through with blobUrl = null; openGeneratedPdfModal shows an empty frame
+    }
+    ensureFileModal();
+    document.getElementById("file-preview-modal").dataset.blobUrl = blobUrl || "";
+    openGeneratedPdfModal(blobUrl, att.name);
+    return;
+  }
   ensureFileModal();
   let text;
   try {
@@ -496,7 +513,12 @@ function openFileModal(att) {
 }
 
 function closeFileModal() {
-  document.getElementById("file-preview-modal")?.classList.remove("open");
+  const modal = document.getElementById("file-preview-modal");
+  if (modal?.dataset.blobUrl) {
+    URL.revokeObjectURL(modal.dataset.blobUrl);
+    delete modal.dataset.blobUrl;
+  }
+  modal?.classList.remove("open");
 }
 
 async function openGeneratedFileModal(url, name) {
@@ -543,18 +565,21 @@ function openGeneratedPdfModal(url, name) {
 
   const frameEl = modal.querySelector(".fpm-frame");
   frameEl.removeAttribute("srcdoc");
-  frameEl.src = url;
+  frameEl.src = url || "";
   frameEl.style.display = "block";
   modal.querySelector(".fpm-pre").style.display = "none";
   modal.querySelector(".fpm-view-tabs").hidden = true;
   modal.querySelector(".fpm-copy-btn").hidden = true;
 
-  modal.dataset.artifactUrl = url;
+  // A data:/blob: URL (e.g. a user-uploaded attachment) has no server-side file
+  // and can't be reopened as a browser tab, so those actions only apply to real files.
+  const isLocalUrl = !url || url.startsWith("data:") || url.startsWith("blob:");
+  modal.dataset.artifactUrl = isLocalUrl ? "" : url;
   const browserBtn = modal.querySelector(".fpm-browser-btn");
-  browserBtn.hidden = false;
+  browserBtn.hidden = isLocalUrl;
   browserBtn.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> <span>Open in browser</span>';
   browserBtn.title = "Open this file in the browser";
-  modal.querySelector(".fpm-folder-btn").hidden = false;
+  modal.querySelector(".fpm-folder-btn").hidden = isLocalUrl;
   modal.classList.add("open");
 }
 
