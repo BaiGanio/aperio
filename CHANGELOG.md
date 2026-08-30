@@ -16,6 +16,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `attach failed: join is not defined` line. Found while live-verifying native model
   vision end to end.
 
+### Security
+
+- **`PUT /api/settings/:key` now rejects writes to Tier-0 config keys.** The
+  endpoint's allowlist covered every registry var with no tier check, so a
+  request could write a bootstrap/secret key documented as env-only —
+  `POSTGRES_PASSWORD`, `APERIO_SESSION_KEY`, `APERIO_DB_ENCRYPT`, and the
+  rest — straight into the DB. The handler now derives its editable-keys set
+  from each entry's effective editability (`editable ?? tier === 1`, the same
+  rule `api-config.js` already uses for the schema's `editable` field) and
+  returns 400 for anything outside it. The one deliberate Tier-0 exception,
+  `APERIO_CONFIG_PRECEDENCE` (`editable: true`), stays writable through the
+  Settings UI. (#530)
+
 ### Added
 
 - **The six-topic Aperio Manual is now published from the landing site.** A new
