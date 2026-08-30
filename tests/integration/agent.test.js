@@ -1736,7 +1736,7 @@ describe("Provider resolution - DeepSeek", () => {
     assert.strictEqual(p.llamacppBaseURL, undefined);
   });
 
-  test("DeepSeek routes Pro and standard Flash through the bridge, but enables the dedicated vision model", () => {
+  test("deepseek is a provider-level blind, regardless of the specific model (model-vision-autodetect plan — no more per-model name list)", () => {
     process.env.AI_PROVIDER = "deepseek";
     process.env.DEEPSEEK_API_KEY = "sk-test";
 
@@ -1745,9 +1745,6 @@ describe("Provider resolution - DeepSeek", () => {
 
     process.env.DEEPSEEK_MODEL = "deepseek-v4-flash";
     assert.strictEqual(resolveProvider().vision, false);
-
-    process.env.DEEPSEEK_MODEL = "deepseek-v4-flash-vision-exp";
-    assert.strictEqual(resolveProvider().vision, true);
   });
 });
 

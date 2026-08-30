@@ -183,15 +183,11 @@ describe("modelCapabilities() resolution order", () => {
     assert.deepEqual(result, { vision: true, tools: true, source: "provider" });
   });
 
-  test("G3.2 DeepSeek resolves vision per model while keeping Pro, Flash, and legacy models on the bridge", () => {
+  test("G3.2 deepseek is a provider-level blind, any model name", () => {
     for (const model of ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-coder"]) {
       const result = modelCapabilitiesSync(model, {}, { provider: "deepseek" });
       assert.deepEqual(result, { vision: false, tools: true, source: "provider" });
     }
-    assert.deepEqual(
-      modelCapabilitiesSync("deepseek-v4-flash-vision-exp", {}, { provider: "deepseek" }),
-      { vision: true, tools: true, source: "provider" },
-    );
   });
 
   test("G3.3 a cached model resolves from disk alone — the Hub is never called", async () => {

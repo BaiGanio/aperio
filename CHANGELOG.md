@@ -35,9 +35,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   with an attached image quietly fetched a dead port and degraded to a text
   label — DeepSeek image support had never actually worked. The engine now
   starts on demand, with a progress message, the first time a DeepSeek turn
-  needs it. `deepseek-v4-flash-vision-exp` instead receives normalized PNG
-  uploads natively; DeepSeek Pro, standard Flash, and older models continue
-  through the local bridge.
+  needs it. DeepSeek's standard API models — flash and pro — are both
+  text-only and 400 on image content, so every DeepSeek image turn goes
+  through the local bridge; there is no DeepSeek model that receives images
+  natively.
 
 ### Removed
 
