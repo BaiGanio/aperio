@@ -50,6 +50,7 @@ function mockDeps(overrides = {}) {
     infer:               { stop: mock.fn() },
     pruner:              { stop: mock.fn() },
     logPruner:           { stop: mock.fn() },
+    redactionMapPruner:  { stop: mock.fn() },
     runPruner:           { stop: mock.fn() },
     scheduler:           { stop: mock.fn() },
     shutdownEmbeddings:  mock.fn(async () => {}),
@@ -109,6 +110,7 @@ describe("createGracefulShutdown", () => {
     assert.strictEqual(deps.infer.stop.mock.callCount(), 1);
     assert.strictEqual(deps.pruner.stop.mock.callCount(), 1);
     assert.strictEqual(deps.logPruner.stop.mock.callCount(), 1);
+    assert.strictEqual(deps.redactionMapPruner.stop.mock.callCount(), 1);
     assert.strictEqual(deps.runPruner.stop.mock.callCount(), 1);
     assert.strictEqual(deps.scheduler.stop.mock.callCount(), 1);
   });

@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { RequestSchema }        from "@modelcontextprotocol/sdk/types.js";
 import { z }                    from "zod";
 import dotenv                   from "dotenv";
+import { timingSafeEqual }      from "node:crypto";
 import { fileURLToPath }        from "url";
 import { dirname, resolve }     from "path";
 import { getStore }             from "../db/index.js";
@@ -155,6 +156,7 @@ export async function startServer(opts = {}) {
     { register: registerDatabase },
     { register: registerExtraction },
     { clearSessionCacheHandler },
+    { takeRedactionMap },
   ] = await Promise.all([
     import("./tools/memory.js"),
     import("./tools/self-memory.js"),
@@ -171,6 +173,7 @@ export async function startServer(opts = {}) {
     import("./tools/database.js"),
     import("./tools/extraction.js"),
     import("../lib/handlers/docgraph/docgraphHandlers.js"),
+    import("../lib/handlers/memory/memoryHandlers.js"),
   ]);
 
   registerMemory(server, ctx);
@@ -210,6 +213,50 @@ export async function startServer(opts = {}) {
   server.server.setRequestHandler(ClearDocSessionCacheRequestSchema, async (request) => {
     await clearSessionCacheHandler(ctx, request.params);
     return { ok: true };
+  });
+
+  // Private redaction-map side channel for Privacy Shield's redact mode
+  // (issue #531, review round 2). recallHandler hands the actual «LABEL_N» →
+  // original PII map to takeRedactionMap()'s in-process store, keyed by a
+  // one-time correlation id, and returns only that id in its public
+  // CallToolResult — the same "custom method outside the Tools capability"
+  // technique as aperio/clearDocSessionCache above. But invisibility from
+  // tools/list() only hides discovery, it is not authorization: any peer
+  // holding this exact stdio connection can still send the raw JSON-RPC
+  // request by name. For a standalone deployment (`npm run mcp`, no
+  // lib/agent/mcp-connect.js spawner in front) that peer IS the external
+  // client itself — e.g. Claude Desktop or Cursor, exactly who redact mode
+  // exists to keep this PII from — so without a further check that client
+  // could redeem its own correlation id and read back every email/phone/
+  // card/IBAN the visible text withheld (review round 6, P1).
+  //
+  // A shared secret closes that gap: lib/agent/mcp-connect.js's connectMcp()
+  // mints one per spawn and passes it via APERIO_MCP_AUTH_TOKEN — known only
+  // to that exact parent/child pair. Codex's separately-spawned child
+  // (lib/agent/providers/codex.js) deliberately never receives it: Codex must
+  // be able to WRITE a map via recall/self_recall but never redeem one
+  // itself. A request whose token doesn't match this process's own copy —
+  // including every request when no spawner set one at all — is treated
+  // exactly like an unknown/expired id: an empty map, with nothing in the
+  // response that would let a guessing attacker tell "wrong token" apart
+  // from "wrong id".
+  const MCP_AUTH_TOKEN = process.env.APERIO_MCP_AUTH_TOKEN || null;
+  function isAuthorizedForRedactionMap(token) {
+    if (!MCP_AUTH_TOKEN || typeof token !== "string") return false;
+    const expected = Buffer.from(MCP_AUTH_TOKEN);
+    const actual = Buffer.from(token);
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  }
+  const TakeRedactionMapRequestSchema = RequestSchema.extend({
+    method: z.literal("aperio/takeRedactionMap"),
+    params: z.object({ correlationId: z.string(), token: z.string() }).passthrough(),
+  });
+  server.server.setRequestHandler(TakeRedactionMapRequestSchema, async (request) => {
+    if (!isAuthorizedForRedactionMap(request.params.token)) {
+      logger.warn("[mcp] rejected aperio/takeRedactionMap: missing or invalid auth token");
+      return { redactionMap: {} };
+    }
+    return { redactionMap: takeRedactionMap(request.params.correlationId) ?? {} };
   });
 
   // 4. Connect transport

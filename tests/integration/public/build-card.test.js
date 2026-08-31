@@ -17,6 +17,7 @@ const indicatorCss = readFileSync(resolve("public/styles/tool-and-thinking-indic
 const badgeSource = readFileSync(resolve("public/scripts/streaming/badges.js"), "utf8");
 const renderingSource = readFileSync(resolve("public/scripts/rendering.js"), "utf8");
 const spreadsheetSource = readFileSync(resolve("public/scripts/spreadsheet-preview.js"), "utf8");
+const documentSource = readFileSync(resolve("public/scripts/document-preview.js"), "utf8");
 const attachmentCss = readFileSync(resolve("public/styles/msg-attachments.css"), "utf8");
 const turnSource = readFileSync(resolve("public/scripts/streaming/events/turn.js"), "utf8");
 const chatSource = readFileSync(resolve("public/scripts/chat.js"), "utf8");
@@ -159,6 +160,15 @@ test("generated XLSX cards open the spreadsheet preview modal", () => {
   assert.match(indexSource, /scripts\/spreadsheet-preview\.js/);
   assert.match(spreadsheetSource, /fetch\(`\/api\/artifact\/preview\?url=/);
   assert.match(spreadsheetSource, /table\.className = "fpm-sheet-table"/);
+});
+
+test("generated DOCX cards open the sanitized document preview modal", () => {
+  assert.match(badgeSource, /const canPreviewDocument = ext === "docx"/);
+  assert.match(badgeSource, /openGeneratedDocumentModal\(url, name\)/);
+  assert.match(indexSource, /scripts\/document-preview\.js/);
+  assert.match(documentSource, /fetch\(`\/api\/artifact\/preview\?url=/);
+  assert.match(documentSource, /frameEl\.srcdoc = _documentPreviewPage/);
+  assert.match(documentSource, /Download the original Word document/);
 });
 
 test("generated file cards expose the Aperio hierarchy and responsive treatment", () => {

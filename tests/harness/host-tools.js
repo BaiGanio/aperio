@@ -33,7 +33,22 @@ export function createHarnessHostTools({ scratchDir }) {
     // error every turn; a neutral stub keeps that path quiet and realistic.
     {
       name: "recall", description: "Recall stored memories", inputSchema: genericSchema,
-      handler: async () => "No memories found.",
+      handler: async (args) => {
+        // redact-restore harness scenario (issue #531): mirrors the shape
+        // recallHandler (lib/handlers/memory/memoryHandlers.js) returns for a
+        // tier-2 memory under APERIO_CLOUD_SENSITIVE_MODE=redact — the
+        // model-visible text carries a placeholder, and structuredContent
+        // carries the map back to the agent loop so it can restore() the
+        // real value before the reply reaches the user. Every other query
+        // keeps the plain-string reply every other scenario expects.
+        if (args?.query === "redact-test") {
+          return {
+            text: "[FACT] Contact info «0_EMAIL_0» (importance: 3)",
+            structuredContent: { redactionMap: { "«0_EMAIL_0»": "alice@example.com" } },
+          };
+        }
+        return "No memories found.";
+      },
     },
 
     // ── happy-5-tool-chain: synthetic, unguarded tools ──────────────────

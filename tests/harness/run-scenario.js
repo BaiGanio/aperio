@@ -56,7 +56,7 @@ function installAbortTrigger(sink, abortAfterTools) {
 /**
  * @param {import("node:test").TestContext} t
  * @param {object} scenario — parsed scenario JSON (providerScript + userMessage)
- * @returns {Promise<{ events: object[], finalText: string, scratchDir: string }>}
+ * @returns {Promise<{ events: object[], finalText: string, scratchDir: string, messages: object[] }>}
  */
 export async function runScenario(t, scenario) {
   stubMcpTransport(t);
@@ -91,5 +91,5 @@ export async function runScenario(t, scenario) {
   // including wsHandler's own interrupted/completed distinction (wsHandler.js:304).
   sink.emitter.send({ type: "turn_complete", status: abort.aborted() ? "interrupted" : "completed" });
 
-  return { events: sink.events, finalText, scratchDir, root, agent };
+  return { events: sink.events, finalText, scratchDir, root, agent, messages };
 }

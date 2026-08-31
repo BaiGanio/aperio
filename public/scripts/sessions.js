@@ -377,7 +377,11 @@ function handleSessionResumed(msg) {
           ...att,
           dataUrl: att.dataUrl || att.url || (att.thumbnail ? `data:image/jpeg;base64,${att.thumbnail}` : null),
         }));
-        const el = buildHistoryMessage(m.role, m.content || "", attachments);
+        // Privacy Shield redact mode (issue #531): displayContent, when
+        // present, carries the real value a redacted reply was restored to;
+        // content stays the model-facing (still-placeholder) copy. The
+        // History view is user-facing, so it must prefer displayContent.
+        const el = buildHistoryMessage(m.role, m.displayContent ?? m.content ?? "", attachments);
         divider.after(el);
       }
     })

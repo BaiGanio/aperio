@@ -13,7 +13,9 @@ import {
   forgetHandler,
   backfillHandler,
   dedupHandler,
+  takeRedactionMap,
 } from "../../../lib/handlers/memory/memoryHandlers.js";
+import { restore } from "../../../lib/privacy/redact.js";
 
 // ─── ctx / store factories ────────────────────────────────────────────────────
 
@@ -218,6 +220,157 @@ describe("recallHandler", () => {
     };
     const text = (await recallHandler(ctx, { query: "x" })).content[0].text;
     assert.equal(text, "No memories found.");
+  });
+
+  // Issue #531 — redact mode must hand back a restore()-able map, not just
+  // scrub the outgoing text. This is the *response path* half of the fix
+  // (lib/agent/index.js + tool-hooks.js restore() using this map); this
+  // block only pins recallHandler's own contract.
+  describe("redact mode (APERIO_CLOUD_SENSITIVE_MODE=redact)", () => {
+    let previousMode;
+    test.beforeEach(() => { previousMode = process.env.APERIO_CLOUD_SENSITIVE_MODE; process.env.APERIO_CLOUD_SENSITIVE_MODE = "redact"; });
+    test.afterEach(() => {
+      if (previousMode === undefined) delete process.env.APERIO_CLOUD_SENSITIVE_MODE;
+      else process.env.APERIO_CLOUD_SENSITIVE_MODE = previousMode;
+    });
+
+    // Review round 2, P1: the public CallToolResult (what a standalone
+    // cloud-backed MCP client — Claude Desktop, Cursor, … — receives
+    // verbatim) must never carry the actual redaction map, only an opaque
+    // lookup id. The real map is fetched separately via takeRedactionMap(),
+    // exactly as mcp/index.js's "aperio/takeRedactionMap" side channel does
+    // for the real agent.
+    test("tier-2 content is scrubbed in the outgoing text; the public result carries only an opaque correlation id, never the map", async () => {
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ tier: 2, content: "call me at alice@example.com" })] }),
+        providerIsLocal: false,
+      };
+      const result = await recallHandler(ctx, { query: "x" });
+      const text = result.content[0].text;
+      assert.ok(!text.includes("alice@example.com"), "raw PII must not reach a cloud model");
+      assert.ok(/«[0-9a-f-]{36}_0_EMAIL_0»/.test(text), "a placeholder token must stand in for it");
+
+      const sc = result.structuredContent;
+      assert.equal(typeof sc.redactionCorrelationId, "string");
+      assert.equal(sc.redactionMap, undefined, "the actual map must never be in the public result");
+      assert.equal(JSON.stringify(result).includes("alice@example.com"), false,
+        "no raw PII anywhere in the serialized public result");
+
+      const map = new Map(Object.entries(takeRedactionMap(sc.redactionCorrelationId)));
+      assert.ok(restore(text, map).includes("call me at alice@example.com"),
+        "restore() using the redeemed map must reproduce the original content");
+    });
+
+    test("the correlation id is single-use — redeeming it twice returns null the second time", async () => {
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ tier: 2, content: "alice@example.com" })] }),
+        providerIsLocal: false,
+      };
+      const { structuredContent } = await recallHandler(ctx, { query: "x" });
+      assert.ok(takeRedactionMap(structuredContent.redactionCorrelationId), "first redemption succeeds");
+      assert.equal(takeRedactionMap(structuredContent.redactionCorrelationId), null,
+        "a replayed/leaked id must be worthless the second time");
+    });
+
+    test("an unknown correlation id redeems to null", () => {
+      assert.equal(takeRedactionMap("not-a-real-id"), null);
+    });
+
+    test("two rows in ONE recall call do not collide on the same placeholder token", async () => {
+      const ctx = {
+        ...makeCtx({
+          recall: async () => [
+            makeMemory({ id: "a", tier: 2, content: "alice@example.com" }),
+            makeMemory({ id: "b", tier: 2, content: "bob@example.com" }),
+          ],
+        }),
+        providerIsLocal: false,
+      };
+      const result = await recallHandler(ctx, { query: "x" });
+      const map = new Map(Object.entries(takeRedactionMap(result.structuredContent.redactionCorrelationId)));
+      assert.equal(map.size, 2, "both rows' tokens must survive the merge, not overwrite each other");
+
+      const restored = restore(result.content[0].text, map);
+      assert.ok(restored.includes("alice@example.com"));
+      assert.ok(restored.includes("bob@example.com"));
+    });
+
+    // Review round 2, P2: the model can call recall more than once in the
+    // same turn. Each call independently restarts its own row index at 0,
+    // so two SEPARATE calls used to be able to mint the identical token
+    // (e.g. «0_EMAIL_0» from both) — the agent loop merges every call's map
+    // into one turn-wide Map via .set(), so the second call would silently
+    // clobber the first entry and both placeholders would restore to the
+    // wrong email. Each call now gets its own random correlation id woven
+    // into every token it mints, so no two calls can ever collide.
+    test("two SEPARATE recall calls in the same turn mint non-colliding tokens", async () => {
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ id: "a", tier: 2, content: "alice@example.com" })] }),
+        providerIsLocal: false,
+      };
+      const first = await recallHandler(ctx, { query: "x" });
+      const second = await recallHandler(ctx, { query: "y" }); // same shape — same row idx (0), different call
+
+      assert.notEqual(first.structuredContent.redactionCorrelationId, second.structuredContent.redactionCorrelationId);
+
+      const [firstToken] = Object.keys(takeRedactionMap(first.structuredContent.redactionCorrelationId));
+      const [secondToken] = Object.keys(takeRedactionMap(second.structuredContent.redactionCorrelationId));
+      assert.notEqual(firstToken, secondToken, "identical row shape across two calls must not mint the same token");
+
+      // Simulate the agent loop's turn-wide merge (tool-hooks.js) — both
+      // entries must survive, not overwrite each other.
+      const turnMap = new Map();
+      turnMap.set(firstToken, "alice@example.com");
+      turnMap.set(secondToken, "alice@example.com"); // same original value here, but a DIFFERENT key
+      assert.equal(turnMap.size, 2);
+    });
+
+    test("withhold mode (default) attaches no structuredContent — nothing to restore", async () => {
+      process.env.APERIO_CLOUD_SENSITIVE_MODE = "withhold";
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ tier: 1, content: "plain note" })] }),
+        providerIsLocal: false,
+      };
+      const result = await recallHandler(ctx, { query: "x" });
+      assert.equal(result.structuredContent, undefined);
+    });
+
+    // Review round 3, P2: a lazy "prune on next read" sweep never fires for
+    // an entry nobody ever reads again (a standalone client that ignores the
+    // id, or the agent crashing before it asks) — the map would then hold
+    // real PII forever. Each entry now schedules its OWN deletion at
+    // insertion time, so it disappears on its own even with zero reads.
+    test("an abandoned correlation id is actively expired after its TTL — never redeemed, no other read triggers it", async (t) => {
+      t.mock.timers.enable({ apis: ["setTimeout"] });
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ tier: 2, content: "alice@example.com" })] }),
+        providerIsLocal: false,
+      };
+      const { structuredContent } = await recallHandler(ctx, { query: "x" });
+
+      t.mock.timers.tick(20 * 60_000); // the full TTL, with nothing else ever calling takeRedactionMap
+
+      assert.equal(
+        takeRedactionMap(structuredContent.redactionCorrelationId), null,
+        "the scheduled expiry must have deleted it on its own — proactive, not contingent on some other read"
+      );
+    });
+
+    test("redeeming before the TTL cancels the scheduled expiry — no dangling timer fires later", async (t) => {
+      t.mock.timers.enable({ apis: ["setTimeout"] });
+      const ctx = {
+        ...makeCtx({ recall: async () => [makeMemory({ tier: 2, content: "alice@example.com" })] }),
+        providerIsLocal: false,
+      };
+      const { structuredContent } = await recallHandler(ctx, { query: "x" });
+
+      const map = takeRedactionMap(structuredContent.redactionCorrelationId);
+      assert.ok(map, "redeeming well within the TTL must succeed");
+
+      // The expiry timer firing later (against an already-redeemed, already-
+      // deleted file) must not throw or otherwise misbehave.
+      assert.doesNotThrow(() => t.mock.timers.tick(20 * 60_000));
+    });
   });
 });
 

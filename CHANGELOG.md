@@ -11,12 +11,83 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **DOCX document previews dropped embedded images.** Mammoth converts an embedded image to
+  an `<img src="data:image/...">`, but the preview sanitizer only allowed `http`/`https`/
+  `mailto` link schemes, so every image's `src` was stripped and the preview showed a broken
+  image. `data:` is now allowed for `img` specifically, restricted to raster image MIME types
+  (`image/svg+xml` stays blocked, since an SVG data URI can carry a script).
+
 - **`/attach` in standalone (no-server) terminal mode was completely broken.** A missing
   `path` import (`join`) made every attach throw, silently degraded to an
   `attach failed: join is not defined` line. Found while live-verifying native model
   vision end to end.
 
 ### Security
+
+- **`APERIO_CLOUD_SENSITIVE_MODE=redact` now actually restores the real values it scrubbed.**
+  `redact()` (Privacy Shield) had no `restore()` caller: `recallHandler` PII-scrubbed a
+  tier-2 memory before sending it to a cloud provider, but discarded the token → original
+  map it returned, so a reply that echoed the memory back showed the literal `«EMAIL_0»`-
+  style placeholder to the user forever — not a storage bug, but a permanently corrupted
+  reply. `recallHandler` now hands the map to a private, single-use, agent-only side
+  channel (never the public MCP result — a standalone cloud-backed client such as Claude
+  Desktop or Cursor would otherwise see it too); the agent loop redeems it and restores
+  the real values in the live token stream and the answer it hands back, while the
+  conversation history re-sent to the cloud provider on later turns correctly keeps the
+  placeholder. (#531)
+
+  Follow-up fixes from review: the redaction map now lives in a small file under
+  `var/redaction-maps/` (swept on every write and on a 20-minute-TTL timer) instead of an
+  in-memory `Map`, because Codex runs its tool calls through its own separate `mcp/index.js`
+  child process — a Map local to the app's own MCP child was invisible to it, so Codex's
+  redemption always missed and its replies kept the raw `«...»` placeholders. The TTL was
+  also raised from 60 seconds to 20 minutes (matching `CODEX_TURN_TIMEOUT_MS`) so a slow
+  turn's reasoning/tool work no longer outlives the map before the final answer streams.
+
+  Second round of review follow-ups: Codex's `mcp/index.js` child exits as soon as its
+  tool call returns, so the writer's own unref'd expiry timer often never got to fire,
+  leaving an abandoned map's real PII on disk indefinitely. A new periodic pruner
+  (`lib/workers/redaction-map-prune.js`) now runs in the main server process — the one
+  process guaranteed to outlive every per-turn MCP child regardless of provider — and
+  sweeps expired entries every 5 minutes. The directory and its files are also now
+  created owner-only (`0700`/`0600`); the previous default modes (`0755`/`0644`) let any
+  other local user on the machine read restored emails/phones/cards/IBANs on a typical
+  umask. And a `«...»` correlation id split across two streamed chunks (Codex's on-demand
+  redemption path) is now buffered and reassembled before being scanned or forwarded,
+  fixing a case where the first half of a still-unresolved token leaked to the user
+  unrestored before the map that would have redeemed it ever arrived.
+
+  Third round of review follow-ups — the big one: being absent from `tools/list()` made
+  the `aperio/takeRedactionMap` side channel *undiscoverable*, not *authorized*. Any peer
+  holding the same stdio connection could still send that request by name, and for a
+  standalone `npm run mcp` deployment (no `lib/agent/mcp-connect.js` spawner in front —
+  e.g. Claude Desktop or Cursor talking to `mcp/index.js` directly) that peer IS the
+  external client itself, so it could redeem its own correlation id and read back the
+  exact PII redact mode exists to keep from it. `connectMcp()` now mints a one-time
+  secret per spawn (`APERIO_MCP_AUTH_TOKEN`, env-only, never logged) and hands it only to
+  its own child; `aperio/takeRedactionMap` now requires a matching token (constant-time
+  compared) and returns an empty map for anything else — a missing spawner, a wrong
+  token, or no token at all — indistinguishably from an unknown/expired id. Codex's
+  separately-spawned `mcp/index.js` child deliberately never receives this secret: it can
+  still WRITE a map via `recall`/`self_recall`, but can no longer redeem one itself.
+
+  Also: the redaction-map directory was resolved from this module's own file location,
+  always under the code checkout, ignoring any separate writable `runtimeRoot` the app
+  was configured with — a read-only source install could then fail with `EACCES`, or PII
+  could land outside the configured runtime-state boundary. `runtimeRoot` is now threaded
+  from `lib/server.js`'s `RUNTIME_ROOT` through `createAgent` → `createToolCatalog` →
+  `connectMcp` (and separately to Codex's own spawn, so both processes agree on the same
+  directory) via `APERIO_RUNTIME_ROOT`, with the old checkout-relative path kept only as
+  the fallback for a standalone deployment with no spawner to set it.
+
+- **Uploaded/generated DOCX previews could be used to exhaust server memory.** The
+  10 MB upload-size check only bounded the compressed file on disk — a small, highly
+  compressible archive can still declare an XML or media entry far larger once
+  unzipped, and Mammoth would inflate it in full before the size was ever checked.
+  `previewDocumentArtifact` now inspects the archive's central directory first
+  (declared entry sizes and count, without decompressing anything) and rejects
+  anything that would expand past 50 MB total or carry more than 2000 entries,
+  before Mammoth ever runs.
 
 - **`PUT /api/settings/:key` now rejects writes to Tier-0 config keys.** The
   endpoint's allowlist covered every registry var with no tier check, so a

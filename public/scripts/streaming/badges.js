@@ -238,7 +238,8 @@ function _buildGeneratedFileCard({ filename, url, sizeKb }) {
   const kind = _LANG_LABEL[ext] || label;
   const canPreviewSpreadsheet = ext === "xlsx";
   const canPreviewPdf = ext === "pdf";
-  const canPreview = !_BINARY_EXT.has(ext) || canPreviewSpreadsheet || canPreviewPdf;
+  const canPreviewDocument = ext === "docx";
+  const canPreview = !_BINARY_EXT.has(ext) || canPreviewSpreadsheet || canPreviewPdf || canPreviewDocument;
   // Where the file actually landed — never a claim the card can't back up.
   const where = /\/uploads\//.test(url || "") ? "uploads" : "workspace";
 
@@ -274,6 +275,7 @@ function _buildGeneratedFileCard({ filename, url, sizeKb }) {
     card.querySelector(".gfc-preview-btn").addEventListener("click", () => {
       if (canPreviewSpreadsheet) openGeneratedSpreadsheetModal(url, name);
       else if (canPreviewPdf) openGeneratedPdfModal(url, name);
+      else if (canPreviewDocument) openGeneratedDocumentModal(url, name);
       else openGeneratedFileModal(url, name);
     });
   }

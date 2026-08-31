@@ -1,7 +1,7 @@
 // tests/lib/privacy/redact.test.js
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { redact, restore } from '../../../lib/privacy/redact.js';
+import { redact, restore, createStreamRestorer } from '../../../lib/privacy/redact.js';
 
 describe('redact — PII detection', () => {
   test('redacts an email address', () => {
@@ -147,5 +147,70 @@ describe('redact + restore — combined', () => {
     const { text, map } = redact(input);
     assert.equal(text, input);
     assert.equal(restore(text, map), input);
+  });
+});
+
+describe('createStreamRestorer — chunked restore for token-streaming', () => {
+  test('restores a placeholder delivered whole in one chunk', () => {
+    const { text, map } = redact('Email: alice@example.com');
+    const restorer = createStreamRestorer(map);
+    const out = restorer.push(text) + restorer.flush();
+    assert.equal(out, 'Email: alice@example.com');
+  });
+
+  test('holds back a placeholder split across two chunks until it completes', () => {
+    const { text, map } = redact('Email: alice@example.com');
+    const splitAt = text.indexOf('EMAIL'); // lands inside the placeholder
+    const chunk1 = text.slice(0, splitAt + 3);
+    const chunk2 = text.slice(splitAt + 3);
+    const restorer = createStreamRestorer(map);
+
+    const out1 = restorer.push(chunk1);
+    assert.ok(!out1.includes('«'), 'the unfinished placeholder prefix must not be released yet');
+
+    const out2 = restorer.push(chunk2);
+    const full = out1 + out2 + restorer.flush();
+    assert.equal(full, 'Email: alice@example.com');
+    assert.ok(!full.includes('«') && !full.includes('»'), 'no bracket ever leaks to the caller');
+  });
+
+  test('a placeholder split across three tiny chunks still restores correctly', () => {
+    const { text, map } = redact('Contact a@b.com now');
+    const restorer = createStreamRestorer(map);
+    let out = '';
+    for (const ch of text) out += restorer.push(ch); // one character per "token" event
+    out += restorer.flush();
+    assert.equal(out, 'Contact a@b.com now');
+  });
+
+  test('multiple placeholders across chunk boundaries all restore', () => {
+    const { text, map } = redact('a@b.com and c@d.org');
+    const mid = Math.floor(text.length / 2);
+    const restorer = createStreamRestorer(map);
+    const out = restorer.push(text.slice(0, mid)) + restorer.push(text.slice(mid)) + restorer.flush();
+    assert.equal(out, 'a@b.com and c@d.org');
+  });
+
+  test('plain text with no map entries passes straight through', () => {
+    const restorer = createStreamRestorer(new Map());
+    assert.equal(restorer.push('hello '), 'hello ');
+    assert.equal(restorer.push('world'), 'world');
+    assert.equal(restorer.flush(), '');
+  });
+
+  test('a lone unmatched guillemet is held until flush, not lost', () => {
+    // A non-empty map so the fast (no-op) path doesn't short-circuit the
+    // buffering — this is what a turn with an active redaction looks like:
+    // ordinary French/Bulgarian-style quote punctuation elsewhere in the same
+    // reply must still come through, just released at flush() instead of push().
+    const map = new Map([['«EMAIL_0»', 'alice@example.com']]);
+    const restorer = createStreamRestorer(map);
+    assert.equal(restorer.push('quote: «'), 'quote: ');
+    assert.equal(restorer.flush(), '«');
+  });
+
+  test('flush on an empty buffer returns an empty string', () => {
+    const restorer = createStreamRestorer(new Map());
+    assert.equal(restorer.flush(), '');
   });
 });

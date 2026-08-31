@@ -60,12 +60,13 @@ describe("createBackgroundWorkers", () => {
     w.infer.stop?.();
     w.pruner.stop?.();
     w.logPruner.stop?.();
+    w.redactionMapPruner.stop?.();
     w.runPruner.stop?.();
   }
 
   // ─── Return shape ─────────────────────────────────────────────────────
 
-  test("returns the expected 5-field shape with local provider (llamacpp)", async () => {
+  test("returns the expected 6-field shape with local provider (llamacpp)", async () => {
     const w = await createBackgroundWorkers({
       providerName: "llamacpp",
       callTool,
@@ -79,19 +80,21 @@ describe("createBackgroundWorkers", () => {
       assert.ok(w.infer,      ".infer");
       assert.ok(w.pruner,     ".pruner");
       assert.ok(w.logPruner,  ".logPruner");
+      assert.ok(w.redactionMapPruner, ".redactionMapPruner");
       assert.ok(w.runPruner,  ".runPruner");
 
       assert.strictEqual(typeof w.dedup.stop,     "function", ".dedup.stop");
       assert.strictEqual(typeof w.infer.stop,     "function", ".infer.stop");
       assert.strictEqual(typeof w.pruner.stop,    "function", ".pruner.stop");
       assert.strictEqual(typeof w.logPruner.stop,  "function", ".logPruner.stop");
+      assert.strictEqual(typeof w.redactionMapPruner.stop, "function", ".redactionMapPruner.stop");
       assert.strictEqual(typeof w.runPruner.stop, "function", ".runPruner.stop");
     } finally {
       await stopWorkers(w);
     }
   });
 
-  test("returns the same 5-field shape with cloud provider", async () => {
+  test("returns the same 6-field shape with cloud provider", async () => {
     const w = await createBackgroundWorkers({
       providerName: "anthropic",
       callTool,
@@ -104,6 +107,7 @@ describe("createBackgroundWorkers", () => {
       assert.ok(w.infer);
       assert.ok(w.pruner);
       assert.ok(w.logPruner);
+      assert.ok(w.redactionMapPruner);
       assert.ok(w.runPruner);
     } finally {
       await stopWorkers(w);
@@ -236,6 +240,7 @@ describe("createBackgroundWorkers", () => {
     try {
       assert.strictEqual(typeof w1.pruner.stop,    "function");
       assert.strictEqual(typeof w1.logPruner.stop,  "function");
+      assert.strictEqual(typeof w1.redactionMapPruner.stop, "function");
       assert.strictEqual(typeof w1.runPruner.stop, "function");
     } finally {
       await stopWorkers(w1);
@@ -247,6 +252,7 @@ describe("createBackgroundWorkers", () => {
     try {
       assert.strictEqual(typeof w2.pruner.stop,    "function");
       assert.strictEqual(typeof w2.logPruner.stop,  "function");
+      assert.strictEqual(typeof w2.redactionMapPruner.stop, "function");
       assert.strictEqual(typeof w2.runPruner.stop, "function");
     } finally {
       await stopWorkers(w2);

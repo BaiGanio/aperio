@@ -1494,6 +1494,32 @@ describe("buildResumeContext()", () => {
     });
     assert.ok(result.includes("Test"));
   });
+
+  // Issue #531, review round 3, P2: this text becomes `extraSystem` on the
+  // NEXT runAgentLoop call — a cloud-provider turn — so it must use the
+  // still-placeholder-bearing `content`, never `displayContent` (the
+  // restored, UI-only copy toReadableMessages() attaches). Using the
+  // restored copy here would resend exactly what redact mode withheld.
+  test("never pulls displayContent into the cloud-facing resume context, even when present", () => {
+    const result = sessions.buildResumeContext({
+      id: "redacted-resume",
+      startedAt: "2026-06-05T14:00:00.000Z",
+      title: "Contact lookup",
+      summaries: [],
+      messages: [
+        { role: "user", content: "who do I contact?" },
+        {
+          role: "assistant",
+          content: "Reach out to «c0ffee00-0000-4000-8000-000000000000_0_EMAIL_0»",
+          displayContent: "Reach out to alice@example.com",
+        },
+      ],
+    });
+    assert.ok(result.includes("«c0ffee00-0000-4000-8000-000000000000_0_EMAIL_0»"),
+      "the placeholder must be what gets resent to the cloud provider on resume");
+    assert.ok(!result.includes("alice@example.com"),
+      "the restored PII must never appear in text destined for a cloud request");
+  });
 });
 
 // =============================================================================
@@ -1912,5 +1938,50 @@ describe("toReadableMessages — message formatting", () => {
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/model-meta.json")));
     assert.equal(saved.messages[0].model, "gpt-4");
     assert.equal(saved.messages[0].provider, "openai");
+  });
+
+  // Issue #531, review round 3, P2: a reply restored live in the stream was
+  // being persisted with its placeholder still in it, so a resumed
+  // conversation showed «...» again forever. lib/agent/index.js now stamps
+  // the restored text onto `_redactedDisplayText` on the SAME message object
+  // whose `content` stays placeholder-bearing (never mutated — that copy is
+  // what buildResumeContext() re-sends to the cloud provider on resume, see
+  // that describe block below).
+  test("carries the restored value as displayContent, leaving content redacted", () => {
+    seedSession({ id: "redacted-display", summaries: [], title: null });
+
+    const messages = [
+      { role: "system" },
+      { role: "user", content: "who do I contact?" },
+      {
+        role: "assistant",
+        content: "Reach out to «c0ffee00-0000-4000-8000-000000000000_0_EMAIL_0»",
+        _redactedDisplayText: "Reach out to alice@example.com",
+      },
+    ];
+
+    sessions.finaliseSession("redacted-display", messages, null, true);
+
+    const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/redacted-display.json")));
+    const assistantMsg = saved.messages.find(m => m.role === "assistant");
+    assert.equal(assistantMsg.content, "Reach out to «c0ffee00-0000-4000-8000-000000000000_0_EMAIL_0»",
+      "content must stay exactly what the model produced — it can be re-sent to the cloud on resume");
+    assert.equal(assistantMsg.displayContent, "Reach out to alice@example.com",
+      "displayContent must carry the restored value for the History/resume UI");
+  });
+
+  test("no displayContent field at all when a message was never redacted", () => {
+    seedSession({ id: "no-redaction", summaries: [], title: null });
+
+    const messages = [
+      { role: "system" },
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello!" },
+    ];
+
+    sessions.finaliseSession("no-redaction", messages, null, true);
+
+    const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/no-redaction.json")));
+    assert.equal("displayContent" in saved.messages[1], false);
   });
 });
