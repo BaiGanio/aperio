@@ -728,6 +728,18 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   the live demo transcript that caught this one). Worth a real harness if this file keeps
   growing; not done here — out of scope for the fix itself.
 
+## Config contract gate — two unregistered env reads fail the audit suite
+
+- 2026-10-17 `npm test` has one failing test, found while doing the Dependabot
+  dependency catch-up (unrelated to it — both files are untouched by that work):
+  `audit/tests/config-contract.test.js:59` ("current real state — no unregistered env
+  reads remain"). `checkConfigContract()` reports two unregistered reads:
+  `APERIO_MCP_AUTH_TOKEN` in `mcp/index.js` and `APERIO_RUNTIME_ROOT` in
+  `lib/handlers/memory/memoryHandlers.js`. Either register both in the `lib/config.js`
+  registry (then `npm run gen:env`) or add them to `REVIEWED_EXCEPTIONS` in
+  `audit/scripts/config-contract.js` if they are deliberately env-only. Until then the
+  suite is 6319/6320 and the gate is red.
+
 ## Intentional deferrals
 
 These are intentional deferrals. Do not "fix" them without discussion.

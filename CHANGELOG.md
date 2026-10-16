@@ -100,6 +100,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `APERIO_CONFIG_PRECEDENCE` (`editable: true`), stays writable through the
   Settings UI. (#530)
 
+### Changed
+
+- **Dependency and GitHub Actions bumps (Dependabot catch-up).** npm direct
+  dependencies: `@anthropic-ai/sdk` 0.120.0 → 0.123.0, `bootstrap-icons` 1.11.3 →
+  1.13.1, `@modelcontextprotocol/sdk` → 1.32.1, `@anthropic-ai/claude-agent-sdk` →
+  0.3.302, `@huggingface/transformers` → 4.3.1, `sharp` → 0.35.5, `adm-zip` →
+  0.6.1, `express-rate-limit` → 8.7.1, `zod` → 4.6.7, `open` → 11.0.4,
+  `fast-xml-parser` → 5.11.2, `mysql2` → 3.24.6, `sanitize-html` → 2.18.1.
+  Transitive: `source-map-js` 1.2.2, `fast-uri` 3.1.8, `proxy-addr` 2.0.8,
+  `brace-expansion` 1.1.21, `ip-address` 10.7.4, `hono` 4.13.13, `moment` 2.31.0,
+  `qs` 6.16.1, `@xmldom/xmldom` 0.8.15. Pinned action SHAs moved to
+  `github/codeql-action` v4.37.9, `actions/deploy-pages` v5.0.1,
+  `docker/setup-qemu-action` v4.4.0, `docker/setup-buildx-action` v4.4.1 and
+  `docker/build-push-action` v7.4.0. `web-tree-sitter` / `tree-sitter-wasms` stay
+  pinned at the ABI-14 line.
+
 ### Added
 
 - **The six-topic Aperio Manual is now published from the landing site.** A new
