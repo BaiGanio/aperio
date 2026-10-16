@@ -109,7 +109,7 @@
     "emphasize": "^7.0.0",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
+    "express-rate-limit": "^8.7.0",
     "fast-xml-parser": "^5.11.0",
     "gpt-tokenizer": "^4.0.0",
     "graphology": "^0.26.0",
