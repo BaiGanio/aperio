@@ -1,10 +1,22 @@
 <div align="center">
   <img src="docs/assets/mascot/robot-aurora-512.png" alt="Aperio" height="140">
-  <h1>Aperio</h1>
+  <<h1>✨ Aperio</h1>
 
   <strong>One brain. Every agent. Nothing forgotten.</strong>
 
   <p>A self-hosted memory layer and agent runtime for local or cloud AI.</p>
+
+<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
+[![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
+![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
+![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
+[![Last Commit](https://img.shields.io/github/last-commit/baiganio/aperio)](https://github.com/baiganio/aperio)
+[![CodeQL](https://github.com/baiganio/aperio/actions/workflows/ci.codeql.yml/badge.svg)](https://github.com/baiganio/aperio/actions/workflows/ci.codeql.yml)
+[![codecov](https://codecov.io/github/BaiGanio/aperio/graph/badge.svg?token=WUIXIYJBR2)](https://codecov.io/github/BaiGanio/aperio)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=BaiGanio_aperio&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=BaiGanio_aperio)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/989578993b87414db9ff64a2b3c22989)](https://app.codacy.com/gh/BaiGanio/aperio/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/baiganio/aperio/security/dependabot)
+[![Security Policy](https://img.shields.io/badge/security-policy-green?logo=github)](https://github.com/baiganio/aperio/security/policy)
 
   <p>
     <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Download Aperio-lite</a>
@@ -12,6 +24,8 @@
     · <a href="https://github.com/BaiGanio/aperio/wiki">Wiki</a>
     · <a href="https://github.com/BaiGanio/aperio/discussions">Discussions</a>
   </p>
+  
+#### • 🌐 Site: [https://baiganio.github.io/aperio](https://baiganio.github.io/aperio) •
 </div>
 
 ## What is Aperio?
