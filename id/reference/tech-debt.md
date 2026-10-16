@@ -728,17 +728,23 @@ recoverable via `git log -- trash/plans/document-intelligence-epic/document-inte
   the live demo transcript that caught this one). Worth a real harness if this file keeps
   growing; not done here — out of scope for the fix itself.
 
-## Config contract gate — two unregistered env reads fail the audit suite
+## npm audit — two moderate advisories with no non-breaking upstream fix
 
-- 2026-10-17 `npm test` has one failing test, found while doing the Dependabot
-  dependency catch-up (unrelated to it — both files are untouched by that work):
-  `audit/tests/config-contract.test.js:59` ("current real state — no unregistered env
-  reads remain"). `checkConfigContract()` reports two unregistered reads:
-  `APERIO_MCP_AUTH_TOKEN` in `mcp/index.js` and `APERIO_RUNTIME_ROOT` in
-  `lib/handlers/memory/memoryHandlers.js`. Either register both in the `lib/config.js`
-  registry (then `npm run gen:env`) or add them to `REVIEWED_EXCEPTIONS` in
-  `audit/scripts/config-contract.js` if they are deliberately env-only. Until then the
-  suite is 6319/6320 and the gate is red.
+- 2026-10-17 Found during the Dependabot dependency catch-up. `npm audit` reports 7
+  advisories; 5 are the two already-accepted `image-size` entries in
+  `scripts/npm-audit-gate.js` (reached only through `pptxgenjs`). The remaining two are
+  moderate, so the gate — which blocks high and critical only — stays green, and they are
+  recorded here rather than in the gate ledger:
+  - **`sprintf-js` (GHSA-hp3w-g68c-fv3c)** — denial of service via unbounded precision
+    specifiers. *Every* published version is affected, so `npm audit fix` has nothing to
+    offer; only `--force` "fixes" it, by breaking a parent. Transitive only.
+  - **`uuid` <11.1.1 (GHSA-w5hq-g745-h8pq)** — missing buffer bounds check in v3/v5/v6
+    when `buf` is passed. Reaches us solely as `exceljs/node_modules/uuid`; our own
+    direct `uuid` is 14.x and unaffected. `exceljs` pins the old major, so the fix must
+    come from upstream `exceljs` or from dropping it.
+  - Neither is reachable from untrusted input on a single-user self-hosted install today.
+    Re-check both when `exceljs` publishes a release that moves its `uuid` pin; if either
+    is ever promoted to high, it needs a real decision, not a ledger entry.
 
 ## Intentional deferrals
 
