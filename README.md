@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/assets/mascot/robot-aurora-512.png" alt="Aperio" height="140">
-  <<h1>✨ Aperio</h1>
+  <h1>✨ Aperio</h1>
 
   <strong>One brain. Every agent. Nothing forgotten.</strong>
 
