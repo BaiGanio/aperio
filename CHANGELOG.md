@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Indexing a large folder froze the whole server.** `leadingDoc()` in both code-graph
+  extractors sliced the entire file prefix for *every* symbol and ran `$`-anchored regexes
+  over it — quadratic in the copying and again in the backtracking. On a 160KB source file
+  the last symbols cost ~67ms each, and ~3.4s each at 400KB, so one large file pinned the
+  main thread for minutes. Because indexing runs in-process, the event loop stalled with it
+  and every HTTP request hung: the Settings panel sat on "Loading…" forever. Doc lookup now
+  works from a bounded 8KB window and walks backwards linearly
+  (`lib/codegraph/doc-comment.js`, shared by both extractors). The same change fixes a
+  latent correctness bug: for two `/** … */` blocks separated by code, the old lazy regex
+  matched from the first block's opening to the last block's closing, capturing the code in
+  between as the symbol's doc.
+
 - **DOCX document previews dropped embedded images.** Mammoth converts an embedded image to
   an `<img src="data:image/...">`, but the preview sanitizer only allowed `http`/`https`/
   `mailto` link schemes, so every image's `src` was stripped and the preview showed a broken

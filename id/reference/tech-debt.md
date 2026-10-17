@@ -25,6 +25,27 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Indexing shares the server's event loop
+
+- 2026-10-17 Code-graph and doc-graph indexing run in-process on the main thread. Tree-sitter
+  parsing and the per-file sync writes are CPU-bound, so *any* slow extractor path stalls the
+  HTTP server outright — found the hard way via a quadratic `leadingDoc()` that hung
+  `/api/version` and the Settings panel indefinitely (fixed in `lib/codegraph/doc-comment.js`).
+  The regex is fixed; the structural exposure is not. A worker thread for extraction, or an
+  explicit yield between files, would stop the next slow extractor from taking the UI down.
+
+- 2026-10-17 `lib/codegraph/extract-generic.js` `extractBashFallback()` computes each symbol's
+  line number with `source.slice(0, match.index).split("\n").length` — a full prefix copy and
+  split per match, i.e. the same quadratic shape just fixed in `leadingDoc()`. Harmless today
+  because shell scripts are small; it will not stay harmless if the fallback is ever reused.
+
+## Settings overlay cannot distinguish "slow" from "dead"
+
+- 2026-10-17 `public/scripts/settings-overlay.js` `load()` awaits `/api/config/schema` with no
+  timeout and no abort. When the server's event loop is blocked the fetch never settles, so
+  the panel shows "Loading…" forever with no hint that the server is wedged. A timeout plus a
+  "server is busy" message would have made the indexing freeze self-diagnosing.
+
 ## Codegraph — live watcher ignores every non-JS/TS language it can index
 
 - 2026-10-17 `lib/codegraph/watcher.js:75` `isIndexable()` gates on `JS_EXT` alone, while
