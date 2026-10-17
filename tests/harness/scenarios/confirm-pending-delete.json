@@ -1,0 +1,10 @@
+{
+  "id": "confirm-pending-delete",
+  "title": "A destructive action stops and waits for the user's confirmation instead of running",
+  "userMessage": "Delete the old quarterly report and then send me a summary.",
+  "providerScript": [
+    { "tool": "delete_file", "args": { "path": "reports/q1-draft.txt" } },
+    { "tool": "send_report", "args": { "filename": "q1-draft.txt" } },
+    { "text": "Deleted the draft and sent the summary." }
+  ]
+}

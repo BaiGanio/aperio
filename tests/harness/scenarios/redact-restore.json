@@ -1,0 +1,10 @@
+{
+  "id": "redact-restore",
+  "title": "A redacted memory the model echoes back is restored to the real value before the user sees it",
+  "userMessage": "What's the contact info for the redact test?",
+  "providerScript": [
+    { "tool": "recall", "args": { "query": "redact-test" } },
+    { "text": "Contact: «0_EMAIL_0», reach out any time." }
+  ],
+  "expectedToolSequence": ["recall"]
+}

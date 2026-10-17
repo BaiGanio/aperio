@@ -1,0 +1,124 @@
+/* public/styles/modals/identity-info.css — "more..." modal on the startup banner:
+   editable whoami.md, read-only tool schema list, memory index summary. */
+
+    .idm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 600;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .idm-overlay.open {
+      display: flex;
+    }
+
+    .idm-dialog {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      width: 72vw;
+      min-width: min(760px, 94vw);
+      max-width: 94vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      animation: fadeUp .15s ease;
+    }
+
+    .idm-body {
+      overflow-y: auto;
+      padding: 16px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .idm-identity-hint {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      margin: 0 0 8px;
+      line-height: 1.5;
+    }
+
+    .idm-textarea {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm, 6px);
+      background: var(--bg-hover);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: var(--fs-ui);
+      line-height: 1.5;
+    }
+
+    .idm-textarea:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      border-color: var(--accent);
+    }
+
+    .idm-section-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .idm-status {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+    }
+
+    .idm-status.is-error { color: var(--error, #ef4444); }
+    .idm-status.is-ok { color: var(--accent); }
+
+    .idm-tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .idm-tool-row {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm, 6px);
+      background: var(--bg-hover);
+    }
+
+    .idm-tool-name {
+      font-family: var(--font-mono);
+      font-size: var(--fs-chrome);
+      font-weight: 600;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .idm-tool-desc {
+      font-size: var(--fs-ui);
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .idm-empty {
+      font-size: var(--fs-ui);
+      color: var(--text-muted);
+    }
+
+    .idm-memory-summary {
+      font-size: var(--fs-ui);
+      color: var(--text-muted);
+      margin: 0 0 10px;
+    }

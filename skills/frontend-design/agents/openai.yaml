@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Design"
+  short_description: "Build polished, previewable web interfaces"
+  default_prompt: "Use $frontend-design to build a polished, responsive web interface and deliver it as a previewable artifact."
