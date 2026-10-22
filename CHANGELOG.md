@@ -122,6 +122,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
   unchanged — run them on demand. Whether the audit programme stays at all is a
   separate, later decision.
 
+- **The metrics-sampler overlap test no longer depends on wall-clock timing.**
+  `createMetricsSampler > never runs overlapping samples` started the sampler, slept
+  70 ms and hoped to see at least two samples. Each sample shells out to `vm_stat`
+  and `sysctl`, so on a loaded macOS runner one sample could eat the whole window
+  and the test failed — it was the red job on the install matrix. The sample now
+  parks inside an injected `counts()` gate the test opens by hand, and `execImpl`
+  is stubbed. The assertions are unchanged and stricter in practice: the rewritten
+  test also covers the real overlap risk (an external `sample()` caller arriving
+  while the loop's own sample is in flight), which the timing version never did.
+
 - **Dependency and GitHub Actions bumps (Dependabot catch-up).** npm direct
   dependencies: `@anthropic-ai/sdk` 0.120.0 → 0.123.0, `bootstrap-icons` 1.11.3 →
   1.13.1, `@modelcontextprotocol/sdk` → 1.32.1, `@anthropic-ai/claude-agent-sdk` →
