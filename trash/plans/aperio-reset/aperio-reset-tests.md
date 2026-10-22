@@ -11,10 +11,11 @@ is **red** on today's master before starting the step, then make it green.
 | S0.2 | T0.2 Unit: deterministic sampler | repeat-run stability |
 | S0.3 | T0.3 CI: release pipeline | bump calc, packaging, dispatch path |
 | S0.4 | T0.4 Release smoke | asset present, zip boots, release branch |
+| S1.0 | T1.0 Archive tag reachable | tag pushed, files restorable |
 | S1.1 | T1.1 Repo grep: infra gone | no live refs |
 | S1.2 | T1.2 Repo grep: bots gone | no live refs, docs updated |
 | S1.3 | T1.3 Badges + checks | README links, ruleset unaffected |
-| S1.4 | T1.4 Dead code gone | suite green, zero callers |
+| S1.4 | T1.4 Spawn kept, parked | no deletion, #319/#320 point at #498 |
 | S1.5 | T1.5 Tracker state | every open issue mapped or parked |
 | S2.1 | T2.1 Perf: server stays responsive | latency under indexing |
 | S2.2 | T2.2 Integration: watcher languages | per-language save → graph update |
@@ -52,6 +53,10 @@ is **red** on today's master before starting the step, then make it green.
 - **Assertions:** `gh release view v0.70.* --json assets` lists `aperio-lite.zip`; lite-smoke workflow green on that tag; `git rev-parse origin/release` == the tag's commit.
 - **Edge cases:** zip size stays near the v0.68.0 size (not ~350 MB — #455 timed fault).
 
+### T1.0 — archive tag reachable
+- **Assertions:** `git ls-remote --tags origin archive/pre-reset-2026-10-22` returns the tag; in a scratch clone `git checkout archive/pre-reset-2026-10-22 -- k8s vms lib/agent/spawn.js` restores all three.
+- **Edge cases:** tag is annotated (`git cat-file -t` = `tag`, not `commit`), so it survives a later history rewrite discussion; run before any Phase 1 delete, never after.
+
 ### T1.1 — infra removed
 - **Assertions:** `git ls-files k8s vms .github/workflows/cd.k3s-deploy.yml` empty; `grep -rnI "k3s\|aperio\.live" --exclude-dir={node_modules,trash,coverage,var} .` returns only CHANGELOG history; #239–241 closed.
 - **Edge cases:** docs site build (`cd.gh-pages`) still green.
@@ -64,9 +69,9 @@ is **red** on today's master before starting the step, then make it green.
 - **Assertions:** no `codacy`/`sonar` in workflows, README, or config files; every README badge URL returns HTTP 200; next PR shows `GitGuardian` + `code_quality` checks.
 - **Edge cases:** Codecov upload still runs and the badge updates.
 
-### T1.4 — spawn dead code removed
-- **Assertions:** `npm test` green; `grep -rn "spawnChild\|spawnParallel" lib mcp` = 0; `npm run test:harness` green.
-- **Edge cases:** only if the developer confirms spawn is not on the roadmap.
+### T1.4 — spawn kept and parked
+- **Assertions:** `lib/agent/spawn.js` still tracked (`git ls-files lib/agent/spawn.js` non-empty); #319 and #320 each carry a comment pointing at #498; F-R3-04 still listed in `id/reference/tech-debt.md`.
+- **Edge cases:** if #498 is later decided against planning UX, re-open this step as its own change with its own test — do not fold the deletion into another Phase 1 push.
 
 ### T1.5 — tracker reflects reality
 - **Assertions:** #335, #202, #105, #455 closed; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.

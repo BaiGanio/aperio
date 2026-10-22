@@ -23,6 +23,7 @@ local models first) can launch from a known-good base.
 | Cut | `k8s/`, `vms/`, aperio.live deploy, bot/gamification workflows, Codacy + Sonar. |
 | Quality metrics | Keep some proof of quality: Codecov + CodeQL + npm-audit gate stay. |
 | Old crossed-out epics | Not needed, may be revisited. Close as *not planned* (reopenable). |
+| Deleted work | Nothing is lost: an annotated tag `archive/pre-reset-2026-10-22` is pushed before Phase 1, and closed issues stay reopenable. Recover with `git checkout archive/pre-reset-2026-10-22 -- <path>`. |
 | Pace | Full-time for some weeks, but in small shippable steps (one PR / one push each). |
 
 ## Audit snapshot (2026-10-22, master @ e44648d1)
@@ -104,6 +105,14 @@ Tests: T0.4.
 
 ### Phase 1 — Cut
 
+**S1.0 Archive tag (do this first).** Before any delete, create and push an annotated tag
+on the current green master so every cut file keeps one named, permanent address:
+`git tag -a archive/pre-reset-2026-10-22 -m "state before the Aperio Reset cut"` then
+`git push origin archive/pre-reset-2026-10-22`. Recovery for any path afterwards is
+`git checkout archive/pre-reset-2026-10-22 -- <path>`.
+*Works when:* the tag is visible on GitHub and a test checkout of `k8s/` from it succeeds.
+Tests: T1.0.
+
 **S1.1 Remove infra.** Delete `k8s/`, `vms/`, `.github/workflows/cd.k3s-deploy.yml`, and
 aperio.live references in docs. Close #239, #240, #241 as *not planned*.
 *Works when:* `grep -rn "k3s\|aperio.live" --exclude-dir=node_modules --exclude-dir=trash`
@@ -125,11 +134,13 @@ files and README badges. Keep Codecov, CodeQL, npm-audit.
 are unaffected.
 Tests: T1.3.
 
-**S1.4 Dead code.** Delete the unused sub-agent spawn path (`lib/agent/spawn.js`, #319) —
-this also removes the latent agent-permission gap (F-R3-04) at its root. Leave
-`plan_created` / `plan_step` / `plan_drift` events (#320) until the planning-UX epic #498
-is decided (question for the developer, see Risks).
-*Works when:* full test suite green; `grep -rn "spawnChild\|spawnParallel" lib mcp` = 0.
+**S1.4 Dead code.** **Deferred by developer decision (2026-10-22).** `lib/agent/spawn.js`
+(#319) is live product code, not CI clutter, and the planning-UX epic #498 is still
+undecided — the same reason this step already gives for leaving `plan_created` /
+`plan_step` / `plan_drift` (#320) alone. Keep both until #498 is decided, then revisit
+in one step. The latent agent-permission gap (F-R3-04) therefore stays open; it is
+tracked in `id/reference/tech-debt.md` and must not be closed by this plan.
+*Works when:* #319 and #320 carry a comment pointing at #498; no code is removed here.
 Tests: T1.4.
 
 **S1.5 Issue triage.** Close #335, #202, #105 as *not planned*. Close map #455 (date
