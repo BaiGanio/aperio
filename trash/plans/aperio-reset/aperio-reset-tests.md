@@ -141,8 +141,16 @@ CodeQL. Assert inertness plus badge honesty, not absence.
 - **Assertions:** `lib/agent/spawn.js` still tracked (`git ls-files lib/agent/spawn.js` non-empty); #319 and #320 each carry a comment pointing at #498; F-R3-04 still listed in `id/reference/tech-debt.md`.
 - **Edge cases:** if #498 is later decided against planning UX, re-open this step as its own change with its own test — do not fold the deletion into another Phase 1 push.
 
-### T1.5 — tracker reflects reality
-- **Assertions:** #239, #240, #241 (moved here from the retired T1.1) **✅ closed 2026-10-22**, #335, #202, #105, #455 closed as *not planned*; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.
+### T1.5 — tracker reflects reality — **PASS 2026-10-22**
+- **Assertions:** #239, #240, #241 (moved here from the retired T1.1) **✅ closed 2026-10-22**;
+  #335, #202, #105, #455 **✅ closed as *not planned*** (`gh issue view <n> --json state,stateReason`
+  → `CLOSED NOT_PLANNED` on all four); every remaining open issue **✅** is named in the plan
+  (nine of them) or carries a parked/in-scope comment (thirteen); `muted` **✅** no longer on any
+  open issue (`gh issue list --label muted --state open` → empty) while the label itself survives.
+- **Final count:** 22 open, down from 26.
+- **Gotcha:** GitHub's label search index lags the write by minutes — a `--label muted` listing
+  run straight after the edits still showed #569. Re-read the issue's own labels
+  (`gh issue view 569 --json labels`) before believing a stale listing.
 
 ### T2.1 — server stays responsive while indexing
 - **Setup:** isolated scratch workdir + non-default port; index a large repo (e.g. this one with `node_modules` excluded).

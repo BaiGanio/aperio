@@ -245,11 +245,25 @@ tracked in `id/reference/tech-debt.md` and must not be closed by this plan.
 *Works when:* #319 and #320 carry a comment pointing at #498; no code is removed here.
 Tests: T1.4.
 
-**S1.5 Issue triage.** — **PART DONE 2026-10-22: #239, #240, #241 closed as *not planned*** (moved here from the dropped S1.1), each with a comment recording that the aperio.live deploy is cut, that `k8s/` and `cd.k3s-deploy.yml` nonetheless stay on `master`, where the plans live (`trash/plans/aperio-live/`), and that the pre-cut tree is tagged `archive/pre-reset-2026-10-22`. All three are reopenable.
-Still to do: close #335, #202, #105 as *not planned*. Close map #455 (date
-passed) with a comment pointing to Phase 4. Remove the blanket `muted` label from the
-issues that stay open, so the tracker shows real priorities again.
-*Works when:* every open issue is either in this plan or explicitly parked.
+**S1.5 Issue triage.** — **DONE 2026-10-22.** First pass closed #239, #240, #241 as
+*not planned* (moved here from the dropped S1.1), each with a comment recording that the
+aperio.live deploy is cut, that `k8s/` and `cd.k3s-deploy.yml` nonetheless stay on `master`,
+where the plans live (`trash/plans/aperio-live/`), and that the pre-cut tree is tagged
+`archive/pre-reset-2026-10-22`. Second pass closed #335, #202, #105 as *not planned* (all
+three already had struck-through titles and sit outside the locked core) and closed map #455,
+whose 1 September date had passed and whose 13 tickets were all resolved — its comment hands
+launch planning to Phase 4 and records that v0.70.0 is reserved for S4.1. All seven are
+reopenable.
+The blanket `muted` label was the real finding: it sat on **all 26** open issues, so it
+carried no signal at all. It is now removed from every one of the 22 that stay open; the
+label itself is not deleted. Of those 22 the plan names only nine (#319, #320, #421, #422,
+#498, #531, #532, #539, #569), so the other thirteen were given a note rather than left
+ambiguous — #250 and #251 marked in-scope (doc intelligence is a locked kept feature, next
+action WS4 / T-G6), and #187, #321, #338, #355, #356, #357, #358, #359, #361, #476, #528
+parked until after Phase 4. #355–#359 and #321 are one family (the multi-turn harness); #361
+is the spec map behind the still-undecided #498, so it parks for the same reason S1.4 gives.
+*Worked:* 22 open issues, zero carrying `muted`, every one named in this plan or carrying a
+parked/in-scope note.
 Tests: T1.5.
 
 ### Phase 2 — Core bugs (local-model first)
