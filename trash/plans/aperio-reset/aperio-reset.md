@@ -25,6 +25,7 @@ local models first) can launch from a known-good base.
 | Old crossed-out epics | Not needed, may be revisited. Close as *not planned* (reopenable). |
 | Deleted work | Nothing is lost: an annotated tag `archive/pre-reset-2026-10-22` is pushed before Phase 1, and closed issues stay reopenable. Recover with `git checkout archive/pre-reset-2026-10-22 -- <path>`. |
 | Pace | Full-time for some weeks, but in small shippable steps (one PR / one push each). |
+| Version numbers (2026-10-22, after S0.4) | **S0.4 shipped v0.69.2, not v0.70.x.** The bump is computed from the commits since the last tag, and the range held 11 `fix:` commits and zero `feat:` — so SemVer says patch, and the plan's round number was never earned. **v0.70.0 is reserved for the Phase 4 launch (S4.1)**, to be carried by a real `feat:`. Do not spend it on a cleanup step. |
 
 ## Audit snapshot (2026-10-22, master @ e44648d1)
 
@@ -45,7 +46,7 @@ local models first) can launch from a known-good base.
 
 ```mermaid
 graph TD
-    P0["Phase 0 — Green & ship<br/>audit gate non-blocking · flaky test · release pipeline · v0.70 out"]
+    P0["Phase 0 — Green & ship<br/>audit gate non-blocking · flaky test · release pipeline · v0.69.2 out"]
     P1["Phase 1 — Cut<br/>infra · bots · Codacy/Sonar · dead code · issue triage"]
     P2["Phase 2 — Core bugs (local-first)<br/>indexing freeze · watcher langs · #531 · #532 · #539"]
     P3["Phase 3 — Own the code<br/>review ai(slop) diff · split big files"]
@@ -97,11 +98,18 @@ Tests: T0.2.
 an existing tag produces a release with `aperio-lite.zip` attached.
 Tests: T0.3.
 
-**S0.4 Ship v0.70.x.**
-Cut the first release since July from the green master.
-*Works when:* the GitHub release has `aperio-lite.zip`, the zip boots on macOS via the
-lite smoke workflow, and `install.sh` clones the matching `release` branch commit.
-Tests: T0.4.
+**S0.4 Ship the first release since July.** — **DONE 2026-10-22: v0.69.2.**
+Cut from the green master. The number is **v0.69.2**, not v0.70.x: the S0.3 bump logic read
+37 commits since v0.69.1 and counted 11 `fix:` with no `feat:`, so patch is the honest
+answer. v0.70.0 is reserved for S4.1 — see the Decisions-locked table.
+*Worked:* release v0.69.2 published with `aperio-lite.zip` (6.44 MB, against the 5.1 MB
+v0.68.0 baseline); lite smoke green on the tag across all five runners
+(`gh workflow run ci.lite-smoke.yml --ref v0.69.2`, run `39820710035`); `origin/release`
+== the tag's commit `52778b7b`, the first time that branch has moved off v0.68.0.
+Also backfilled by hand: **v0.69.1 now has a release** (dispatch run `39819904949`, which
+wrote no commit, tag or branch — the mode=package path doing its job). **v0.69.0 stays a
+bare tag** by decision: two releases superseded it within days.
+Tests: T0.4 — all checks pass.
 
 ### Phase 1 — Cut
 
@@ -190,7 +198,8 @@ Tests: T3.2.
 ### Phase 4 — Launch v1
 
 **S4.1 New launch map.** Re-check the #455 decisions (most should still hold), pick a new
-date, open a fresh map. Local models lead the story.
+date, open a fresh map. Local models lead the story. **This is where v0.70.0 is spent** —
+S0.4 shipped v0.69.2, so the round number is still free and should ride a real `feat:`.
 **S4.2 Locales.** Resume #421/#422 only after S4.1 is set.
 Tests: T4.1.
 

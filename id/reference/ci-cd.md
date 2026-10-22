@@ -19,15 +19,19 @@ GitHub Actions workflows in `.github/workflows/`:
   `coverage-tests` job instead (so the Pages site stays fresh even when this
   workflow doesn't fire).
 - `ci.audit.yml` — the continuous-audit gates (`audit/tests`, T1–T9 of
-  `aperio-continuous-audit-tests.md`). Deliberately **not** path-filtered,
-  unlike `ci.agent-harness.yml`: the contract gates assert against the real
-  current source (`config-contract` reads `lib/config.js`, `registry-contract`
-  calls the real `mcp/tools/*.js` `register()` functions, `provider-contract`
-  reads the provider loops), so a change anywhere in `lib/`, `mcp/`, or `db/`
-  can turn them red — a filter on `audit/**` would miss exactly what they exist
-  to catch. Pure, no model, no network, ~1 s. Kept out of `test:ci` so the audit
-  gates stay out of the product coverage figure and the unit/integration
-  dashboards.
+  `aperio-continuous-audit-tests.md`). **`workflow_dispatch` only since S0.1
+  (2026-10-22)** — it no longer runs on a push or a pull request. The gates
+  assert against the real current source (`config-contract` reads
+  `lib/config.js`, `registry-contract` calls the real `mcp/tools/*.js`
+  `register()` functions, `provider-contract` reads the provider loops), so a
+  change anywhere in `lib/`, `mcp/` or `db/` can turn them red. That is what
+  they exist to catch, which is why they were never path-filtered — but it also
+  meant they had master red since 2026-10-16 (#569) and blocked everything
+  behind them. Run them on demand with `npm run test:audit` locally or
+  `gh workflow run ci.audit.yml`. Whether the program is kept or deleted is a
+  later decision (see `trash/plans/aperio-reset/aperio-reset.md`). Pure, no
+  model, no network, ~1 s. Kept out of `test:ci` so the audit gates stay out of
+  the product coverage figure and the unit/integration dashboards.
 - `ci.lite-smoke.yml` — lite install-path boot gate. On every push/PR touching the
   server boot path (`server.js`, `bootstrap.js`, `lib/**`, `db/**`, `mcp/**`) or
   the launchers under `.github/lite/**`, across Linux, macOS, and Windows:
@@ -95,8 +99,12 @@ and one-time VM setup are documented in [`vms/README.md`](../../vms/README.md).
 
 ## CD Workflows
 
-- `cd.release.yml` — release automation (version bump, changelog, publish).
-  **Gated on tests** (see below) — it does not run on `push`.
+- `cd.release.yml` — release automation in three jobs: `version` (analyze, bump,
+  changelog, tag), `package-source` (build and publish the zip), and
+  `sync-release-branch` (force-push the released commit onto `release`, the
+  branch the one-liner installer clones). **Gated on tests** (see below) — it
+  does not run on `push`. A `workflow_dispatch` with a `tag` input packages an
+  **existing** tag instead of cutting a new one.
 - `cd.gh-pages.yml` — docs site deployment
 - `cd.k3s-deploy.yml` — cross-compiles the ARM64 image with QEMU on GitHub's
   AMD64 runners, pushes it to `ghcr.io`, then sends an HMAC-signed webhook to the
@@ -119,6 +127,10 @@ on:
     workflows: ["(ci) Codecov Run tests and upload coverage"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      tag:          # empty → cut a new release; set → package that existing tag
+        required: false
+        default: ""
 ```
 
 with the `version` job guarded by:
@@ -136,22 +148,26 @@ Four things follow from that trigger change, and all four are load-bearing:
 
 - **Checkout needs an explicit ref.** `workflow_run` checks out the default
   branch tip, not the commit that triggered the upstream run, so the job passes
-  `ref: ${{ github.event.workflow_run.head_sha || github.ref }}`. Without it
-  the *Analyze Commit* step (`git log -1 --pretty=%s`) reads the wrong message
+  `ref: ${{ inputs.tag || github.event.workflow_run.head_sha || github.ref }}`.
+  Without it the *Analyze commits* step reads the wrong history
   and picks the wrong bump — or no bump at all.
 - **The branch name is not `github.ref_name`.** On a `workflow_run` event that
   built-in resolves to the default branch. The job resolves the real branch once
   into `env.RELEASE_BRANCH` (`workflow_run.head_branch || github.ref_name`) and
-  uses it for the branch push and the `release`-branch sync.
+  uses it for the branch push. (The `release`-branch sync is a separate job now
+  and does not read it.)
 - **Loop safety comes from GitHub's own `[skip ci]`.** The bump commit is
   `chore: release vX [skip ci]`, and GitHub does not start *any* workflow for a
   push whose head commit says that — so Codecov never runs, so there is no
   `workflow_run`, so the release cannot re-trigger itself. Verified against
   history: the v0.68.0 and v0.69.0 bump commits produced zero Codecov push runs.
   The `!contains(...)` clause in the `if:` is a redundant second check on the
-  same fact, not the primary mechanism.
+  same fact, not the primary mechanism. `scripts/release-bump.js` drops
+  `[skip ci]` subjects a third time, so a release commit inside the analyzed
+  range cannot drive the next bump either.
 - **`workflow_dispatch` bypasses the gate**, deliberately, so a release can
-  still be cut by hand if the gate ever misfires.
+  still be cut by hand if the gate ever misfires. With a `tag` input it does
+  something different — see *Packaging an existing tag* below.
 
 A `concurrency: { group: release }` block keeps two runs from bumping the
 version at once.
@@ -174,12 +190,85 @@ version at once.
 **Branches.** `beta-m*` was dropped from the trigger on 2026-08-24. Codecov only
 ever ran on `master`, so a `beta-m*` push could not be gated at all; the branch
 pattern had also never produced a release run in recorded history. The beta
-version-numbering code inside the *Bump Version* step is left in place but is
-now unreachable.
+version-numbering code inside the *Bump Version* step was unreachable after
+that and was removed in S0.3 (2026-10-22); `package-source` still labels a
+release "(Beta)" when the version string contains `beta`, but nothing produces
+such a version any more.
+
+### How the version is chosen
+
+The bump comes from **every commit since the last version tag**, not from the
+head commit of the push:
+
+```bash
+LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD)
+git log --no-merges --pretty=%s "$LAST_TAG..HEAD" | node scripts/release-bump.js
+```
+
+`scripts/release-bump.js` is the single source of that rule and has tests in
+`tests/integration/scripts/release-bump.test.js`. It emits `bump`,
+`with_launchers` and `headline` to `$GITHUB_OUTPUT`, and `--notes-file` writes a
+markdown bullet per counted commit — which is what the CHANGELOG entry lists, so
+a multi-commit release no longer loses everything the head commit did not
+mention. Any `feat:` makes it `minor`, otherwise any `fix:` makes it `patch`,
+otherwise `skip`; a scope of exactly `launchers` also sets `with_launchers`.
+
+Three details are load-bearing:
+
+- **`--match 'v*'` is not optional.** Without it `git describe` happily returns a
+  non-version tag such as `archive/pre-reset-2026-10-22`, and the commit range
+  comes out wrong.
+- **This replaced a `git log -1`** that read only the head commit, so a push of
+  `fix: x` followed by `chore: y` saw the `chore:` and skipped the release. That
+  ate the 2026-10-17 release (runs `38983863213`, `38988918842`, `39801399213`,
+  all `→ bump=skip`).
+- **A published release's tag can never be moved.** Before writing anything the
+  job fails if `gh release view v$NEW_V` succeeds or the tag already exists, and
+  it tags without `-f`. The previous `git tag -f` + `git push --force` would have
+  silently repointed a published release's source snapshot.
+
+Majors are **not** automated: `release-bump.js` reads a `!` breaking marker
+(`feat!:`) as its base type, so a breaking change ships as a minor unless you cut
+the major by hand.
+
+### Packaging an existing tag
+
+`workflow_dispatch` with a `tag` input (e.g. `v0.69.1`) runs the `version` job in
+`mode=package`: it resolves the version from the tag and **skips every writing
+step** — no bump, no changelog, no commit, no tag, no branch push. Only
+`package-source` and `sync-release-branch` do real work. This is how a tag that
+exists without a release gets one:
+
+```bash
+gh workflow run cd.release.yml -f tag=v0.69.1
+```
+
+### The `release` branch sync
+
+`sync-release-branch` runs **after** `package-source` and is marked
+`continue-on-error: true`. That placement is the whole point: the sync used to be
+the last step of the `version` job, and when it failed the `version` job failed,
+so `package-source` (`needs: version`) was skipped — the tag existed with no
+release and no zip. Runs `32414251219` (v0.69.0) and `32934315335` (v0.69.1) both
+died exactly there with `! [rejected] HEAD -> release (non-fast-forward)`, and
+that is why nothing shipped between v0.68.0 and v0.69.2.
+
+It pushes with `--force`, and both halves of that are deliberate:
+
+- `release` sat on the v0.68.0 commit, which has **no merge base at all** with
+  master after the history rewrite, so an ordinary push to it is rejected
+  forever.
+- Forcing is safe because `.github/lite/install.sh` updates an existing install
+  with `git reset --hard FETCH_HEAD`, never `git pull`.
+
+The `master-rules` ruleset is **not** involved, although it looks like a suspect:
+it targets `~DEFAULT_BRANCH` only, never `release`, and grants the admin role
+`bypass_mode: always`. Both failing logs show the master push succeeding.
 
 **Editing caveat.** `workflow_run` always uses the copy of the workflow file on
 the **default branch**. Changes to `cd.release.yml` take effect only once merged
-to `master` — they cannot be tested from a branch.
+to `master` — they cannot be tested from a branch. A `workflow_dispatch` run,
+including the `tag` path, uses the file at the ref you dispatch.
 
 ## Bot Workflows
 
@@ -206,7 +295,12 @@ to `master` — they cannot be tested from a branch.
   every issue in project #18 on milestone create/edit and issue
   milestone/demilestone events
 - `sync.update-dev-branch.yml` — after a successful `(cd) Release & Versioning`
-  run on `master`, refreshes the `dev` branch's files
+  run on `master`, refreshes the `dev` branch's files. It copies an explicit
+  file allowlist into a fresh `git init` repo and force-pushes it as
+  `HEAD:dev`, so `dev` shares no history with `master` and anything outside the
+  allowlist (`bootstrap.js`, `scripts/`, `id/`, `.github/`, `docs/`) is absent
+  from it. **Grepping for `refs/heads/dev` will not find this** — the push
+  target is written `HEAD:dev`.
 
 Retired workflows are parked in `.github/workflows/obsolete/`
 (`cd.aperio-lite-launchers.yml`, `sync.leaderboard-to-wiki.yml`) — kept for

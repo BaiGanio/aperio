@@ -48,10 +48,23 @@ is **red** on today's master before starting the step, then make it green.
 - **Assertions:** each case returns the right `bump` / `with_launchers`; `workflow_dispatch` with `tag=v0.69.1` runs `package-source`.
 - **Edge cases:** `[skip ci]` release commits never count; no tag is re-forced once it has a release; root cause of the v0.69.1 `git push` failure written in the PR.
 
-### T0.4 — release is real and usable
-- **Setup:** S0.3 merged, release cut.
-- **Assertions:** `gh release view v0.70.* --json assets` lists `aperio-lite.zip`; lite-smoke workflow green on that tag; `git rev-parse origin/release` == the tag's commit.
-- **Edge cases:** zip size stays near the v0.68.0 size (not ~350 MB — #455 timed fault).
+### T0.4 — release is real and usable — **PASS 2026-10-22 (v0.69.2)**
+- **Setup:** S0.3 merged, release cut. The version is **v0.69.2**, not `v0.70.*`: the bump
+  is computed from the commits since the last tag and the range held no `feat:`. v0.70.0 is
+  reserved for S4.1.
+- **Assertions:** `gh release view v0.69.2 --json assets` lists `aperio-lite.zip` **✅ 6.44 MB**
+  (plus `aperio-lite-v0.69.2.zip`, same size), `draft: False`; lite-smoke green on the tag
+  **✅ 5/5 runners** (needs `gh workflow run ci.lite-smoke.yml --ref v0.69.2` — the workflow
+  triggers on push to master/dev and on PRs, never on tags; run `39820710035`);
+  `git ls-remote origin refs/heads/release` == the tag's commit **✅ both `52778b7b`**.
+- **Edge cases:** zip size **6.44 MB** against the 5.1 MB v0.68.0 baseline — +26%, nowhere
+  near ~350 MB (#455 timed fault) **✅**. Zip root carries `START.sh`, `START.bat`,
+  `assets/` and `how-to/` **✅**.
+- **Found while verifying, already covered elsewhere:** the user zip also ships `trash/`
+  (56 entries, including this plan), `audit/` (34), `k8s/` + `vms/` (32), `AGENTS.md`,
+  `CONTRIBUTING.md`, `id/` and `scripts/`. Not logged to A2D because
+  `trash/plans/lite-zip-decouple/lite-zip-decouple.md` already names every one of those
+  paths and the dead `ZIP_EXCLUDES` env var behind them.
 
 ### T1.0 — archive tag reachable
 - **Assertions:** `git ls-remote --tags origin archive/pre-reset-2026-10-22` returns the tag; in a scratch clone `git checkout archive/pre-reset-2026-10-22 -- k8s vms lib/agent/spawn.js` restores all three.
