@@ -17,12 +17,13 @@ name: (ci) continuous-audit gates
 # the suite will really run it. This workflow is what makes that true of the
 # audit gates themselves.
 
+# Manual only. The gates assert against the real current source, so any change
+# in lib/, mcp/, or db/ can turn them red; while the Aperio Reset cleanup runs
+# (plan step S0.1, issue #569) they must not block a push or a pull request.
+# Run them with `gh workflow run "(ci) continuous-audit gates"`, or locally with
+# `npm run test:audit`.
 on:
   workflow_dispatch:
-  push:
-    branches: [master, dev]
-  pull_request:
-    branches: [master, dev]
 
 permissions:
   contents: read

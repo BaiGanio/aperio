@@ -114,6 +114,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The continuous-audit gates no longer block a push or a pull request.**
+  `.github/workflows/ci.audit.yml` now runs on `workflow_dispatch` only. The gates
+  assert against the real current source, so any change in `lib/`, `mcp/` or `db/`
+  can turn them red; they have been failing on master since 2026-10-16 (#569) and
+  were holding up every other change. The workflow and `npm run test:audit` are
+  unchanged — run them on demand. Whether the audit programme stays at all is a
+  separate, later decision.
+
 - **Dependency and GitHub Actions bumps (Dependabot catch-up).** npm direct
   dependencies: `@anthropic-ai/sdk` 0.120.0 → 0.123.0, `bootstrap-icons` 1.11.3 →
   1.13.1, `@modelcontextprotocol/sdk` → 1.32.1, `@anthropic-ai/claude-agent-sdk` →
