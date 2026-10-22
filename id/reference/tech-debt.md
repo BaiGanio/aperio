@@ -197,8 +197,8 @@ housekeeping go in `A2D.md`, not here.
 - 2026-08-26 Continuous-audit Run 3, slice A18, finding F-R3-04. `AgentSpec.filesystem` /
   `.memoryScopes` / `.interruptPolicy` are validated and narrowing-checked at spec-construction
   time (`lib/agent/spec.js`, `lib/agent/bundle.js`, `lib/security/agentPermissions.js`) but
-  never consulted at tool-execution time — `lib/agent/index.js:213` only reads
-  `agentSpec.toolAllowlist` into `ctx`; every `runWithPaths()` call site (`wsHandler.js:354`,
+  never consulted at tool-execution time — `lib/agent/index.js:217` only reads
+  `agentSpec.toolAllowlist` into `ctx`; every `runWithPaths()` call site (`lib/emitters/handlers/wsHandler.js:354`,
   `index-folder.js:45`, `standalone.js:352,618`) still sources from the single global
   `getAllowlist()`, never `agentSpec.filesystem` (`grep -rn "ctx\.spec" lib mcp` → zero hits).
   Not currently exploitable — `spawnChild`/`spawnParallel` (the only callers of the narrowing
