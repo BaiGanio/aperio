@@ -39,13 +39,6 @@ housekeeping go in `A2D.md`, not here.
   split per match, i.e. the same quadratic shape just fixed in `leadingDoc()`. Harmless today
   because shell scripts are small; it will not stay harmless if the fallback is ever reused.
 
-## Settings overlay cannot distinguish "slow" from "dead"
-
-- 2026-10-17 `public/scripts/settings-overlay.js` `load()` awaits `/api/config/schema` with no
-  timeout and no abort. When the server's event loop is blocked the fetch never settles, so
-  the panel shows "Loading…" forever with no hint that the server is wedged. A timeout plus a
-  "server is busy" message would have made the indexing freeze self-diagnosing.
-
 ## Continuous-audit program — the mandated verify-first test suite was never built
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially

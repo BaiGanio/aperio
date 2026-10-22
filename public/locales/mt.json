@@ -421,6 +421,7 @@
   "stov_close": "Agħlaq",
   "stov_loading": "Qed jitgħabba…",
   "stov_load_failed": "Il-konfigurazzjoni ma setgħetx titgħabba",
+  "stov_load_busy": "Is-server huwa okkupat — il-konfigurazzjoni ma tgħabbietx fil-ħin",
   "stov_cat_provider": "Fornitur u Mudelli",
   "stov_cat_provider_blurb": "Liema AI jagħmel il-ħsieb. Il-magna lokali llama.cpp hija b'xejn u privata; il-fornituri tal-cloud jeħtieġu ċavetta tal-API.",
   "stov_cat_memory": "Memorja u Privatezza",

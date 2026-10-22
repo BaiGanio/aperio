@@ -19,7 +19,7 @@ is **red** on today's master before starting the step, then make it green.
 | S1.5 | T1.5 Tracker state | every open issue mapped or parked |
 | S2.1 | T2.1 Perf: server stays responsive | latency under indexing |
 | S2.2 | T2.2 Integration: watcher languages — **PASS** | per-language save → graph update |
-| S2.3 | T2.3 Unit/UI: overlay timeout | busy message |
+| S2.3 | T2.3 Unit/UI: overlay timeout — **PASS** | busy message |
 | S2.4 | T2.4 Integration: bridge races | delete/sweep/reindex interleavings |
 | S2.5 | T2.5 Unit: redact round trip | restore or mode removed |
 | S2.6 | T2.6 Integration: terminal loop | commands via injected IO |
@@ -214,9 +214,34 @@ CodeQL. Assert inertness plus badge honesty, not absence.
 - **Suites:** `test:unit` 2984/2984, `test:harness` 33/33, `test:integration` 2750/2750.
   Teardown clean — nothing left in the repo tree.
 
-### T2.3 — settings overlay timeout
+### T2.3 — settings overlay timeout — **PASS 2026-10-22**
 - **Assertions:** a mocked never-settling `/api/config/schema` shows the busy message after the timeout; a normal response still renders the panel.
 - **Edge cases:** closing the panel mid-load aborts the fetch.
+- **Method:** the existing `tests/integration/public/panel-visibility.test.js` harness, which
+  already runs this exact file through a `vm.createContext` sandbox and already injects a fake
+  `fetch`. **The harness had to be extended, not the fix weakened** — it stubbed `setTimeout`
+  as a no-op (a timeout-based fix would never fire) and had no `AbortController` global (a
+  correct fix would throw there while working in every browser). It now carries a real
+  `AbortController` and a real `clearTimeout`, and a test can inject its own hand-driven clock
+  through `extras`, which is spread last and wins. `FakeElement` gained `append`/`appendChild`/
+  `prepend`/`querySelectorAll` and the fake `document` gained `createElement`, so the happy
+  path exercises the real `render()` rather than bailing out of it.
+- **Result:** the never-settling fetch keeps index.html's shipped `Loading…` placeholder up to
+  the deadline, then is aborted and replaced by `stov_load_busy` ✅; a normal response renders
+  the category nav with no busy/failed text and the deadline timer cleared ✅; a close click
+  mid-load aborts the signal, hides the overlay, clears the timer and paints **no** error ✅.
+  The 60 ms search-focus nudge that `toggleSettingsOverlay()` also arms is distinguished from
+  the load deadline by delay, so the clock assertions pin the right timer.
+- **Verified red on a pristine `git archive HEAD` tree:** the busy test and the close-aborts
+  test both **fail** there (the first on "load() must pass an AbortSignal to fetch"), while the
+  normal-response test passes on both sides — that one is the control that proves the happy
+  path is unchanged. The fix was removed, the red was observed, the fix was put back.
+- **Committed regression:** 3 tests in `tests/integration/public/panel-visibility.test.js`.
+- **Locale gate:** `stov_load_busy` landed in all 26 `public/locales/*.json` **and** the bundled
+  `TRANSLATIONS.en` block in `public/scripts/i18n.js`; `locale-drift-sync.test.js` 5/5 green.
+- **Suites:** `test:unit` 2984/2984, `test:integration` 2753/2753 (2750 + 3 new),
+  `test:harness` 33/33 (cheap sanity — this step touches no agent/tool/context/provider code).
+  No live server was needed, so nothing was left in the repo tree.
 
 ### T2.4 — docgraph bridge races (#532)
 - **Assertions:** concurrent delete + reindex and sweep + reindex leave no orphan bridge memories, on SQLite **and** Postgres.

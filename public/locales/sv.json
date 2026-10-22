@@ -421,6 +421,7 @@
   "stov_close": "Stäng",
   "stov_loading": "Läser in…",
   "stov_load_failed": "Kunde inte läsa in konfigurationen",
+  "stov_load_busy": "Servern är upptagen — konfigurationen kunde inte läsas in i tid",
   "stov_cat_provider": "Leverantör & modeller",
   "stov_cat_provider_blurb": "Vilken AI som tänker. Den lokala llama.cpp-motorn är gratis och privat; molnleverantörer kräver en API-nyckel.",
   "stov_cat_memory": "Minne & integritet",

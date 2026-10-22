@@ -382,10 +382,37 @@ the repo tree.
 *Works when:* saving a `.cs`/`.py`/`.go` file updates the graph without restart.
 Tests: T2.2 — pass.
 
-**S2.3 Settings overlay timeout.** `public/scripts/settings-overlay.js load()` gets an
-abort timeout and a "server is busy" message.
+**S2.3 Settings overlay timeout.** — **DONE 2026-10-22.**
+`public/scripts/settings-overlay.js` `load()` gets an abort deadline and a distinct
+"server is busy" message.
+
+**What shipped.** `load()` now creates an `AbortController`, passes its signal to
+`fetch("/api/config/schema")` and arms a `LOAD_TIMEOUT_MS = 8000` deadline that aborts
+it. The controller is kept in a module-level `loadAbort`, so the close branch of
+`toggleSettingsOverlay()` cancels an in-flight request and a second `load()` supersedes
+the first instead of racing it. The timer is cleared in a `finally` on every path.
+
+**"Busy" is a third state, not a re-use of the failure string.** A new locale key
+`stov_load_busy` ("Server is busy — configuration did not load in time") sits beside the
+existing `stov_load_failed`; a rejected fetch still reads "Failed to load configuration".
+A cancel that is *not* the deadline (panel closed, or superseded) paints nothing at all —
+a user-initiated close is not an error.
+
+**The save path was checked, not assumed.** `saveAll()` calls `await load()` at line 474
+with `stovSaveBtn` already disabled. `load()` swallows its own failure rather than
+throwing, so `saveAll()`'s `finally` still re-enables the button — a timed-out re-read
+cannot leave the save button dead.
+
+**Timeout value.** Module constant, by developer decision — the S2.1 precedent. Not a
+`lib/config.js` key, so that No-Touch Zone and `gen:env` were not touched. Logged to
+`A2D.md` as a candidate config key if a user ever needs to raise it.
+
+**Reported, deliberately not fixed (out of scope).** The `PUT /api/settings/...` writes in
+`saveAll()` (line 462) are also un-timed, so a wedged server hangs a save the same way —
+worth its own step. The `restartAperio()` ping at line 549 is un-timed **by design**: the
+connection is expected to drop and the 90 s deadline loop is the real guard there.
 *Works when:* a hung `/api/config/schema` shows the busy message within the timeout.
-Tests: T2.3.
+Tests: T2.3 — pass.
 
 **S2.4 Docgraph → memory bridge races (#532).** Tests: T2.4.
 

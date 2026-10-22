@@ -421,6 +421,7 @@
   "stov_close": "閉じる",
   "stov_loading": "読み込み中…",
   "stov_load_failed": "構成の読み込みに失敗しました",
+  "stov_load_busy": "サーバーがビジー状態です — 設定を時間内に読み込めませんでした",
   "stov_cat_provider": "プロバイダーとモデル",
   "stov_cat_provider_blurb": "どのAIが思考を担うか。ローカルの llama.cpp エンジンは無料かつプライベート。クラウドプロバイダーにはAPIキーが必要です。",
   "stov_cat_memory": "メモリーとプライバシー",

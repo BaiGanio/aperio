@@ -421,6 +421,7 @@
   "stov_close": "Zavřít",
   "stov_loading": "Načítání…",
   "stov_load_failed": "Konfiguraci se nepodařilo načíst",
+  "stov_load_busy": "Server je zaneprázdněn — konfiguraci se nepodařilo načíst včas",
   "stov_cat_provider": "Poskytovatel a modely",
   "stov_cat_provider_blurb": "Která AI přemýšlí. Lokální llama.cpp je zdarma a soukromý; cloudoví poskytovatelé vyžadují API klíč.",
   "stov_cat_memory": "Paměť a soukromí",

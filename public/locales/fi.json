@@ -421,6 +421,7 @@
   "stov_close": "Sulje",
   "stov_loading": "Ladataan…",
   "stov_load_failed": "Konfiguraation lataus epäonnistui",
+  "stov_load_busy": "Palvelin on varattu — asetuksia ei ehditty ladata ajoissa",
   "stov_cat_provider": "Palveluntarjoaja ja mallit",
   "stov_cat_provider_blurb": "Mikä tekoäly ajattelee. Paikallinen llama.cpp-moottori on ilmainen ja yksityinen; pilvipalvelut vaativat API-avaimen.",
   "stov_cat_memory": "Muisti ja yksityisyys",

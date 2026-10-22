@@ -421,6 +421,7 @@
   "stov_close": "Sule",
   "stov_loading": "Laadimine…",
   "stov_load_failed": "Seadistuse laadimine ebaõnnestus",
+  "stov_load_busy": "Server on hõivatud — konfiguratsiooni ei õnnestunud õigeaegselt laadida",
   "stov_cat_provider": "Pakkuja ja mudelid",
   "stov_cat_provider_blurb": "Milline AI mõtleb. Kohalik llama.cpp mootor on tasuta ja privaatne; pilvepakkujad vajavad API-võtit.",
   "stov_cat_memory": "Mälu ja privaatsus",

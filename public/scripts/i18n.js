@@ -479,6 +479,7 @@ const TRANSLATIONS = {
     stov_close: "Close",
     stov_loading: "Loading…",
     stov_load_failed: "Failed to load configuration",
+    stov_load_busy: "Server is busy — configuration did not load in time",
     stov_cat_provider: "Provider & Models",
     stov_cat_provider_blurb: "Which AI does the thinking. The local llama.cpp engine is free and private; cloud providers need an API key.",
     stov_cat_memory: "Memory & Privacy",

@@ -421,6 +421,7 @@
   "stov_close": "Sluiten",
   "stov_loading": "Laden…",
   "stov_load_failed": "Configuratie kon niet worden geladen",
+  "stov_load_busy": "De server is bezig — de configuratie is niet op tijd geladen",
   "stov_cat_provider": "Provider & modellen",
   "stov_cat_provider_blurb": "Welke AI het denkwerk doet. De lokale llama.cpp-engine is gratis en privé; cloudproviders vereisen een API-sleutel.",
   "stov_cat_memory": "Geheugen & privacy",

@@ -421,6 +421,7 @@
   "stov_close": "关闭",
   "stov_loading": "加载中…",
   "stov_load_failed": "无法加载配置",
+  "stov_load_busy": "服务器繁忙 — 配置未能及时加载",
   "stov_cat_provider": "提供商与模型",
   "stov_cat_provider_blurb": "由哪个 AI 负责思考。本地 llama.cpp 引擎免费且私密;云端提供商需要 API 密钥。",
   "stov_cat_memory": "记忆与隐私",

@@ -421,6 +421,7 @@
   "stov_close": "Aizvērt",
   "stov_loading": "Ielādē…",
   "stov_load_failed": "Neizdevās ielādēt konfigurāciju",
+  "stov_load_busy": "Serveris ir aizņemts — konfigurāciju neizdevās ielādēt laikus",
   "stov_cat_provider": "Pakalpojumu sniedzējs un modeļi",
   "stov_cat_provider_blurb": "Kurš MI domā. Vietējais llama.cpp dzinējs ir bezmaksas un privāts; mākoņa pakalpojumiem vajadzīga API atslēga.",
   "stov_cat_memory": "Atmiņa un privātums",

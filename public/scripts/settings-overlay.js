@@ -44,6 +44,11 @@
   // Changing either invalidates every stored vector → extra reindex warning.
   const REINDEX_KEYS = new Set(["EMBEDDING_PROVIDER", "EMBEDDING_DIMS"]);
 
+  // The schema fetch gets a deadline so a wedged server reads as "busy"
+  // instead of leaving index.html's shipped "Loading…" placeholder on screen
+  // forever (S2.3). Module constant by decision, like the S2.1 tunables.
+  const LOAD_TIMEOUT_MS = 8000;
+
   // The live panels below own their flows; their seed/config registry rows stay
   // hidden so two controls never fight over one setting.
   const HIDDEN_SECTIONS = new Set(["github", "paths"]);
@@ -495,13 +500,33 @@
   }
 
   // ── Load / open / close ───────────────────────────────────────────────────
+  // The in-flight schema fetch, so closing the panel (or a second open) can
+  // abort it instead of letting a dead request finish into a closed overlay.
+  let loadAbort = null;
+
   async function load() {
     const bodyEl = $("stovBody");
+    loadAbort?.abort();
+    const controller = new AbortController();
+    loadAbort = controller;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, LOAD_TIMEOUT_MS);
     try {
-      schema = await fetch("/api/config/schema").then((r) => r.json());
+      const res = await fetch("/api/config/schema", { signal: controller.signal });
+      schema = await res.json();
       render();
     } catch {
-      if (bodyEl) bodyEl.innerHTML = `<div class="stov-empty">${t("stov_load_failed")}</div>`;
+      // A cancel that is not the deadline (panel closed, or a newer load took
+      // over) must leave the DOM alone — it is not an error the user caused.
+      if (controller.signal.aborted && !timedOut) return;
+      const key = timedOut ? "stov_load_busy" : "stov_load_failed";
+      if (bodyEl) bodyEl.innerHTML = `<div class="stov-empty">${t(key)}</div>`;
+    } finally {
+      clearTimeout(timer);
+      if (loadAbort === controller) loadAbort = null;
     }
   }
 
@@ -510,6 +535,7 @@
     if (!overlay) return;
     const open = overlay.classList.contains("is-open");
     if (open) {
+      loadAbort?.abort();                      // no dead fetch into a closed panel
       overlay.classList.remove("is-open");
       overlay.style.display = "none";
       return;

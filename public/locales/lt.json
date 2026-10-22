@@ -421,6 +421,7 @@
   "stov_close": "Uždaryti",
   "stov_loading": "Įkeliama…",
   "stov_load_failed": "Nepavyko įkelti konfigūracijos",
+  "stov_load_busy": "Serveris užimtas — konfigūracijos nepavyko įkelti laiku",
   "stov_cat_provider": "Tiekėjas ir modeliai",
   "stov_cat_provider_blurb": "Kuris DI mąsto. Vietinis llama.cpp variklis yra nemokamas ir privatus; debesijos tiekėjams reikia API rakto.",
   "stov_cat_memory": "Atmintis ir privatumas",

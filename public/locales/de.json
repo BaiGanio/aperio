@@ -421,6 +421,7 @@
   "stov_close": "Schließen",
   "stov_loading": "Lädt…",
   "stov_load_failed": "Konfiguration konnte nicht geladen werden",
+  "stov_load_busy": "Server ist beschäftigt — Konfiguration wurde nicht rechtzeitig geladen",
   "stov_cat_provider": "Anbieter & Modelle",
   "stov_cat_provider_blurb": "Welche KI das Denken übernimmt. Die lokale llama.cpp-Engine ist kostenlos und privat; Cloud-Anbieter brauchen einen API-Schlüssel.",
   "stov_cat_memory": "Gedächtnis & Datenschutz",

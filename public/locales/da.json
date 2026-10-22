@@ -421,6 +421,7 @@
   "stov_close": "Luk",
   "stov_loading": "Indlæser…",
   "stov_load_failed": "Kunne ikke indlæse konfigurationen",
+  "stov_load_busy": "Serveren er travl — konfigurationen blev ikke indlæst i tid",
   "stov_cat_provider": "Udbyder & modeller",
   "stov_cat_provider_blurb": "Hvilken AI der tænker. Den lokale llama.cpp-motor er gratis og privat; cloud-udbydere kræver en API-nøgle.",
   "stov_cat_memory": "Hukommelse & privatliv",

@@ -10,6 +10,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 ### Fixed
+- the Settings panel can now tell a slow server from a dead one. Its schema load awaited
+  `/api/config/schema` with no timeout and no abort, so a blocked event loop left the shipped
+  "Loading…" placeholder on screen for ever with no hint that anything was wrong. The request
+  now carries an 8-second abort deadline and reports "Server is busy — configuration did not
+  load in time", a state distinct from the existing "Failed to load configuration". Closing
+  the panel mid-load cancels the request instead of letting it finish into a closed overlay,
+  and a cancelled load paints no error at all.
 - the codegraph watcher now indexes every language the indexer supports. Its `isIndexable()`
   checked JavaScript/TypeScript extensions only, while the indexer's `pickExtractor()` also
   accepts 25 more (`cs`, `py`, `go`, `rs`, `java`, `kt`, `rb`, `php`, `swift`, `c`, `cpp`,

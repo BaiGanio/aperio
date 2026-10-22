@@ -421,6 +421,7 @@
   "stov_close": "Bezárás",
   "stov_loading": "Betöltés…",
   "stov_load_failed": "A konfiguráció betöltése nem sikerült",
+  "stov_load_busy": "A kiszolgáló elfoglalt — a konfiguráció nem töltődött be időben",
   "stov_cat_provider": "Szolgáltató és modellek",
   "stov_cat_provider_blurb": "Melyik MI gondolkodik. A helyi llama.cpp motor ingyenes és privát; a felhőszolgáltatókhoz API-kulcs kell.",
   "stov_cat_memory": "Memória és adatvédelem",

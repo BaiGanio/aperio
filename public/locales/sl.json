@@ -421,6 +421,7 @@
   "stov_close": "Zapri",
   "stov_loading": "Nalaganje…",
   "stov_load_failed": "Konfiguracije ni bilo mogoče naložiti",
+  "stov_load_busy": "Strežnik je zaposlen — konfiguracije ni bilo mogoče naložiti pravočasno",
   "stov_cat_provider": "Ponudnik in modeli",
   "stov_cat_provider_blurb": "Katera UI razmišlja. Lokalni pogon llama.cpp je brezplačen in zaseben; ponudniki v oblaku potrebujejo ključ API.",
   "stov_cat_memory": "Pomnilnik in zasebnost",

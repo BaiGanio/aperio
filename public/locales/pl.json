@@ -421,6 +421,7 @@
   "stov_close": "Zamknij",
   "stov_loading": "Ładowanie…",
   "stov_load_failed": "Nie udało się załadować konfiguracji",
+  "stov_load_busy": "Serwer jest zajęty — nie udało się wczytać konfiguracji na czas",
   "stov_cat_provider": "Dostawca i modele",
   "stov_cat_provider_blurb": "Która AI myśli. Lokalny silnik llama.cpp jest darmowy i prywatny; dostawcy chmurowi wymagają klucza API.",
   "stov_cat_memory": "Pamięć i prywatność",

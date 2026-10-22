@@ -421,6 +421,7 @@
   "stov_close": "Dún",
   "stov_loading": "Á lódáil…",
   "stov_load_failed": "Theip ar an gcumraíocht a lódáil",
+  "stov_load_busy": "Tá an freastalaí gnóthach — níor lódáladh an chumraíocht in am",
   "stov_cat_provider": "Soláthraí & Múnlaí",
   "stov_cat_provider_blurb": "Cén AI a dhéanann an smaoineamh. Tá an t-inneall áitiúil llama.cpp saor in aisce agus príobháideach; teastaíonn eochair API ó sholáthraithe néil.",
   "stov_cat_memory": "Cuimhne & Príobháideachas",

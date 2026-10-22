@@ -421,6 +421,7 @@
   "stov_close": "Închide",
   "stov_loading": "Se încarcă…",
   "stov_load_failed": "Configurarea nu a putut fi încărcată",
+  "stov_load_busy": "Serverul este ocupat — configurația nu a fost încărcată la timp",
   "stov_cat_provider": "Furnizor și modele",
   "stov_cat_provider_blurb": "Care IA gândește. Motorul local llama.cpp este gratuit și privat; furnizorii cloud necesită o cheie API.",
   "stov_cat_memory": "Memorie și confidențialitate",

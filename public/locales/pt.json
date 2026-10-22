@@ -421,6 +421,7 @@
   "stov_close": "Fechar",
   "stov_loading": "A carregar…",
   "stov_load_failed": "Falha ao carregar a configuração",
+  "stov_load_busy": "O servidor está ocupado — a configuração não foi carregada em tempo",
   "stov_cat_provider": "Fornecedor e modelos",
   "stov_cat_provider_blurb": "Qual IA faz o pensamento. O motor local llama.cpp é gratuito e privado; os fornecedores na nuvem exigem uma chave de API.",
   "stov_cat_memory": "Memória e privacidade",

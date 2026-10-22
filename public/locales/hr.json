@@ -421,6 +421,7 @@
   "stov_close": "Zatvori",
   "stov_loading": "Učitavanje…",
   "stov_load_failed": "Učitavanje konfiguracije nije uspjelo",
+  "stov_load_busy": "Poslužitelj je zaposlen — konfiguracija nije učitana na vrijeme",
   "stov_cat_provider": "Pružatelj i modeli",
   "stov_cat_provider_blurb": "Koja AI razmišlja. Lokalni llama.cpp motor besplatan je i privatan; pružatelji u oblaku trebaju API ključ.",
   "stov_cat_memory": "Memorija i privatnost",
