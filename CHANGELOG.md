@@ -9,6 +9,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+
+## [0.69.2] — 2026-10-22
+
+### Fixed
+- compute the bump from every commit since the last tag
+- stop quadratic doc-comment lookup freezing the server
+- reject writes to Tier-0 keys in PUT /api/settings/:key
+- render uploaded PDFs as PDF, not decoded text
+- remove fictional vision-exp model, route all images to local bridge
+- route image input by model vision capability
+- make install matrix verification deterministic
+- gate image tool file reads through the path allowlist
+- close bridge-memory orphan races on delete/sweep/reindex (#360)
+- exclude auxiliary GGUFs from weight discovery
+- avoid double-escaping image URLs
+
+---
+
 ### Fixed
 
 - **No release shipped between v0.68.0 (2026-07-22) and now, and three separate faults in
