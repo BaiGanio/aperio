@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+
+## [0.69.3] — 2026-10-22
+
+### Fixed
+- give the settings schema load an abort deadline
+- index every supported language on live saves
+- keep the server responsive during a code/doc index pass
+
+---
+
 ### Fixed
 - the Settings panel can now tell a slow server from a dead one. Its schema load awaited
   `/api/config/schema` with no timeout and no abort, so a blocked event loop left the shipped
