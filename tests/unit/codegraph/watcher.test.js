@@ -2,8 +2,11 @@ import { EventEmitter } from "node:events";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { openChokidarWatcher, startWatcher } from "../../../lib/codegraph/watcher.js";
-import { walk } from "../../../lib/codegraph/indexer.js";
+import path from "node:path";
+
+import { openChokidarWatcher, startWatcher, isIndexable, hasSkippedSegment } from "../../../lib/codegraph/watcher.js";
+import { walk, pickExtractor } from "../../../lib/codegraph/indexer.js";
+import { SUPPORTED_EXTS as GENERIC_EXTS } from "../../../lib/codegraph/extract-generic.js";
 
 function fakeWatcher(event, value) {
   const watcher = new EventEmitter();
@@ -100,4 +103,71 @@ test("an unreadable or missing code root fails instead of looking like an empty 
     Array.fromAsync(walk("/definitely/missing/aperio-codegraph-root")),
     /Cannot read code root/,
   );
+});
+
+// ── S2.2: one shared indexability predicate ────────────────────────────────
+// The watcher used to test JS_EXT alone while the indexer's pickExtractor()
+// also accepted 25 generic extensions, so a .cs/.py/.go repo indexed once at
+// startup and then silently went stale on every save. These assert the two
+// now agree, by construction.
+describe("codegraph watcher indexability predicate", () => {
+  const root = "/repo";
+
+  for (const ext of ["js", "mjs", "cjs", "jsx", "ts", "tsx"]) {
+    test(`a .${ext} file is indexable`, () => {
+      assert.equal(isIndexable(root, path.join(root, `src/file.${ext}`)), true);
+    });
+  }
+
+  // Every extension the generic extractor supports must reach the watcher too.
+  for (const bare of [...GENERIC_EXTS].sort()) {
+    test(`a .${bare} file is indexable (generic extractor)`, () => {
+      assert.equal(isIndexable(root, path.join(root, `src/file.${bare}`)), true);
+    });
+  }
+
+  for (const ext of ["txt", "md", "json", "lock", "png", ""]) {
+    test(`an unsupported .${ext || "(none)"} file stays ignored`, () => {
+      assert.equal(isIndexable(root, path.join(root, `src/file${ext ? "." + ext : ""}`)), false);
+    });
+  }
+
+  test("the predicate delegates to the indexer's pickExtractor", () => {
+    // Not an assertion about text: every extension pickExtractor accepts must
+    // be indexable, and every one it rejects must not be. If the two ever
+    // diverge again this fails for the diverging extension.
+    for (const bare of [...GENERIC_EXTS, "js", "ts", "txt", "md", "zzz"]) {
+      const file = path.join(root, `probe.${bare}`);
+      assert.equal(isIndexable(root, file), pickExtractor(file) !== null, `.${bare}`);
+    }
+  });
+
+  test("a file inside a skip dir within the root is ignored", () => {
+    assert.equal(isIndexable(root, path.join(root, "node_modules/pkg/index.js")), false);
+    assert.equal(isIndexable(root, path.join(root, "build/out.cs")), false);
+  });
+});
+
+// Second half of S2.2: SKIP_DIRS was split out of the ABSOLUTE path, so a root
+// that merely lives under a directory named build/, bin/, out/, var/ or trash/
+// had every one of its files rejected. docgraph scoped this to the relative
+// path on 2026-08-21; codegraph did not.
+describe("codegraph SKIP_DIRS scoping", () => {
+  const underSkipName = "/Users/me/build/myproject";
+  const macTempRoot = "/private/var/folders/ab/xyz123/T/aperio-scratch";
+
+  test("a root under a SKIP_DIRS-named ancestor is not skipped itself", () => {
+    assert.equal(hasSkippedSegment(underSkipName, underSkipName), false);
+    assert.equal(hasSkippedSegment(macTempRoot, macTempRoot), false);
+  });
+
+  test("a file inside such a root is indexable", () => {
+    assert.equal(isIndexable(underSkipName, path.join(underSkipName, "main.cs")), true);
+    assert.equal(isIndexable(macTempRoot, path.join(macTempRoot, "main.go")), true);
+  });
+
+  test("a real skip dir *within* such a root is still skipped", () => {
+    assert.equal(isIndexable(underSkipName, path.join(underSkipName, "obj", "a.cs")), false);
+    assert.equal(hasSkippedSegment(macTempRoot, path.join(macTempRoot, "var", "x.py")), true);
+  });
 });

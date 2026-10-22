@@ -146,7 +146,8 @@ describe("SKIP_DIRS", () => {
   });
 });
 
-// NOTE: pickExtractor is internal (not exported). It's exercised indirectly
+// NOTE: pickExtractor is exported (the watcher's isIndexable() shares it), but
+// is also exercised indirectly
 // through indexFile and indexRepo which call it when processing files.
 
 // =============================================================================

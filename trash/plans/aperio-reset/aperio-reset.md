@@ -328,10 +328,59 @@ result-identity test passes on both sides — which is what proves nothing was l
 left nothing in the repo tree.
 Tests: T2.1 — pass.
 
-**S2.2 Codegraph watcher indexes every supported language.** One shared predicate for
-`watcher.js isIndexable()` and `indexer.js pickExtractor()`.
+**S2.2 Codegraph watcher indexes every supported language.** — **DONE 2026-10-22.**
+One shared predicate for `watcher.js isIndexable()` and `indexer.js pickExtractor()`.
+
+**The bug was wider than this line said, and it was two bugs, not one.**
+1. **The language gap.** `pickExtractor()` accepted `JS_EXT` *plus* `extract-generic.js`'s
+   25 `SUPPORTED_EXTS` (`bash c cc cpp cs cxx gemspec go h hh hpp hxx java kt kts php phtml
+   py pyi rake rb rs sh swift zsh`). `watcher.js isIndexable()` checked `JS_EXT` and nothing
+   else. So the initial `indexRepo` pass *did* index all 25 and every live save to 25 of
+   them was then dropped in silence — a C# or Python repo indexed once on startup and went
+   stale forever with no error anywhere. The chokidar `ignored` option did **not** have this
+   half of the gap; it never filtered by extension at all.
+2. **The absolute-path `SKIP_DIRS` split** (second asymmetry, folded into this step by
+   developer decision rather than given its own step: it is the same two call sites in the
+   same function, the fix was already proven in docgraph, and the T2.2 test could not
+   otherwise exercise a real temp root). Both `isIndexable()` and the chokidar `ignored`
+   split the **absolute** path and rejected any segment in `SKIP_DIRS`, so a root under
+   `build/`, `bin/`, `out/`, `var/` or `trash/` — e.g. `/Users/me/build/myproject`, or any
+   macOS temp dir, which resolves under `/private/var/folders/...` — had every file
+   rejected. docgraph scoped the same check to the path *relative* to the root on
+   2026-08-21; codegraph never got that fix.
+
+**What shipped.** `pickExtractor()` is now exported from `lib/codegraph/indexer.js` and is
+the single authority on indexability — `walk()`, `indexFile()` and the watcher's
+`isIndexable()` all route through that one call, so extension support is no longer decided
+in the watcher at all. `JS_EXT` stopped being exported, because exporting it is exactly how
+the two predicates drifted apart. `lib/codegraph/watcher.js` gained `hasSkippedSegment(root,
+abs)` and `isIndexable(root, abs)` copied from the docgraph shape, and the chokidar
+`ignored` option uses the same `hasSkippedSegment`. **docgraph was not touched** — no defect
+was found in it; it is the model, as instructed. `lib/config.js` was not touched.
+
+**Grep proof of the one shared predicate** (asked for explicitly, not asserted): every
+`pickExtractor` call site in `lib/codegraph/` is `indexer.js:56` (the definition),
+`indexer.js:102` (`walk`), `indexer.js:140` (`indexFile`) and `watcher.js:95`
+(`isIndexable`). There is no other extension test anywhere in the directory.
+
+*Worked:* a real chokidar watcher over a real tree with a real better-sqlite3 database
+behind it — add, change and unlink on `.js`, `.cs`, `.py` and `.go` each update `cg_symbols`
+within the debounce window with no restart; an unsupported `.txt` produces no event and no
+rows. Green in **both** watch modes (native and the polling fallback —
+`APERIO_TEST_WATCH_POLLING=1` forces polling, since a pass that only works under native fs
+events is not a pass). `npm run test:unit` 2984/2984 (2942 + 42 new),
+`npm run test:harness` 33/33, `npm run test:integration` 2750/2750 (2744 + 6 new).
+
+**The regression test was verified red against a pristine `git archive HEAD` tree**, and the
+two bugs were separated there rather than proven as one blur: under a macOS temp root
+(`/private/var/...`) **5 of 6** tests failed, because bug 2 rejects every file including the
+`.js` one; re-run with `TMPDIR` pointed at a path containing no skip-dir segment, **exactly**
+`.cs`, `.py` and `.go` failed and `.js` passed — which is bug 1 alone, with no help from bug
+2. The unit tests also go red on `HEAD`, but only as an import error for the new exports,
+which is a weak red; the integration test carries the real proof. Teardown left nothing in
+the repo tree.
 *Works when:* saving a `.cs`/`.py`/`.go` file updates the graph without restart.
-Tests: T2.2.
+Tests: T2.2 — pass.
 
 **S2.3 Settings overlay timeout.** `public/scripts/settings-overlay.js load()` gets an
 abort timeout and a "server is busy" message.

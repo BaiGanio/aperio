@@ -18,7 +18,7 @@ is **red** on today's master before starting the step, then make it green.
 | S1.4 | T1.4 Spawn kept, parked | no deletion, #319/#320 point at #498 |
 | S1.5 | T1.5 Tracker state | every open issue mapped or parked |
 | S2.1 | T2.1 Perf: server stays responsive | latency under indexing |
-| S2.2 | T2.2 Integration: watcher languages | per-language save → graph update |
+| S2.2 | T2.2 Integration: watcher languages — **PASS** | per-language save → graph update |
 | S2.3 | T2.3 Unit/UI: overlay timeout | busy message |
 | S2.4 | T2.4 Integration: bridge races | delete/sweep/reindex interleavings |
 | S2.5 | T2.5 Unit: redact round trip | restore or mode removed |
@@ -181,10 +181,38 @@ CodeQL. Assert inertness plus badge honesty, not absence.
   (differential vs. the old scan, 300k+ probes), and real-worker equivalence in
   `tests/unit/{codegraph,docgraph}/extract-worker.test.js`.
 
-### T2.2 — watcher handles every supported language
+### T2.2 — watcher handles every supported language — **PASS 2026-10-22**
 - **Setup:** temp root with `.js`, `.cs`, `.py`, `.go` files; watcher running.
 - **Assertions:** add/change/unlink on each file updates `code_symbols` within the debounce window.
 - **Edge cases:** unsupported extension stays ignored; one shared predicate is used by both watcher and indexer.
+- **Method:** a real `startWatcher` over a real `mkdtemp` tree with a real better-sqlite3
+  database and the real tree-sitter extractors — only `isReadPathAllowed`, the embedding fn
+  and the embedding queue are stubbed, so `indexRepo` / `indexFile` / `removeFile` /
+  `sweepMissing` and chokidar itself are live. Each step waits on the watcher's own `change`
+  event rather than a sleep, so the debounce is never raced. `indexRepo` gates on the
+  app-wide allowed-folders list, not on the injected predicate, so the test sets it with
+  `setAllowlist([root])` in `before()` and restores it in `after()`.
+- **Result:** add / change / unlink all reach `cg_symbols` for `.js`, `.cs`, `.py` and `.go`
+  ✅; `.txt` produces no event and no rows ✅; one shared predicate proved **by grep**, not by
+  assertion — every `pickExtractor` call site in `lib/codegraph/` is `indexer.js:56`
+  (definition), `indexer.js:102` (`walk`), `indexer.js:140` (`indexFile`), `watcher.js:95`
+  (`isIndexable`), and there is no other extension test in the directory ✅. A unit test also
+  pins `isIndexable(root, f) === (pickExtractor(f) !== null)` across every generic extension,
+  so a future divergence fails for the diverging extension by name.
+- **Both watch modes verified.** Native and the polling fallback are both green; set
+  `APERIO_TEST_WATCH_POLLING=1` to force polling. A pass under native fs events only is not
+  a pass, and the watch mode is printed and quoted in every failure message.
+- **Verified red on a pristine `git archive HEAD` tree, with the two bugs separated.**
+  Under a macOS temp root (`/private/var/...`) **5 of 6** failed — the absolute-path
+  `SKIP_DIRS` split rejects every file, the `.js` one included. Re-run with `TMPDIR` on a
+  path holding no skip-dir segment, **exactly** `.cs`, `.py` and `.go` failed while `.js`
+  passed, which isolates the language gap with no help from the other bug. The new unit
+  tests go red on `HEAD` too, but only as a missing-export `SyntaxError` — a weak red,
+  recorded as such; the integration test is the one that carries the proof.
+- **Committed regression:** `tests/integration/codegraph/watcher-languages.test.js` (6) plus
+  42 unit tests in `tests/unit/codegraph/watcher.test.js`.
+- **Suites:** `test:unit` 2984/2984, `test:harness` 33/33, `test:integration` 2750/2750.
+  Teardown clean — nothing left in the repo tree.
 
 ### T2.3 — settings overlay timeout
 - **Assertions:** a mocked never-settling `/api/config/schema` shows the busy message after the timeout; a normal response still renders the panel.

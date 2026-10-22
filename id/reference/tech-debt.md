@@ -46,19 +46,6 @@ housekeeping go in `A2D.md`, not here.
   the panel shows "Loading…" forever with no hint that the server is wedged. A timeout plus a
   "server is busy" message would have made the indexing freeze self-diagnosing.
 
-## Codegraph — live watcher ignores every non-JS/TS language it can index
-
-- 2026-10-17 `lib/codegraph/watcher.js:75` `isIndexable()` gates on `JS_EXT` alone, while
-  `pickExtractor()` in `lib/codegraph/indexer.js` also accepts every extension in
-  `extract-generic.js`'s `SUPPORTED_EXTS` (`cs`, `py`, `go`, `rs`, `java`, `kt`, …). The
-  initial bulk pass therefore indexes a C#/Python/Go root correctly, but the chokidar
-  `add`/`change`/`unlink` handlers drop every later save in those languages — the graph
-  silently rots from the first edit onward and only a restart (full `indexRepo`) heals it.
-  Found while diagnosing the WASM-heap abort on the BGAPI (.NET) root. Unfixed: the fix is
-  one shared predicate, but `isIndexable` is sync and `pickExtractor` is the natural source
-  of truth, so it needs a small shared helper plus watcher tests per language family —
-  out of scope for that session's leak fix.
-
 ## Continuous-audit program — the mandated verify-first test suite was never built
 
 - 2026-08-15 `aperio-continuous-audit-tests.md`'s T1–T9 test plan is only partially

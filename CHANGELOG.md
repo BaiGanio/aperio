@@ -10,6 +10,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 ### Fixed
+- the codegraph watcher now indexes every language the indexer supports. Its `isIndexable()`
+  checked JavaScript/TypeScript extensions only, while the indexer's `pickExtractor()` also
+  accepts 25 more (`cs`, `py`, `go`, `rs`, `java`, `kt`, `rb`, `php`, `swift`, `c`, `cpp`,
+  `sh`, …). The initial pass therefore indexed a C#, Python or Go repository correctly and
+  then dropped every later save in silence — the graph rotted from the first edit onward and
+  only a restart healed it. Extension support is no longer decided in the watcher at all: it
+  delegates to the indexer's `pickExtractor()`, the same call `walk()` and `indexFile()` use,
+  so the two can never drift apart again.
+- the codegraph watcher no longer refuses a root that merely lives under a directory named
+  `build/`, `bin/`, `out/`, `var/`, `trash/` or any other skip-dir name. Both `isIndexable()`
+  and the chokidar `ignored` option split the *absolute* path and rejected any segment in
+  `SKIP_DIRS`, so a root such as `/Users/me/build/myproject` — or any root under a macOS temp
+  directory, which resolves under `/private/var/folders/...` — had every one of its files
+  rejected. The check is now scoped to the path relative to the root, matching the fix
+  docgraph received on 2026-08-21.
 - indexing no longer freezes the server. Codegraph and docgraph extraction now runs on a
   worker thread, and the SQLite write loops yield to the event loop instead of running to
   completion. Measured on an isolated scratch instance, `/api/version` during a full index
