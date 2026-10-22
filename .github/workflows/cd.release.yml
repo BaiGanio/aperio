@@ -14,22 +14,68 @@ name: (cd) Release & Versioning
 # there is no workflow_run to re-trigger this workflow. Verified against
 # history: the v0.68.0 and v0.69.0 bump commits produced zero Codecov push
 # runs. The `!contains(... head_commit.message, 'skip ci')` clause below is a
-# second belt on the same trousers, not the primary mechanism.
+# second belt on the same trousers, not the primary mechanism — and
+# scripts/release-bump.js drops `[skip ci]` subjects a third time.
 #
 # Branches: master only. `beta-m*` was dropped (2026-08-24) — it had never
 # fired a release, and Codecov never ran there, so it could not be gated.
 #
-# workflow_dispatch is kept as the manual escape hatch: it skips the gate
-# entirely, for cutting a release by hand if the gate ever misfires.
-#
 # NOTE: workflow_run always uses the copy of this file on the DEFAULT branch
 # (master). Changes here take effect only once merged to master.
+#
+# ---------------------------------------------------------------------------
+# S0.3 (2026-10-22) — three faults fixed here, all proven from run logs.
+#
+# 1. No release shipped between v0.68.0 and now, although tags v0.69.0 and
+#    v0.69.1 were created. Runs 32414251219 and 32934315335 both died in the
+#    LAST step of the `version` job:
+#
+#        → updating release → a844306b…
+#         ! [rejected]          HEAD -> release (non-fast-forward)
+#
+#    The `release` branch sat on the v0.68.0 commit, which is not an ancestor
+#    of master — the two have NO merge base at all after the history rewrite.
+#    So a plain push to it is rejected every time, forever. That failed the
+#    `version` job, and `package-source` (needs: version) was skipped, so the
+#    tag existed with no GitHub release and no zip.
+#    Fix: the sync moved into its own `sync-release-branch` job, after the
+#    release is already published, with continue-on-error. A bookkeeping branch
+#    can no longer take a release down with it. It force-pushes, which is safe:
+#    .github/lite/install.sh updates an existing install with
+#    `git reset --hard FETCH_HEAD`, not `git pull`, so a rewritten `release`
+#    does not break anyone. (The older comment here feared `git pull`; the
+#    installer stopped using it.)
+#    NOT the cause, although it was the first suspicion: the `master-rules`
+#    ruleset targets ~DEFAULT_BRANCH only, never `release`, and it grants the
+#    admin role bypass_mode `always`. The master push succeeded in both logs.
+#
+# 2. The bump read only `git log -1` — the head commit of the push. A push of
+#    `fix: x` then `chore: y` saw the `chore:` and skipped the release. That
+#    ate the 2026-10-17 release (runs 38983863213, 38988918842, 39801399213:
+#    all `→ bump=skip`). The bump now comes from every commit since the last
+#    v* tag, via scripts/release-bump.js, which has tests.
+#
+# 3. The CHANGELOG step matched `## [Unreleased]`, but CHANGELOG.md has
+#    `## Unreleased` with no brackets. `re.sub(count=1)` found nothing and
+#    silently wrote the file back unchanged, so no released version has an
+#    entry. The matcher now accepts both spellings and FAILS when it finds
+#    neither, instead of losing the entry quietly.
+#
+# workflow_dispatch is the manual path. With no input it skips the Codecov gate
+# and cuts a release from HEAD. With `tag` set it packages an EXISTING tag and
+# touches no tag and no branch — that is how v0.69.0 / v0.69.1 get their
+# missing releases.
 # ---------------------------------------------------------------------------
 on:
   workflow_run:
     workflows: ["(ci) Codecov Run tests and upload coverage"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Package an EXISTING tag, e.g. v0.69.1. Leave empty to compute a bump from the commits since the last tag."
+        required: false
+        default: ""
 
 # One release at a time — two overlapping runs would both bump the version.
 concurrency:
@@ -64,10 +110,13 @@ jobs:
       # not the branch that was actually pushed. Resolve the real one once here
       # and use it everywhere below.
       RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+      TAG_INPUT: ${{ inputs.tag }}
 
     outputs:
-      new_v:        ${{ steps.versioning.outputs.new_v }}
-      bump:         ${{ steps.info.outputs.bump }}
+      new_v:          ${{ steps.mode.outputs.new_v || steps.versioning.outputs.new_v }}
+      bump:           ${{ steps.info.outputs.bump }}
+      with_launchers: ${{ steps.info.outputs.with_launchers }}
+      mode:           ${{ steps.mode.outputs.mode }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,92 +124,140 @@ jobs:
           token: ${{ secrets.MY_PAT }}
           fetch-depth: 0
           # workflow_run does NOT check out the commit that triggered the
-          # upstream run — without this, "Analyze Commit" below reads the wrong
-          # message and picks the wrong bump.
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          # upstream run — without this, the analysis below reads the wrong
+          # history and picks the wrong bump. A `tag` input wins over both.
+          ref: ${{ inputs.tag || github.event.workflow_run.head_sha || github.ref }}
 
-      # Determine bump type and whether launcher binaries are requested.
-      # Convention: feat:/fix: bump minor/patch, with an optional Conventional
-      # Commits scope — feat(x): / fix(x): — bumping the same way. A scope of
-      # exactly "launchers" additionally opts into the binary path.
-      - name: Analyze Commit
-        id: info
+      # Two paths through this job:
+      #   mode=package — a `tag` input: the version is that tag, and no commit,
+      #                  tag or branch is written. Packaging only.
+      #   mode=bump    — the normal path: read the commits, bump, tag, push.
+      - name: Resolve mode
+        id: mode
         run: |
-          MSG=$(git log -1 --pretty=%s)
+          set -euo pipefail
+          if [ -z "${TAG_INPUT}" ]; then
+            echo "mode=bump" >> "$GITHUB_OUTPUT"
+            echo "→ mode=bump (compute the version from the commit range)"
+            exit 0
+          fi
 
-          case "$MSG" in
-            feat\(launchers\):*) BUMP="minor"; WITH_LAUNCHERS="true"  ;;
-            fix\(launchers\):*)  BUMP="patch"; WITH_LAUNCHERS="true"  ;;
-            feat:*|feat\(*\):*)  BUMP="minor"; WITH_LAUNCHERS="false" ;;
-            fix:*|fix\(*\):*)    BUMP="patch"; WITH_LAUNCHERS="false" ;;
-            *)                   BUMP="skip";  WITH_LAUNCHERS="false" ;;
-          esac
+          # Checkout already resolved the ref, so this is a clear error message
+          # rather than a new failure mode.
+          git rev-parse --verify "refs/tags/${TAG_INPUT}" >/dev/null 2>&1 || {
+            echo "::error::tag ${TAG_INPUT} does not exist"
+            exit 1
+          }
 
-          echo "bump=$BUMP"                   >> "$GITHUB_OUTPUT"
-          echo "with_launchers=$WITH_LAUNCHERS" >> "$GITHUB_OUTPUT"
-          echo "→ bump=$BUMP  with_launchers=$WITH_LAUNCHERS"
+          echo "mode=package"              >> "$GITHUB_OUTPUT"
+          echo "new_v=${TAG_INPUT#v}"      >> "$GITHUB_OUTPUT"
+          echo "→ mode=package  tag=${TAG_INPUT} (no tag or branch is written)"
+
+      # Reads EVERY commit since the last v* tag — see fault 2 above. The
+      # --match 'v*' is load-bearing: without it `git describe` happily returns
+      # a non-version tag such as archive/pre-reset-2026-10-22 and the range
+      # comes out wrong.
+      - name: Analyze commits since the last version tag
+        id: info
+        if: steps.mode.outputs.mode == 'bump'
+        run: |
+          set -euo pipefail
+          LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+          if [ -n "$LAST_TAG" ]; then
+            RANGE="$LAST_TAG..HEAD"
+            echo "→ last version tag: $LAST_TAG"
+          else
+            RANGE="HEAD"
+            echo "→ no v* tag is reachable from HEAD; reading the whole history"
+          fi
+
+          SUBJECTS="$RUNNER_TEMP/subjects.txt"
+          git log --no-merges --pretty=%s "$RANGE" > "$SUBJECTS"
+          echo "── commits considered ($(wc -l < "$SUBJECTS")) ──"
+          cat "$SUBJECTS"
+          echo "──"
+
+          node scripts/release-bump.js \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            < "$SUBJECTS"
 
       - name: Configure Git
-        if: steps.info.outputs.bump != 'skip'
+        if: steps.mode.outputs.mode == 'bump' && steps.info.outputs.bump != 'skip'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump Version
         id: versioning
-        if: steps.info.outputs.bump != 'skip'
+        if: steps.mode.outputs.mode == 'bump' && steps.info.outputs.bump != 'skip'
         run: |
-          # If this is a beta release, append -beta.1
-          if [[ "${{ env.RELEASE_BRANCH }}" == beta-m* ]]; then
-            # Get last tag to increment beta number
-            LAST_BETA=$(git tag -l "*-beta*" --sort=-version:refname | head -1)
-            
-            if [[ $LAST_BETA =~ -beta\.([0-9]+)$ ]]; then
-              BETA_NUM=$((${BASH_REMATCH[1]} + 1))
-            else
-              BETA_NUM=1
-            fi
-            
-            BASE_VERSION=$(node -p "require('./package.json').version" | sed 's/-beta.*//')
-            BETA_VERSION="${BASE_VERSION}-beta.${BETA_NUM}"
-            npm version $BETA_VERSION --no-git-tag-version
-          else
-            npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
-          fi
+          set -euo pipefail
+          npm version "${{ steps.info.outputs.bump }}" --no-git-tag-version
           NEW_V=$(node -p "require('./package.json').version")
           echo "new_v=$NEW_V" >> "$GITHUB_OUTPUT"
 
+      # A tag that already carries a published release must never be moved: the
+      # release's own source snapshot would silently start pointing somewhere
+      # else. Stop before writing anything.
+      - name: Refuse to move a tag that already has a release
+        if: steps.mode.outputs.mode == 'bump' && steps.info.outputs.bump != 'skip'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_V: ${{ steps.versioning.outputs.new_v }}
+        run: |
+          set -euo pipefail
+          if gh release view "v$NEW_V" >/dev/null 2>&1; then
+            echo "::error::v$NEW_V already has a GitHub release — refusing to move its tag."
+            exit 1
+          fi
+          if git rev-parse --verify "refs/tags/v$NEW_V" >/dev/null 2>&1; then
+            echo "::error::tag v$NEW_V already exists. Package it with workflow_dispatch (tag=v$NEW_V) instead."
+            exit 1
+          fi
+          echo "✅ v$NEW_V is free"
+
       - name: Update CHANGELOG
-        if: steps.info.outputs.bump != 'skip'
+        if: steps.mode.outputs.mode == 'bump' && steps.info.outputs.bump != 'skip'
         env:
           NEW_V: ${{ steps.versioning.outputs.new_v }}
           BUMP:  ${{ steps.info.outputs.bump }}
         run: |
-          MSG=$(git log -1 --pretty=%s)
-          export CL_DESC="${MSG#*: }"   # strip feat:/fix:/etc. prefix
-          export CL_DATE=$(date -u +%Y-%m-%d)
-          export CL_SECTION=$([ "$BUMP" = "minor" ] && echo "### Added" || echo "### Fixed")
+          set -euo pipefail
+          # Every counted commit, not only the head one — a multi-commit
+          # release used to lose everything the head commit did not mention.
+          CL_NOTES=$(cat "$RUNNER_TEMP/release-notes.md")
+          export CL_NOTES
+          CL_DATE=$(date -u +%Y-%m-%d)
+          CL_SECTION=$([ "$BUMP" = "minor" ] && echo "### Added" || echo "### Fixed")
+          export CL_DATE CL_SECTION
 
           python3 - <<'PYEOF'
-          import re, os
+          import re, os, sys
           new_v   = os.environ['NEW_V']
           date    = os.environ['CL_DATE']
           section = os.environ['CL_SECTION']
-          desc    = os.environ['CL_DESC']
-          entry   = f"## [{new_v}] — {date}\n\n{section}\n- {desc}\n\n---"
+          notes   = os.environ['CL_NOTES'].strip() or "- (no conventional-commit subjects in range)"
+          entry   = f"## [{new_v}] — {date}\n\n{section}\n{notes}\n\n---"
           path    = "CHANGELOG.md"
           content = open(path).read()
-          content = re.sub(
-              r'(## \[Unreleased\]\n)',
-              r'\1\n' + entry + '\n\n',
+          # CHANGELOG.md uses `## Unreleased`; earlier revisions used the
+          # bracketed Keep-a-Changelog spelling. Accept either, and refuse to
+          # pass silently when neither is present (see fault 3 above).
+          content, n = re.subn(
+              r'(^## \[?Unreleased\]?\s*$\n)',
+              r'\1\n' + entry.replace('\\', '\\\\') + '\n\n',
               content,
               count=1,
+              flags=re.MULTILINE,
           )
+          if n != 1:
+              sys.exit("::error::no '## Unreleased' heading in CHANGELOG.md — refusing to drop the entry")
           open(path, 'w').write(content)
+          print(f"✅ CHANGELOG entry added for v{new_v}")
           PYEOF
 
       - name: Commit & Tag Version Bump
-        if: steps.info.outputs.bump != 'skip'
+        if: steps.mode.outputs.mode == 'bump' && steps.info.outputs.bump != 'skip'
         run: |
           set -euo pipefail
           NEW_V="${{ steps.versioning.outputs.new_v }}"
@@ -172,11 +269,13 @@ jobs:
           git remote set-url origin \
             https://x-access-token:${{ secrets.MY_PAT }}@github.com/${{ github.repository }}
 
+          # No -f / --force here: the step above proved the tag is free, and a
+          # forced tag is how a published release loses its own source.
           echo "→ creating tag v$NEW_V..."
-          git tag -f "v$NEW_V"
+          git tag "v$NEW_V"
 
           echo "→ pushing tag..."
-          git push origin "v$NEW_V" --force
+          git push origin "v$NEW_V"
 
           echo "→ pushing branch..."
           git push origin HEAD:${{ env.RELEASE_BRANCH }}
@@ -184,20 +283,6 @@ jobs:
           echo "→ verifying tag exists on remote..."
           git ls-remote --tags origin "refs/tags/v$NEW_V"
           echo "✅ tag confirmed on remote"
-
-      - name: Sync release branch (stable line for the one-liner installer)
-        # `install.sh` (curl … | bash) clones the `release` branch. Fast-forward
-        # it to the just-released commit — the SAME commit tag v$NEW_V points at,
-        # so the one-liner, the zip (built from the tag) and `git pull` all ship
-        # identical bits. Only from master (never beta). The first release after
-        # this lands creates the branch; later ones fast-forward it (no --force),
-        # so users who `git pull` never hit a rewritten history.
-        if: steps.info.outputs.bump != 'skip' && env.RELEASE_BRANCH == 'master'
-        run: |
-          set -euo pipefail
-          echo "→ updating release → $(git rev-parse --short HEAD)…"
-          git push origin HEAD:refs/heads/release
-          echo "✅ release branch now at v${{ steps.versioning.outputs.new_v }}"
 
   package-source:
     name: Package — Source Only
@@ -258,11 +343,11 @@ jobs:
             ---
             **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: false
-          draft: true  
+          draft: true
           prerelease: ${{ contains(needs.version.outputs.new_v, 'beta') }}
           files: aperio-lite-v${{ needs.version.outputs.new_v }}.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload ZIP fixed-name alias for stable URL
         run: |
@@ -280,3 +365,41 @@ jobs:
             --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Bookkeeping, deliberately last and deliberately unable to fail the release.
+  #
+  # `.github/lite/install.sh` (the curl … | bash one-liner) is served FROM this
+  # branch and clones it, so it has to track the released commit. It used to be
+  # the final step of the `version` job, where its failure skipped the entire
+  # packaging job — the v0.69.0 / v0.69.1 releases died exactly there. It now
+  # runs after the release is already published, and continue-on-error means a
+  # red mark here never costs a release again.
+  #
+  # --force is required and safe. `release` has no merge base with master after
+  # the history rewrite, so an ordinary push is rejected forever; and existing
+  # installs update with `git reset --hard FETCH_HEAD`, never `git pull`, so a
+  # rewritten branch does not break them.
+  # ---------------------------------------------------------------------------
+  sync-release-branch:
+    name: Sync the `release` branch (installer line)
+    needs: [version, package-source]
+    if: needs.version.outputs.new_v != ''
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.MY_PAT }}
+          ref: v${{ needs.version.outputs.new_v }}
+
+      - name: Point `release` at the released commit
+        run: |
+          set -euo pipefail
+          git remote set-url origin \
+            https://x-access-token:${{ secrets.MY_PAT }}@github.com/${{ github.repository }}
+          echo "→ updating release → $(git rev-parse --short HEAD) (v${{ needs.version.outputs.new_v }})…"
+          git push --force origin HEAD:refs/heads/release
+          echo "✅ release branch now at v${{ needs.version.outputs.new_v }}"

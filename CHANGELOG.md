@@ -11,6 +11,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **No release shipped between v0.68.0 (2026-07-22) and now, and three separate faults in
+  `cd.release.yml` were responsible.** All three are proven from run logs, not guessed.
+  1. *The release branch sync took the whole release down with it.* Runs `32414251219`
+     (v0.69.0) and `32934315335` (v0.69.1) both died in the last step of the `version` job
+     with `! [rejected] HEAD -> release (non-fast-forward)`. The `release` branch sits on
+     the v0.68.0 commit, which shares **no merge base at all** with master after the
+     history rewrite, so an ordinary push to it is rejected forever. That failed the
+     `version` job, so `package-source` (`needs: version`) was skipped — the tags existed
+     with no GitHub release and no `aperio-lite.zip`. The sync is now its own
+     `sync-release-branch` job, running *after* the release is published and marked
+     `continue-on-error`, so a bookkeeping branch can never cost a release again. It
+     force-pushes, which is safe: `.github/lite/install.sh` updates an existing install
+     with `git reset --hard FETCH_HEAD`, never `git pull`. The `master-rules` ruleset was
+     the first suspicion and is **not** the cause — it targets `~DEFAULT_BRANCH` only,
+     grants the admin role `bypass_mode: always`, and both logs show the master push
+     succeeding.
+  2. *The version bump read only the head commit of the push.* A push of `fix: x` followed
+     by `chore: y` saw the `chore:` and skipped the release outright; that ate the
+     2026-10-17 release (runs `38983863213`, `38988918842`, `39801399213`, all
+     `→ bump=skip`). The bump now comes from every commit since the last `v*` tag through
+     the new `scripts/release-bump.js`, which has 22 tests covering ordering, scopes,
+     `[skip ci]` subjects and breaking-change markers. The `--match 'v*'` on
+     `git describe` is load-bearing: without it a non-version tag such as
+     `archive/pre-reset-2026-10-22` is picked and the commit range comes out wrong.
+  3. *The CHANGELOG step never wrote anything.* It matched `## [Unreleased]`, but this file
+     uses `## Unreleased` with no brackets, so `re.sub(count=1)` matched nothing and wrote
+     the file back unchanged. The matcher now accepts both spellings and **fails loudly**
+     when it finds neither. Released entries also list every counted commit instead of only
+     the head commit's subject.
+- **A tag that already carries a published release can no longer be moved.** The workflow
+  used `git tag -f` and `git push --force` for every release, which would silently
+  repoint a published release's source snapshot. It now checks for both an existing
+  release and an existing tag, stops with a clear error, and tags without `-f`.
+- **`workflow_dispatch` can package an existing tag.** `cd.release.yml` takes a `tag`
+  input; with it set, the run writes no commit, tag or branch and only builds and
+  publishes the release for that tag. This is how v0.69.0 and v0.69.1 get the releases
+  they never received.
+
 - **Indexing a large folder froze the whole server.** `leadingDoc()` in both code-graph
   extractors sliced the entire file prefix for *every* symbol and ran `$`-anchored regexes
   over it — quadratic in the copying and again in the backtracking. On a 160KB source file
