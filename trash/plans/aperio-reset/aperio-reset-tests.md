@@ -12,8 +12,8 @@ is **red** on today's master before starting the step, then make it green.
 | S0.3 | T0.3 CI: release pipeline | bump calc, packaging, dispatch path |
 | S0.4 | T0.4 Release smoke | asset present, zip boots, release branch |
 | S1.0 | T1.0 Archive tag reachable | tag pushed, files restorable |
-| S1.1 | T1.1 Repo grep: infra gone | no live refs |
-| S1.2 | T1.2 Repo grep: bots gone | no live refs, docs updated |
+| S1.1 | ~~T1.1 Repo grep: infra gone~~ | **RETIRED** — S1.1 dropped 2026-10-22, nothing deleted |
+| S1.2 | T1.2 Bots parked, not deleted | no active refs, docs updated |
 | S1.3 | T1.3 Badges + checks | README links, ruleset unaffected |
 | S1.4 | T1.4 Spawn kept, parked | no deletion, #319/#320 point at #498 |
 | S1.5 | T1.5 Tracker state | every open issue mapped or parked |
@@ -70,13 +70,40 @@ is **red** on today's master before starting the step, then make it green.
 - **Assertions:** `git ls-remote --tags origin archive/pre-reset-2026-10-22` returns the tag; in a scratch clone `git checkout archive/pre-reset-2026-10-22 -- k8s vms lib/agent/spawn.js` restores all three.
 - **Edge cases:** tag is annotated (`git cat-file -t` = `tag`, not `commit`), so it survives a later history rewrite discussion; run before any Phase 1 delete, never after.
 
-### T1.1 — infra removed
-- **Assertions:** `git ls-files k8s vms .github/workflows/cd.k3s-deploy.yml` empty; `grep -rnI "k3s\|aperio\.live" --exclude-dir={node_modules,trash,coverage,var} .` returns only CHANGELOG history; #239–241 closed.
-- **Edge cases:** docs site build (`cd.gh-pages`) still green.
+### T1.1 — infra removed — **RETIRED 2026-10-22**
+S1.1 was dropped: `k8s/`, `vms/` and `cd.k3s-deploy.yml` stay on `master`. The stripping
+moves to the `release` branch, so there is nothing to assert here. Closing #239–241 moved
+to **T1.5**.
 
-### T1.2 — bots removed
-- **Assertions:** none of the removed workflow names appear in `grep -rn` outside CHANGELOG; CONTRIBUTING.md has no "claim"/"XP"/"leaderboard"; labels removed (`gh label list`).
-- **Edge cases:** Dependabot + SHA-pinning still work if `bot.pin-shas-to-actions.yml` is kept.
+**Carried forward for whoever strips `release`:** a strip of `vms/` must keep
+`vms/smoke.sh`, `vms/smoke.ps1` and `vms/docker/run.sh` — `ci.install-matrix.yml`,
+`ci.lite-smoke.yml` and `ci.docker-smoke.yml` execute them, and `tests/integration/vms/`
+pins that contract in `smoke-contract.test.js`, `ci-workflows.test.js` and
+`docker-executor.test.js` (16 of its 27 tests). Only the Vagrant/mac/win executor tests
+(11) are local-only.
+
+### T1.2 — bots parked, not removed — **PASS 2026-10-22**
+Revised with S1.2: files are **moved to `.github/workflows/obsolete/`**, not deleted, and
+**no label is deleted**. Assert inertness, not absence.
+- **Assertions:**
+  - `ls .github/workflows/*.yml` does not list the five parked names **✅ 23 active files**
+  - each parked file's `on:` block is exactly `workflow_dispatch:` **✅ 5/5**
+  - no **active** workflow or doc names a parked file:
+    `grep -rnI "issue-claim-guard\|stale-claims\|update-leaderboard\|contributor-agreement\|issue-moderation" --exclude-dir={node_modules,coverage,var,trash} .`
+    returns only `.github/workflows/obsolete/*`, `CHANGELOG.md` and the *Parked workflows*
+    section of `id/reference/ci-cd.md` **✅**
+  - `actionlint .github/workflows/*.yml` exits 0 bar the pre-existing shellcheck
+    info/warnings in `bot.pin-shas-to-actions.yml`, `ci.pr-lint-feedback.yml`,
+    `ci.sri-pins.yml` **✅**
+  - `gh label list` still shows all six gamification labels **✅ deliberate**
+- **Edge cases:**
+  - Dependabot + SHA-pinning still work — `bot.pin-shas-to-actions.yml` stays active **✅**
+  - `bot.nuke.yml` stays active, and `.github/scripts/nuke.cjs` +
+    `.github/data/blocklist.json` are still read by `ci.pr-guard.yml` **✅ nothing orphaned**
+  - `cd.release.yml` builds `launchers/` itself, so parking
+    `obsolete/cd.aperio-lite-launchers.yml` changes no release behaviour **✅**
+  - a parked file moved back to `.github/workflows/` still cannot fire on its own, because
+    its triggers are gone **✅ by construction**
 
 ### T1.3 — Codacy + Sonar removed
 - **Assertions:** no `codacy`/`sonar` in workflows, README, or config files; every README badge URL returns HTTP 200; next PR shows `GitGuardian` + `code_quality` checks.
@@ -87,7 +114,7 @@ is **red** on today's master before starting the step, then make it green.
 - **Edge cases:** if #498 is later decided against planning UX, re-open this step as its own change with its own test — do not fold the deletion into another Phase 1 push.
 
 ### T1.5 — tracker reflects reality
-- **Assertions:** #335, #202, #105, #455 closed; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.
+- **Assertions:** #239, #240, #241 (moved here from the retired T1.1), #335, #202, #105, #455 closed as *not planned*; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.
 
 ### T2.1 — server stays responsive while indexing
 - **Setup:** isolated scratch workdir + non-default port; index a large repo (e.g. this one with `node_modules` excluded).

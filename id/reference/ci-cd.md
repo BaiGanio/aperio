@@ -272,22 +272,15 @@ including the `tag` path, uses the file at the ref you dispatch.
 
 ## Bot Workflows
 
-- `bot.issue-claim-guard.yml` — handles `/claim` comments (and `Yes`
-  confirmations) on issues, skipping anything labelled `status: cooldown`
-- `bot.issue-moderation.yml` — labels, locks, and milestones newly opened issues,
-  and reacts to label removal
-- `bot.stale-claims.yml` — daily at midnight UTC, releases claims that went stale
 - `bot.nuke.yml` — dispatch-only blocklist enforcement over users and/or orgs,
-  dry-run by default
+  dry-run by default. Reads `.github/scripts/nuke.cjs` and
+  `.github/data/blocklist.json`, both shared with `ci.pr-guard.yml`.
 - `bot.pin-shas-to-actions.yml` — pins third-party action references to commit
   SHAs on any PR touching `.github/workflows/**`
 
 ## Community Workflows
 
-- `community.contributor-agreement.yml` — watches issue comments for "I agree"
-  and records the contributor agreement
-- `community.update-leaderboard.yml` — awards XP when a PR is merged by a
-  non-bot author; dispatchable with a `pr_number` to award retroactively
+None active. The gamification program is retired — see *Parked workflows*.
 
 ## Sync Workflows
 
@@ -302,6 +295,32 @@ including the `tag` path, uses the file at the ref you dispatch.
   from it. **Grepping for `refs/heads/dev` will not find this** — the push
   target is written `HEAD:dev`.
 
-Retired workflows are parked in `.github/workflows/obsolete/`
-(`cd.aperio-lite-launchers.yml`, `sync.leaderboard-to-wiki.yml`) — kept for
-reference, not scheduled by GitHub.
+## Parked workflows
+
+Retired workflows live in `.github/workflows/obsolete/`. GitHub Actions scans only
+`.github/workflows/*.yml`, never a subdirectory, so nothing in there can run. They are kept
+for reference, not deleted — the work behind them stays recoverable and reviewable.
+
+- `cd.aperio-lite-launchers.yml` — superseded; `cd.release.yml` builds `launchers/` itself
+- `sync.leaderboard-to-wiki.yml` — mirrored `.github/LEADERBOARD.md` to the wiki
+
+**Parked 2026-10-22 (Aperio Reset S1.2) — the bot/gamification program.** Each of these
+also had its `on:` block stripped down to `workflow_dispatch:` so it cannot fire even if
+the file is moved back up by accident. The original triggers are recoverable from the tag
+`archive/pre-reset-2026-10-22`.
+
+- `bot.issue-claim-guard.yml` — handled `/claim` comments (and `Yes` confirmations) on
+  issues, skipping anything labelled `status: cooldown`
+- `bot.issue-moderation.yml` — labelled, locked and milestoned newly opened issues, and
+  reacted to label removal
+- `bot.stale-claims.yml` — ran daily at midnight UTC and released claims that went stale
+- `community.contributor-agreement.yml` — watched issue comments for "I agree" and recorded
+  the contributor agreement
+- `community.update-leaderboard.yml` — awarded XP when a PR was merged by a non-bot author;
+  was dispatchable with a `pr_number` to award retroactively
+
+Their data files are kept too, now unread by any active workflow:
+`.github/data/seniority-tiers.json` (claim-guard tiers) and `.github/LEADERBOARD.md` (the
+standings the leaderboard job wrote). The XP, `robin-hood` and `status: claimed` labels are
+**deliberately not deleted** — they are still attached to 65 closed issues, and deleting a
+label strips it from that history irreversibly.

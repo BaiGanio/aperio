@@ -9,6 +9,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+- park the bot and gamification workflows in `.github/workflows/obsolete/` instead of
+  running them: `bot.issue-claim-guard`, `bot.stale-claims`, `bot.issue-moderation`,
+  `community.contributor-agreement`, `community.update-leaderboard`. GitHub Actions never
+  scans a subdirectory, and each file's triggers are stripped to `workflow_dispatch:`, so
+  none of them can fire. The files, their data (`.github/data/seniority-tiers.json`,
+  `.github/LEADERBOARD.md`) and the XP / `robin-hood` / `status: claimed` labels are all
+  kept — deleting a label would strip it from 65 closed issues. `bot.nuke.yml` and
+  `bot.pin-shas-to-actions.yml` stay active.
+- document the parking lot in `id/reference/ci-cd.md`: new *Parked workflows* section, and
+  the *Bot* / *Community* sections now list only what actually runs.
+
 
 ## [0.69.2] — 2026-10-22
 

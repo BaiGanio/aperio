@@ -20,7 +20,8 @@ local models first) can launch from a known-good base.
 | Providers | Keep all 6. **Focus is local models (llama.cpp).** Cloud providers get attention in later releases. |
 | Locales | Keep all 26 and keep issues #421/#422. No new i18n work until the cleanup is done. |
 | Continuous-audit program | Must **not block** anything now. Keep or delete is decided in a later session. |
-| Cut | `k8s/`, `vms/`, aperio.live deploy, bot/gamification workflows, Codacy + Sonar. |
+| Cut | Bot/gamification workflows, Codacy + Sonar. |
+| Infra on master (2026-10-22, revised) | **`k8s/`, `vms/` and `cd.k3s-deploy.yml` STAY on `master`.** `release` becomes the official installation branch and is stripped there; future contributors branch from `master`, where this infra is still useful. The aperio.live *deploy* stays cut as a goal — nothing is deployed — but the files are not deleted. This retires step S1.1. |
 | Quality metrics | Keep some proof of quality: Codecov + CodeQL + npm-audit gate stay. |
 | Old crossed-out epics | Not needed, may be revisited. Close as *not planned* (reopenable). |
 | Deleted work | Nothing is lost: an annotated tag `archive/pre-reset-2026-10-22` is pushed before Phase 1, and closed issues stay reopenable. Recover with `git checkout archive/pre-reset-2026-10-22 -- <path>`. |
@@ -121,20 +122,84 @@ on the current green master so every cut file keeps one named, permanent address
 *Works when:* the tag is visible on GitHub and a test checkout of `k8s/` from it succeeds.
 Tests: T1.0.
 
-**S1.1 Remove infra.** Delete `k8s/`, `vms/`, `.github/workflows/cd.k3s-deploy.yml`, and
-aperio.live references in docs. Close #239, #240, #241 as *not planned*.
-*Works when:* `grep -rn "k3s\|aperio.live" --exclude-dir=node_modules --exclude-dir=trash`
-finds nothing live, and all remaining workflows still parse.
-Tests: T1.1.
+**S1.1 Remove infra.** — **DROPPED 2026-10-22 by developer decision. Do not re-plan it.**
+Nothing is deleted. Reason: `master` is the branch future contributors fork from, and the
+stripping happens on `release`, which becomes the official installation branch. Deleting the
+files on `master` would be work undone later.
 
-**S1.2 Remove bot/gamification workflows.** Delete `bot.issue-claim-guard.yml`,
-`bot.stale-claims.yml`, `community.update-leaderboard.yml`,
-`community.contributor-agreement.yml`, `bot.issue-moderation.yml`, and
-`.github/workflows/obsolete/`. Check `bot.nuke.yml` and `bot.pin-shas-to-actions.yml`
-with the developer first (the second may still be useful). Remove XP / robin-hood labels.
-*Works when:* no workflow references a removed script; CONTRIBUTING.md no longer
-describes claims or XP.
-Tests: T1.2.
+Two findings from the aborted consumer sweep are kept because they outlive the step:
+
+1. **`vms/` is not optional infra — it is load-bearing CI.** Three live workflows execute
+   files inside it: `ci.install-matrix.yml` (`vms/smoke.sh`, `vms/smoke.ps1`, trigger
+   `vms/**`), `ci.lite-smoke.yml` (`vms/smoke.sh`, `vms/smoke.ps1` — the workflow that
+   verified v0.69.2) and `ci.docker-smoke.yml` (`vms/docker/run.sh`, trigger
+   `vms/docker/**`). `tests/integration/vms/` is therefore **shared, not Vagrant-only**:
+   `smoke-contract.test.js` (6), `ci-workflows.test.js` (5) and `docker-executor.test.js`
+   (5) pin the CI contract; only `vagrant-executor.test.js` (3), `mac-executor.test.js` (5)
+   and `windows-executor.test.js` (3) are local-VM-only. **Any later strip of `vms/` on
+   `release` must keep `smoke.sh`, `smoke.ps1` and `docker/run.sh`, or three workflows and
+   the release verification path go red.**
+2. **`APERIO_PI_WEBHOOK_URL` / `APERIO_PI_WEBHOOK_SECRET` are already dead secrets.** The
+   only reader is the *commented-out* "Notify Pi" step in `cd.k3s-deploy.yml`. They can be
+   deleted by hand at any time (GitHub → Settings → Secrets and variables → Actions)
+   without touching code. Not an action item for this plan.
+
+`k8s/` consumers, for whoever does the `release` strip: `cd.k3s-deploy.yml` (trigger
+`k8s/**`, header points at `k8s/aperio-webhook.service`), `id/reference/ci-cd.md:109-115`,
+`SECURITY.md:208,220`, `docker/Dockerfile:39` (comment), `docs/guides/k8s.html` + its nav
+link in `docs/index.html:81`, and `CHANGELOG.md` (history, keep). The `k8s` hits in
+`lib/agent/index.js:160`, `lib/routes/api-meta.js:351` and `lib/helpers/selfRestart.js:9`
+are the generic word for a supervisor, not deploy code — never touch those.
+
+`lite-zip-decouple` is unaffected: its `k8s/*` and `vms/*` exclude-list entries all still
+apply, because nothing was deleted.
+
+**#239, #240, #241 (aperio.live epic) move to S1.5**, where the rest of the issue triage
+lives. They are still closed as *not planned* — the deploy goal is cut even though the
+files stay.
+*Works when:* n/a — retired step.
+Tests: T1.1 retired.
+
+**S1.2 Retire the bot/gamification workflows.** — **DONE 2026-10-22.**
+**Revised 2026-10-22: park, do not delete.** The developer chose to keep every file so the
+work behind it is not lost. `.github/workflows/obsolete/` is therefore **not** deleted — it
+becomes the standing parking lot, and `obsolete/` is where retired workflows live from now
+on. GitHub Actions scans only `.github/workflows/*.yml`, never a subdirectory, so a parked
+file cannot run.
+
+Moved into `.github/workflows/obsolete/`, each with its `on:` block stripped to
+`workflow_dispatch:` plus a PARKED banner, so it stays inert even if the file is moved back
+up by accident: `bot.issue-claim-guard.yml`, `bot.stale-claims.yml`,
+`bot.issue-moderation.yml`, `community.contributor-agreement.yml`,
+`community.update-leaderboard.yml`.
+
+**Kept active:** `bot.nuke.yml` and `bot.pin-shas-to-actions.yml`. The first is
+dispatch-only and dry-run by default, and shares `.github/scripts/nuke.cjs` +
+`.github/data/blocklist.json` with `ci.pr-guard.yml`, which stays. The second is a real
+supply-chain guard that pins third-party action SHAs on every PR touching
+`.github/workflows/**` — gamification it is not.
+
+**Labels: none deleted, by developer decision.** `robin-hood` (1 open / 29 closed),
+`🛡️ 100xp` (1 / 20), `🛡️ 50xp` (0 / 4), `🛡️ 25xp` (0 / 4), `🛡️ 75xp` (0 / 2) and
+`status: claimed` (0 / 6) all stay. Deleting a label strips it from 65 closed issues and
+that is irreversible. The blanket `muted` label on open issues is still S1.5's business.
+
+**Data files kept, now unread by any active workflow:** `.github/data/seniority-tiers.json`
+(claim-guard tiers, its only reader was the claim guard) and `.github/LEADERBOARD.md` (the
+standings the leaderboard job wrote).
+
+**Nothing shared was removed.** All five parked workflows ran inline
+`actions/github-script`; no `.github/scripts/` file became dead. `cd.release.yml` builds
+`launchers/` itself (lines 91, 300, 322) and never called the parked
+`obsolete/cd.aperio-lite-launchers.yml`.
+
+**Two plan expectations that did not hold:** `CONTRIBUTING.md` has no XP or leaderboard
+text — only line 18 links to a *Payment & Bounty Policy* GitHub Discussion, left untouched
+because it lives outside the repo and the developer deleted nothing. `README.md` is clean.
+`FEATURES.md:139` says "claim" about the interrupt service; unrelated, kept.
+*Worked:* no active workflow names a parked file; `actionlint .github/workflows/*.yml`
+reports only the pre-existing shellcheck info/warnings; `npm run test:unit` green.
+Tests: T1.2 — pass.
 
 **S1.3 Drop Codacy + Sonar.** Delete `ci.codacy.yml`, `ci.sonarqube.yml`, their config
 files and README badges. Keep Codecov, CodeQL, npm-audit.
@@ -151,7 +216,7 @@ tracked in `id/reference/tech-debt.md` and must not be closed by this plan.
 *Works when:* #319 and #320 carry a comment pointing at #498; no code is removed here.
 Tests: T1.4.
 
-**S1.5 Issue triage.** Close #335, #202, #105 as *not planned*. Close map #455 (date
+**S1.5 Issue triage.** Close #239, #240, #241 (moved here from the dropped S1.1), #335, #202, #105 as *not planned*. Close map #455 (date
 passed) with a comment pointing to Phase 4. Remove the blanket `muted` label from the
 issues that stay open, so the tracker shows real priorities again.
 *Works when:* every open issue is either in this plan or explicitly parked.
@@ -217,9 +282,9 @@ Tests: T4.1.
 
 ## Doc updates
 
-- `README.md` — badges (S1.3), infra mentions (S1.1).
+- `README.md` — badges (S1.3). No infra edit: S1.1 is dropped.
 - `CONTRIBUTING.md` — claims/XP text (S1.2).
-- `FEATURES.md` — remove spawn / aperio.live mentions (S1.1, S1.4).
+- `FEATURES.md` — no edit needed: S1.1 is dropped and S1.4 is deferred. (`aperio.live` does not appear in it; the one `claim` hit is the interrupt service.)
 - `id/reference/ci-cd.md` — workflow list + release flow (S0.1, S0.3, S1.x).
 - `id/reference/tech-debt.md` — delete entries as they are fixed (S2.x, F-R3-04 after S1.4).
 - `CHANGELOG.md` — `## Unreleased` entry per step.
