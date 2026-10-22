@@ -14,7 +14,7 @@ is **red** on today's master before starting the step, then make it green.
 | S1.0 | T1.0 Archive tag reachable | tag pushed, files restorable |
 | S1.1 | ~~T1.1 Repo grep: infra gone~~ | **RETIRED** — S1.1 dropped 2026-10-22, nothing deleted |
 | S1.2 | T1.2 Bots parked, not deleted | no active refs, docs updated |
-| S1.3 | T1.3 Badges + checks | README links, ruleset unaffected |
+| S1.3 | T1.3 Badges + checks | README badges true, ruleset unaffected, CodeQL live |
 | S1.4 | T1.4 Spawn kept, parked | no deletion, #319/#320 point at #498 |
 | S1.5 | T1.5 Tracker state | every open issue mapped or parked |
 | S2.1 | T2.1 Perf: server stays responsive | latency under indexing |
@@ -105,16 +105,44 @@ Revised with S1.2: files are **moved to `.github/workflows/obsolete/`**, not del
   - a parked file moved back to `.github/workflows/` still cannot fire on its own, because
     its triggers are gone **✅ by construction**
 
-### T1.3 — Codacy + Sonar removed
-- **Assertions:** no `codacy`/`sonar` in workflows, README, or config files; every README badge URL returns HTTP 200; next PR shows `GitGuardian` + `code_quality` checks.
-- **Edge cases:** Codecov upload still runs and the badge updates.
+### T1.3 — Codacy + Sonar parked, CodeQL revived — **PASS 2026-10-22**
+Revised with S1.3: the files are **parked, not deleted**, and the step also re-enables
+CodeQL. Assert inertness plus badge honesty, not absence.
+- **Assertions:**
+  - `ls .github/workflows/*.yml` lists neither `ci.codacy.yml` nor `ci.sonarqube.yml`
+    **✅ 21 active files**
+  - each parked file's `on:` block is exactly `workflow_dispatch:` **✅ 2/2**
+  - no `codacy`/`sonar` in README, `SECURITY.md`, `FEATURES.md` or any active workflow:
+    `grep -rni "codacy\|sonar" --exclude-dir={node_modules,coverage,var,trash,.git} .`
+    returns only `.github/workflows/obsolete/*`, `CHANGELOG.md`, the parked section of
+    `id/reference/ci-cd.md`, and `jsonArgs` in `tests/e2e/helpers/test-agent.js:174`
+    **✅**
+  - `gh api repos/BaiGanio/aperio/actions/workflows` reports `ci.codeql.yml` as `active`
+    **✅ was `disabled_manually` since 2026-07-05**
+  - `master-rules` still requires exactly `GitGuardian Security Checks` **✅ `code_quality`
+    is not and was not in the ruleset — the plan's claim was stale**
+  - `actionlint .github/workflows/*.yml` exits 0 bar the pre-existing shellcheck
+    info/warnings **✅**
+- **Edge cases:**
+  - Codecov upload still runs and its badge updates **✅ `ci.codecov.yml` is `active`, last
+    run 2026-10-22 `push` success**
+  - `ci.sonarqube.yml` chained off `(ci) Codecov Run tests and upload coverage` via
+    `workflow_run`; parking it changes no Codecov behaviour, because the dependency pointed
+    the other way **✅**
+  - there were **no separate config files** — both tools were configured inside their own
+    YAML, so nothing was left orphaned **✅**
+  - `ci.codeql.yml` has no `push` trigger, so its badge refreshes on a PR to `master`, the
+    Sunday 08:17 UTC schedule, or `gh workflow run ci.codeql.yml` — **not** on a direct
+    commit to `master`. Worth one dispatch to make the badge true immediately.
+- **Report-only:** `CODACY_PROJECT_TOKEN`, `SONAR_TOKEN`, `SONAR_HOST_URL` are dead
+  repository secrets.
 
 ### T1.4 — spawn kept and parked
 - **Assertions:** `lib/agent/spawn.js` still tracked (`git ls-files lib/agent/spawn.js` non-empty); #319 and #320 each carry a comment pointing at #498; F-R3-04 still listed in `id/reference/tech-debt.md`.
 - **Edge cases:** if #498 is later decided against planning UX, re-open this step as its own change with its own test — do not fold the deletion into another Phase 1 push.
 
 ### T1.5 — tracker reflects reality
-- **Assertions:** #239, #240, #241 (moved here from the retired T1.1), #335, #202, #105, #455 closed as *not planned*; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.
+- **Assertions:** #239, #240, #241 (moved here from the retired T1.1) **✅ closed 2026-10-22**, #335, #202, #105, #455 closed as *not planned*; every remaining open issue is named in the plan or carries a `parked` note; `muted` label no longer on active items.
 
 ### T2.1 — server stays responsive while indexing
 - **Setup:** isolated scratch workdir + non-default port; index a large repo (e.g. this one with `node_modules` excluded).

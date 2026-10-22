@@ -20,6 +20,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `bot.pin-shas-to-actions.yml` stay active.
 - document the parking lot in `id/reference/ci-cd.md`: new *Parked workflows* section, and
   the *Bot* / *Community* sections now list only what actually runs.
+- park `ci.codacy.yml` and `ci.sonarqube.yml` in `.github/workflows/obsolete/` the same way.
+  Both were already `disabled_manually` on GitHub and neither had run since 2026-07-05;
+  Codacy had not passed once in its last 100 runs. Neither was ever a required check —
+  `master-rules` requires only `GitGuardian Security Checks`. There were no separate config
+  files: both tools were configured inside their own YAML. `CODACY_PROJECT_TOKEN`,
+  `SONAR_TOKEN` and `SONAR_HOST_URL` are now dead repository secrets.
+- drop the Sonar *Quality Gate* and Codacy *Grade* badges from the README. A parked
+  workflow can never refresh them, so they were showing July data as if current.
+- state three layers of automated security monitoring in `SECURITY.md`, not two, and list
+  the three that exist (Dependabot, CodeQL, Codecov); drop SonarCloud and Codacy from the
+  `FEATURES.md` CI line.
+- document in `id/reference/ci-cd.md` which workflows are switched off in the GitHub
+  Actions UI. A disabled workflow's file looks live in the tree and no `grep` can tell you
+  otherwise: `ci.pr-guard.yml`, `ci.pr-lint-feedback.yml` and `cd.k3s-deploy.yml`.
+
+### Fixed
+- re-enable `ci.codeql.yml`, which had been `disabled_manually` on GitHub since
+  2026-07-05. CodeQL is the proof-of-quality gate the project keeps, and its README badge
+  had been rendering frozen July data for three and a half months. It has no `push`
+  trigger, so the badge refreshes on a PR to `master`, the Sunday 08:17 UTC schedule, or a
+  manual dispatch — never on a direct commit to `master`.
 
 
 ## [0.69.2] — 2026-10-22

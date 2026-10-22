@@ -7,14 +7,12 @@ security updates and how to responsibly report vulnerabilities.
 
 ## 🛡️ Automated Security Coverage
 
-This project uses **two layers** of automated security monitoring:
+This project uses **three layers** of automated security monitoring:
 
 | Tool | What it does |
 |------|-------------|
 | 🤖 **Dependabot** | Automatically scans dependencies and opens PRs for vulnerable packages |
 | 🔬 **CodeQL Advanced** | Static code analysis that detects vulnerabilities in the source code itself |
-| 📊 **SonarQube** | Analyzes code quality, detects bugs, code smells, and security hot spots; provides detailed reports on maintainability and test coverage |
-| 🎯 **Codacy** | Automated code reviews that check for style issues, complexity, and best practices; integrates with PRs to flag problems before merge |
 | 📈 **Codecov** | Tracks code coverage metrics and reports on test coverage; ensures your test suite covers critical code paths and prevents regressions |
 
 ---

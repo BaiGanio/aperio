@@ -4,7 +4,11 @@ GitHub Actions workflows in `.github/workflows/`:
 
 ## CI Workflows
 
-- `ci.codeql.yml` — CodeQL analysis
+- `ci.codeql.yml` — CodeQL analysis (`actions` + `javascript-typescript`). Runs on PRs to
+  `master`, weekly on Sunday 08:17 UTC, or by dispatch — **there is no `push` trigger**, so
+  a direct commit to `master` does not refresh its README badge. Was
+  `disabled_manually` on GitHub from 2026-07-05 and **re-enabled 2026-10-22** (Aperio
+  Reset S1.3): it is the proof-of-quality gate the plan keeps.
 - `ci.codecov.yml` — test coverage upload + unit, integration, and E2E dashboard
   data. `coverage-tests` and `e2e-dashboard` jobs run a `pgvector/pgvector:pg16`
   service container (`APERIO_E2E_POSTGRES_URL`) so the SQLite/Postgres store
@@ -69,8 +73,6 @@ GitHub Actions workflows in `.github/workflows/`:
   timeout, 5xx) and exits 1 only on a real hash mismatch, a vanished pinned URL
   (4xx), or a cross-file conflict, so a jsDelivr outage cannot redden an
   unrelated PR. Dependency-free, so it skips `npm ci`.
-- `ci.codacy.yml` — Codacy quality
-- `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit. Runs `scripts/npm-audit-gate.js`
   (`npm run audit:gate`) rather than `npm audit --audit-level=high` directly, so a
   high/critical advisory with no upstream fix can be accepted explicitly with a written
@@ -79,7 +81,10 @@ GitHub Actions workflows in `.github/workflows/`:
   audit at all, the gate fails and names the stale entry. It also refuses to read a
   report npm could not produce — an unreachable registry makes `npm audit --json` print
   `{"error": …}` and exit zero, which would otherwise look like a clean audit.
-- `ci.pr-guard.yml` / `ci.pr-lint-feedback.yml` — PR validation
+- `ci.pr-guard.yml` / `ci.pr-lint-feedback.yml` — PR validation. **Both are
+  `disabled_manually` on GitHub**, so the files are present but never run; `ci.pr-guard.yml`
+  is also the only remaining reader of `.github/scripts/nuke.cjs` and
+  `.github/data/blocklist.json` besides the dispatch-only `bot.nuke.yml`.
 
 ## Local installation executors
 
@@ -274,7 +279,8 @@ including the `tag` path, uses the file at the ref you dispatch.
 
 - `bot.nuke.yml` — dispatch-only blocklist enforcement over users and/or orgs,
   dry-run by default. Reads `.github/scripts/nuke.cjs` and
-  `.github/data/blocklist.json`, both shared with `ci.pr-guard.yml`.
+  `.github/data/blocklist.json`, both shared with `ci.pr-guard.yml` — which is itself
+  `disabled_manually` on GitHub, so this dispatch is the only live path to that code.
 - `bot.pin-shas-to-actions.yml` — pins third-party action references to commit
   SHAs on any PR touching `.github/workflows/**`
 
@@ -295,6 +301,20 @@ None active. The gamification program is retired — see *Parked workflows*.
   from it. **Grepping for `refs/heads/dev` will not find this** — the push
   target is written `HEAD:dev`.
 
+## Disabled on GitHub
+
+A workflow can be switched off in the Actions UI without any change to the file. The file
+then looks live but never fires, and `grep` cannot tell you so. Check with:
+
+```sh
+gh api repos/BaiGanio/aperio/actions/workflows --paginate \
+  -q '.workflows[]|"\(.state)\t\(.path)"' | sort
+```
+
+As of 2026-10-22, these are `disabled_manually`: `ci.pr-guard.yml`,
+`ci.pr-lint-feedback.yml`, `cd.k3s-deploy.yml`. Everything else in
+`.github/workflows/*.yml` is `active`.
+
 ## Parked workflows
 
 Retired workflows live in `.github/workflows/obsolete/`. GitHub Actions scans only
@@ -303,6 +323,18 @@ for reference, not deleted — the work behind them stays recoverable and review
 
 - `cd.aperio-lite-launchers.yml` — superseded; `cd.release.yml` builds `launchers/` itself
 - `sync.leaderboard-to-wiki.yml` — mirrored `.github/LEADERBOARD.md` to the wiki
+
+**Parked 2026-10-22 (Aperio Reset S1.3) — Codacy and SonarQube.** Both were already
+`disabled_manually` on GitHub and neither had run since 2026-07-05; Codacy had not passed
+once in its last 100 runs (62 failures, 38 cancelled). Neither was ever a required check —
+`master-rules` requires only `GitGuardian Security Checks`. Their README badges were
+removed in the same change because a parked workflow can never refresh them.
+`CODACY_PROJECT_TOKEN`, `SONAR_TOKEN` and `SONAR_HOST_URL` are now dead repository secrets
+and can be deleted by hand.
+
+- `ci.codacy.yml` — Codacy quality scan; ran on PRs to `master` and weekly
+- `ci.sonarqube.yml` — SonarQube analysis; chained off `(ci) Codecov Run tests and upload
+  coverage` via `workflow_run`
 
 **Parked 2026-10-22 (Aperio Reset S1.2) — the bot/gamification program.** Each of these
 also had its `on:` block stripped down to `workflow_dispatch:` so it cannot fire even if

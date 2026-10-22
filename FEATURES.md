@@ -335,7 +335,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Release packaging (`cd.release.yml`) — versioned `aperio-lite.zip` (launchers + how-to staged at the archive root) published to the latest GitHub release under a stable URL
 
 ## Ops
-- CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)
+- CI: CodeQL, Codecov, Dependabot (npm + github-actions), `npm audit` (high-severity gate)
 - Quiet test reporter gated on `APERIO_AGENT_RUN` (summary-only output for agent runs)
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)

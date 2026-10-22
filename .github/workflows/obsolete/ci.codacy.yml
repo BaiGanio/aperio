@@ -1,11 +1,13 @@
 name: (ci) Codacy Security Scan
 
+# PARKED 2026-10-22 — Aperio Reset S1.3. Codacy and SonarQube are retired as quality
+# gates: both were already `disabled_manually` on GitHub and neither had run since
+# 2026-07-05. The file is kept so the work is not lost. Triggers are stripped to manual
+# dispatch only, and files under .github/workflows/obsolete/ are not scanned by GitHub
+# Actions at all, so this never runs. To revive it, restore the original `on:` block
+# from tag archive/pre-reset-2026-10-22 and move the file back up.
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [ "master" ]
-  schedule:
-    - cron: '27 5 * * 6'
 
 permissions:
   contents: read

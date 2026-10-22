@@ -22,7 +22,7 @@ local models first) can launch from a known-good base.
 | Continuous-audit program | Must **not block** anything now. Keep or delete is decided in a later session. |
 | Cut | Bot/gamification workflows, Codacy + Sonar. |
 | Infra on master (2026-10-22, revised) | **`k8s/`, `vms/` and `cd.k3s-deploy.yml` STAY on `master`.** `release` becomes the official installation branch and is stripped there; future contributors branch from `master`, where this infra is still useful. The aperio.live *deploy* stays cut as a goal — nothing is deployed — but the files are not deleted. This retires step S1.1. |
-| Quality metrics | Keep some proof of quality: Codecov + CodeQL + npm-audit gate stay. |
+| Quality metrics | Keep some proof of quality: Codecov + CodeQL + npm-audit gate stay. **S1.3 found CodeQL was itself `disabled_manually` since 2026-07-05 — re-enabled 2026-10-22.** Of the four README quality badges, three were rendering frozen July data. |
 | Old crossed-out epics | Not needed, may be revisited. Close as *not planned* (reopenable). |
 | Deleted work | Nothing is lost: an annotated tag `archive/pre-reset-2026-10-22` is pushed before Phase 1, and closed issues stay reopenable. Recover with `git checkout archive/pre-reset-2026-10-22 -- <path>`. |
 | Pace | Full-time for some weeks, but in small shippable steps (one PR / one push each). |
@@ -201,11 +201,40 @@ because it lives outside the repo and the developer deleted nothing. `README.md`
 reports only the pre-existing shellcheck info/warnings; `npm run test:unit` green.
 Tests: T1.2 — pass.
 
-**S1.3 Drop Codacy + Sonar.** Delete `ci.codacy.yml`, `ci.sonarqube.yml`, their config
-files and README badges. Keep Codecov, CodeQL, npm-audit.
-*Works when:* README badges all resolve; required checks (`GitGuardian`, `code_quality`)
-are unaffected.
-Tests: T1.3.
+**S1.3 Retire Codacy + Sonar, revive CodeQL.** — **DONE 2026-10-22.**
+**Revised: park, do not delete** — same treatment as S1.2. `ci.codacy.yml` and
+`ci.sonarqube.yml` moved to `.github/workflows/obsolete/` with their `on:` blocks stripped
+to `workflow_dispatch:` and a PARKED banner. **There were no config files to delete** —
+both tools were configured entirely inside their workflow YAML (`-Dsonar.*` args inline for
+Sonar, the action's own defaults for Codacy). Nothing in `lib/`, `db/`, `mcp/` or `tests/`
+references either tool; the one `grep` hit in `tests/e2e/helpers/test-agent.js` is `jsonArgs`
+matching "sonAr".
+
+**The step's premise was wrong, and the real finding is bigger.** Both tools were already
+`disabled_manually` on GitHub and neither had run since **2026-07-05**. Codacy had **never
+passed**: 0 successes in its last 100 runs (62 failures, 38 cancelled). Sonar was 100/100
+green but three and a half months stale. So the step won **zero CI minutes**. What it
+actually won was two README badges that had stopped telling the truth. And the same sweep
+found **`ci.codeql.yml` was `disabled_manually` too** — the gate this plan's
+Decisions-locked table says to keep. It was **re-enabled 2026-10-22**. Note it has no
+`push` trigger (PRs to `master`, Sunday 08:17 UTC, or dispatch), so a direct commit to
+`master` never refreshes its badge.
+
+**Required checks were never at risk.** `master-rules` requires exactly one context:
+`GitGuardian Security Checks`. The plan's claim that `code_quality` is also required is
+**out of date** — it is not in the ruleset.
+
+**Docs edited:** README badges for Sonar and Codacy removed (a parked workflow can never
+refresh them); `SECURITY.md` monitoring table lost both rows and now honestly says *three*
+layers, not two; `FEATURES.md` CI line drops SonarCloud + Codacy; `id/reference/ci-cd.md`
+gains a **Disabled on GitHub** section, because a workflow switched off in the Actions UI
+looks live in the tree and no `grep` can reveal it.
+
+**Report-only — three dead repository secrets to delete by hand:**
+`CODACY_PROJECT_TOKEN`, `SONAR_TOKEN`, `SONAR_HOST_URL`.
+*Worked:* `actionlint` clean bar pre-existing notes; `ci.codeql.yml` reports `active`;
+no doc or workflow names either parked file outside the parked section.
+Tests: T1.3 — pass.
 
 **S1.4 Dead code.** **Deferred by developer decision (2026-10-22).** `lib/agent/spawn.js`
 (#319) is live product code, not CI clutter, and the planning-UX epic #498 is still
@@ -216,7 +245,8 @@ tracked in `id/reference/tech-debt.md` and must not be closed by this plan.
 *Works when:* #319 and #320 carry a comment pointing at #498; no code is removed here.
 Tests: T1.4.
 
-**S1.5 Issue triage.** Close #239, #240, #241 (moved here from the dropped S1.1), #335, #202, #105 as *not planned*. Close map #455 (date
+**S1.5 Issue triage.** — **PART DONE 2026-10-22: #239, #240, #241 closed as *not planned*** (moved here from the dropped S1.1), each with a comment recording that the aperio.live deploy is cut, that `k8s/` and `cd.k3s-deploy.yml` nonetheless stay on `master`, where the plans live (`trash/plans/aperio-live/`), and that the pre-cut tree is tagged `archive/pre-reset-2026-10-22`. All three are reopenable.
+Still to do: close #335, #202, #105 as *not planned*. Close map #455 (date
 passed) with a comment pointing to Phase 4. Remove the blanket `muted` label from the
 issues that stay open, so the tracker shows real priorities again.
 *Works when:* every open issue is either in this plan or explicitly parked.
