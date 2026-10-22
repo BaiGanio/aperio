@@ -1,0 +1,12 @@
+{
+  "id": "abort-mid-chain",
+  "title": "Pressing stop mid-task ends the turn cleanly instead of running the remaining steps",
+  "userMessage": "Pull the sales data, analyze it, save a report, then send it.",
+  "abortAfterTools": 1,
+  "providerScript": [
+    { "tool": "fetch_data", "args": {} },
+    { "tool": "analyze_data", "args": {} },
+    { "tool": "save_report", "args": { "filename": "should-never-exist.txt", "content": "aborted" } },
+    { "text": "Done — pulled, analyzed, saved and sent the report." }
+  ]
+}

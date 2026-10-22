@@ -1,0 +1,192 @@
+/* public/styles/modals/settings.css — Settings drawer: allowed folders / busy-words config. */
+
+    /* ── Allowed folders (Settings → expandable section) ────────── */
+    /* Lives inside the Settings drawer as a collapsible <details> block.
+       (Class names kept for the JS that drives the chips/input.) */
+    .settings-section {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+
+    /* First section sits flush under the panel header — no redundant top divider. */
+    .settings-panel-body > .settings-section:first-child {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 4px;
+    }
+
+    .settings-section > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--fs-chrome);
+      color: var(--text);
+      user-select: none;
+    }
+    .settings-section > summary::-webkit-details-marker { display: none; }
+    .settings-section > summary::after {
+      content: "▾";
+      margin-left: auto;
+      color: var(--text-muted);
+      transition: transform var(--transition);
+    }
+    .settings-section[open] > summary::after { transform: rotate(180deg); }
+
+    .settings-section-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 12px;
+    }
+
+    .paths-section-hint {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      opacity: .7;
+      line-height: 1.5;
+    }
+
+    .busy-words-input {
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      font: inherit;
+      font-size: var(--fs-micro);
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg-elev, var(--bg));
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .busy-words-input:focus {
+      outline: none;
+      border-color: var(--accent, var(--border));
+    }
+
+    .paths-chips {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 28px;
+    }
+
+    .path-chip {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text);
+    }
+
+    .path-chip-text {
+      flex: 1;
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .path-chip-del {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: var(--fs-reading);
+      line-height: 1;
+      padding: 0 1px;
+      flex-shrink: 0;
+      transition: color var(--transition);
+    }
+    .path-chip-del:hover { color: #ef4444; }
+
+    .paths-empty-hint {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-style: italic;
+      opacity: .6;
+      padding: 4px 0;
+    }
+
+    .paths-add-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .paths-text-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text);
+      outline: none;
+      transition: border-color var(--transition);
+      min-width: 0;
+    }
+    .paths-text-input:focus { border-color: var(--accent); }
+    .paths-text-input::placeholder { color: var(--text-muted); opacity: .5; }
+
+    .paths-pick-btn, .paths-add-btn {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: var(--fs-chrome);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .paths-pick-btn:hover, .paths-add-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .paths-saved-note {
+      align-items: center;
+      gap: 6px;
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      background: var(--bg-hover);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      opacity: .75;
+    }
+
+    .paths-apply-btn {
+      align-self: flex-start;
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: opacity var(--transition);
+    }
+    .paths-apply-btn:hover { opacity: .85; }
+    .paths-apply-btn:disabled { opacity: .5; cursor: default; }
+

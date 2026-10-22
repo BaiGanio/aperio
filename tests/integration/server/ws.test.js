@@ -1,0 +1,323 @@
+// Tests for ws.js — createWsServer
+//
+// WebSocketServer is mocked on the CJS `ws` module (which ESM import reads
+// from). isAuthorized is NOT mocked — auth is opt-in, so with no
+// APERIO_AUTH_TOKEN configured it returns true by default. The verifyClient
+// origin check is tested by providing allow/deny host patterns.
+//
+// Rather than trying to mock the ws WebSocketServer constructor (which doesn't
+// work with mock.method on class constructors), we provide a real httpServer
+// mock that the real WebSocketServer can attach to, and mock the ws.Server
+// instance's `on` method and `clients` property after construction.
+
+import { describe, test, mock, before, after } from "node:test";
+import assert from "node:assert/strict";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Minimal httpServer mock that ws.WebSocketServer can attach to. */
+function mockHttpServer() {
+  const listeners = {};
+  return {
+    listeners,
+    on: mock.fn((event, handler) => { listeners[event] = handler; }),
+    address: () => ({ port: 31337 }),
+  };
+}
+
+/** Default options to pass to createWsServer. */
+function defaultOpts(overrides = {}) {
+  return {
+    httpServer: mockHttpServer(),
+    allowedHosts: new Set(["localhost"]),
+    makeWsHandler: () => () => {},  // must return a handler function
+    agent: {},
+    roundtable: { roundtableAvailable: true },
+    store: {},
+    isShuttingDown: false,
+    ...overrides,
+  };
+}
+
+// ─── Import SUT ───────────────────────────────────────────────────────────────
+
+let createWsServer;
+
+before(async () => {
+  const mod = await import("../../../lib/server/ws.js");
+  createWsServer = mod.createWsServer;
+});
+
+after(() => {
+  mock.restoreAll();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// verifyClient — origin & auth
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("verifyClient", () => {
+  /**
+   * Create a server and directly invoke the verifyClient callback that was
+   * captured in the WebSocketServer constructor options.
+   */
+  function callVerifyClient({ origin, url, headers = {} }, hostOverrides) {
+    const opts = defaultOpts(hostOverrides ?? {});
+    const result = createWsServer(opts);
+    const verifyClient = result._verifyClient; // saved during construction
+
+    return new Promise((resolve) => {
+      verifyClient(
+        { origin, req: { url, headers } },
+        (ok, code, msg) => resolve({ ok, code, msg }),
+      );
+    });
+  }
+
+  // ─── Origin validation ───────────────────────────────────────────────────
+
+  test("allows requests from allowed origins", async () => {
+    const result = await callVerifyClient({
+      origin: "http://localhost:31337",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, true);
+  });
+
+  test("allows requests with no origin set", async () => {
+    const result = await callVerifyClient({ origin: null, url: "/" });
+    assert.strictEqual(result.ok, true);
+  });
+
+  test("rejects requests from disallowed origins with 403", async () => {
+    const result = await callVerifyClient({
+      origin: "http://evil.com",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.code, 403);
+    assert.strictEqual(result.msg, "Forbidden");
+  });
+
+  test("rejects requests from IP-origin without allowedHosts match", async () => {
+    const result = await callVerifyClient({
+      origin: "http://192.168.1.1:8080",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.code, 403);
+  });
+
+  test("rejects malformed origins with 400", async () => {
+    const result = await callVerifyClient({
+      origin: "not-a-valid-url!!!",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.code, 400);
+    assert.strictEqual(result.msg, "Bad Request");
+  });
+
+  // ─── Auth ────────────────────────────────────────────────────────────────
+
+  test("allows requests when no auth token is configured (opt-in)", async () => {
+    delete process.env.APERIO_AUTH_TOKEN;
+    const result = await callVerifyClient({
+      origin: "http://localhost:31337",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, true);
+  });
+
+  // ─── origin is case-insensitive ──────────────────────────────────────────
+
+  test("matches origins case-insensitively", async () => {
+    const result = await callVerifyClient({
+      origin: "HTTP://LOCALHOST:31337",
+      url: "/",
+    });
+    assert.strictEqual(result.ok, true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// createWsServer shape
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("createWsServer", () => {
+  test("returns { wss, broadcastToClients }", () => {
+    const result = createWsServer(defaultOpts());
+    assert.ok(result.wss);
+    assert.strictEqual(typeof result.broadcastToClients, "function");
+  });
+
+  test("exposes the verifyClient callback for testing", () => {
+    const result = createWsServer(defaultOpts());
+    assert.strictEqual(typeof result._verifyClient, "function");
+  });
+
+  test("creates WebSocketServer with the provided httpServer", () => {
+    const httpServer = mockHttpServer();
+    createWsServer(defaultOpts({ httpServer }));
+    // The ws library adds listeners to our httpServer mock (upgrade + cleanup)
+    const events = httpServer.on.mock.calls.map(c => c.arguments[0]);
+    assert.ok(events.includes("upgrade"), "should register an 'upgrade' listener");
+  });
+
+  test("sets up connection handler via makeWsHandler", () => {
+    const httpServer = mockHttpServer();
+    const makeWsHandler = mock.fn(() => () => {}); // returns handler fn
+    createWsServer(defaultOpts({ httpServer, makeWsHandler }));
+
+    assert.strictEqual(makeWsHandler.mock.callCount(), 1);
+    const args = makeWsHandler.mock.calls[0].arguments[0];
+    assert.strictEqual(typeof args.agent, "object");
+    assert.strictEqual(typeof args.store, "object");
+    assert.strictEqual(typeof args.isShuttingDown, "boolean");
+  });
+
+  test("passes roundtable info through to makeWsHandler", () => {
+    const makeWsHandler = mock.fn(() => () => {});
+    const roundtable = {
+      roundtableAvailable: false,
+      roundtableUnavailableReason: "No verifier configured",
+    };
+    createWsServer(defaultOpts({
+      makeWsHandler,
+      roundtable,
+    }));
+    const args = makeWsHandler.mock.calls[0].arguments[0];
+    assert.strictEqual(args.roundtable, roundtable);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// broadcastToClients
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("broadcastToClients", () => {
+  test("sends JSON-stringified message to all open clients", () => {
+    const sent = [[], []];
+    const httpServer = mockHttpServer();
+    const result = createWsServer(defaultOpts({ httpServer }));
+    // Replace the real clients with our mock set
+    result.wss.clients = new Set([
+      { readyState: 1, send: (d) => sent[0].push(d) },
+      { readyState: 1, send: (d) => sent[1].push(d) },
+    ]);
+
+    result.broadcastToClients({ type: "test", data: 42 });
+
+    assert.strictEqual(sent[0].length, 1);
+    assert.strictEqual(sent[1].length, 1);
+    assert.strictEqual(sent[0][0], JSON.stringify({ type: "test", data: 42 }));
+    assert.strictEqual(sent[1][0], JSON.stringify({ type: "test", data: 42 }));
+  });
+
+  test("skips clients with non-OPEN readyState", () => {
+    const sent = [];
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set([
+      { readyState: 2, send: (d) => sent.push(d) },  // CLOSING
+      { readyState: 3, send: (d) => sent.push(d) },  // CLOSED
+    ]);
+
+    result.broadcastToClients({ type: "test" });
+
+    assert.strictEqual(sent.length, 0);
+  });
+
+  test("handles a send that throws (dead socket)", () => {
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set([
+      { readyState: 1, send: () => { throw new Error("closed"); } },
+    ]);
+
+    assert.doesNotThrow(() => result.broadcastToClients({ type: "test" }));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Liveness: ping/pong sweep + live-client count (issue #454)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Minimal ws-client stand-in that records what the sweep did to it. */
+function mockClient({ readyState = 1 } = {}) {
+  const listeners = {};
+  return {
+    readyState,
+    pings: 0,
+    terminated: 0,
+    on(event, fn) { (listeners[event] ??= []).push(fn); },
+    emit(event, ...args) { for (const fn of listeners[event] ?? []) fn(...args); },
+    ping() { this.pings++; },
+    terminate() { this.terminated++; },
+  };
+}
+
+describe("ws liveness sweep", () => {
+  test("a fresh connection starts alive and a pong refreshes it", () => {
+    const result = createWsServer(defaultOpts());
+    const client = mockClient();
+
+    result.wss.emit("connection", client, { url: "/" });
+    result.wss.clients.add(client);
+    assert.strictEqual(client.isAlive, true, "a new socket is alive");
+
+    result._pingSweep();                       // marks it pending and pings
+    assert.strictEqual(client.isAlive, false);
+    assert.strictEqual(client.pings, 1);
+
+    client.emit("pong");                       // the browser's network stack replies
+    assert.strictEqual(client.isAlive, true, "pong restores liveness");
+
+    result._pingSweep();
+    assert.strictEqual(client.terminated, 0, "a responsive socket is never terminated");
+  });
+
+  test("a socket that never pongs is terminated on the next sweep", () => {
+    // Laptop sleep or a dropped network leaves a socket that looks connected
+    // forever. Without this reaping, the liveness signal would keep the server
+    // alive indefinitely — the failure mode opposite to the false idle kill.
+    const result = createWsServer(defaultOpts());
+    const client = mockClient();
+
+    result.wss.emit("connection", client, { url: "/" });
+    result.wss.clients.add(client);
+
+    result._pingSweep();  // ping sent, no pong answered
+    assert.strictEqual(client.terminated, 0, "one missed sweep is not fatal");
+
+    result._pingSweep();  // still no pong → reap
+    assert.strictEqual(client.terminated, 1, "an unresponsive socket is terminated");
+  });
+
+  test("liveClientCount counts only OPEN sockets", () => {
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set([
+      mockClient({ readyState: 1 }),  // OPEN
+      mockClient({ readyState: 1 }),  // OPEN
+      mockClient({ readyState: 2 }),  // CLOSING
+      mockClient({ readyState: 3 }),  // CLOSED
+    ]);
+
+    assert.strictEqual(result.liveClientCount(), 2);
+  });
+
+  test("liveClientCount is 0 with no clients — the watchdog may shut down", () => {
+    const result = createWsServer(defaultOpts());
+    result.wss.clients = new Set();
+    assert.strictEqual(result.liveClientCount(), 0);
+  });
+
+  test("the sweep timer does not hold the event loop open and stops on wss close", () => {
+    const result = createWsServer(defaultOpts());
+    assert.ok(result._pingTimer, "a sweep timer is installed");
+    assert.strictEqual(result._pingTimer.hasRef(), false, "the timer must be unref'd");
+
+    result.wss.emit("close");
+    assert.strictEqual(result._pingTimer.hasRef(), false);
+    // Sweeping after close must not throw
+    assert.doesNotThrow(() => result._pingSweep());
+  });
+});
