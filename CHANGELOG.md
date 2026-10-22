@@ -9,6 +9,37 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+- indexing no longer freezes the server. Codegraph and docgraph extraction now runs on a
+  worker thread, and the SQLite write loops yield to the event loop instead of running to
+  completion. Measured on an isolated scratch instance, `/api/version` during a full index
+  pass:
+
+  | corpus | before (p95 / p99 / worst) | after (p95 / p99 / worst) |
+  |---|---|---|
+  | 804 ordinary source files | 25 / 46 / 55 ms | 9 / 13 / 96 ms |
+  | the same plus six bundle-shaped files | 29 / 2700 / 3012 ms | 8 / 27 / 138 ms |
+  | 189 documents, one of them 13 MB | — / 1225 / 1248 ms | 11 / 14 / 18 ms |
+
+  Worst-case is reported next to p95 because p95 alone hid the bug: the code corpus passed
+  at p95 while the server went unanswered for three seconds at a time. For the document
+  corpus the baseline p95 is left out rather than guessed — the pass blocked so hard that
+  the prober only got 69 of ~250 samples in, and a p95 over that few samples means nothing.
+  The target itself was missed outright there.
+
+  Indexing results are byte-for-byte identical before and after — same files, symbols,
+  edges, resolved edges, documents, sections and chunks — and total index time is unchanged.
+  Extraction falls back to the main thread if a worker cannot start, so no platform loses
+  the ability to index.
+- make call-site attribution in both code extractors linear instead of quadratic. The
+  smallest-enclosing-symbol lookup scanned every symbol per call site, which on a file with
+  8k functions and 24k call sites was 511 ms of a 613 ms extraction and grew with the
+  square of the file: 16k functions took 1.7 s, now 0.7 s. The two extractors carried the
+  same scan verbatim; both now share `lib/codegraph/owner-index.js`.
+- stop the codegraph edge resolver running as one statement over every edge in the
+  repository — 365 ms on a 175k-edge graph, and unsliceable, because SQLite runs a
+  statement to completion. It is batched by edge id now, with the same total work.
+
 ### Changed
 - park the bot and gamification workflows in `.github/workflows/obsolete/` instead of
   running them: `bot.issue-claim-guard`, `bot.stale-claims`, `bot.issue-moderation`,

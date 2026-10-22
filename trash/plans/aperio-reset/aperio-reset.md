@@ -268,11 +268,65 @@ Tests: T1.5.
 
 ### Phase 2 — Core bugs (local-model first)
 
-**S2.1 Indexing must not freeze the server.** Move codegraph/docgraph extraction off the
-main thread (worker) or yield between files. Measure first: time `/api/version` during a
-big index run before and after.
-*Works when:* `/api/version` answers < 200 ms while indexing a large repo.
-Tests: T2.1.
+**S2.1 Indexing must not freeze the server.** — **DONE 2026-10-22.**
+Move codegraph/docgraph extraction off the main thread (worker) or yield between files.
+Measure first: time `/api/version` during a big index run before and after.
+
+**The step's "or" was wrong — both halves were needed.** `await readFile` between files
+already yields, so a pass over ordinary source never froze anything: the baseline there was
+p95 25 ms, comfortably inside the target. The freeze lived *inside* one file, in two places
+the plan did not name. Extraction is one of them and a worker fixes it, because
+`parser.parse(source)` is a single atomic WASM call that cannot be sliced (204 ms for an
+0.8 MB file, linear in size). The other is the write loop: one bundle-shaped file is ~32k
+synchronous better-sqlite3 statements, ~2.2 s with no yield point in it. A worker alone
+would have left that.
+
+**What shipped.** Extraction runs on a worker thread for both graphs
+(`lib/codegraph/extract-worker.js`, `lib/docgraph/extract-worker.js`, pooled by
+`lib/helpers/extractorPool.js` with a closed key registry, lazy spawn, idle terminate and
+automatic in-process fallback). The SQLite write loops yield through
+`lib/helpers/timeSlice.js`. The codegraph edge resolver, previously one statement over every
+edge in the repo (365 ms on a 175k-edge graph, unsliceable), is batched by edge id.
+**Postgres needed no change** — every statement there is an awaited round trip, so it already
+yields; its extraction benefits for free from the indexer-level swap. `lib/config.js` was
+not touched: the five tunables are module constants and are logged in `A2D.md`.
+
+**Measured, isolated scratch instance** (scratch DB, port 48731, scratch cwd), `/api/version`
+during a full pass, p95 / p99 / worst:
+
+| corpus | before | after |
+|---|---|---|
+| 804 ordinary source files | 25 / 46 / 55 ms | 9 / 13 / 96 ms |
+| the same plus six bundle-shaped files | 29 / 2700 / 3012 ms | 8 / 27 / 138 ms |
+| 189 documents, one of them 13 MB | — / 1225 / 1248 ms | 11 / 14 / 18 ms |
+
+**p95 hid the bug, and that is the lesson.** The code corpus *passed* at p95 while the
+server went unanswered for three seconds at a time. The document corpus is the one that
+failed the gate outright (p95 294 ms on the first run). Its baseline p95 is left blank above
+rather than guessed: the pass blocked so hard that the prober landed 69 of ~250 samples, and
+a p95 over that few samples is noise. Any future freeze claim in this repo should carry
+worst-case next to p95.
+
+**Two latent bugs found by measuring, both of the "succeeds while silently wrong" kind:**
+1. Smallest-enclosing-symbol lookup in **both** code extractors was O(symbols × call sites)
+   — 511 ms of a 613 ms extraction on a file with 8k functions, and quadratic: 16k functions
+   took 1.7 s, now 0.7 s. The two extractors carried the same scan verbatim; they now share
+   `lib/codegraph/owner-index.js`. A differential run against the old implementation caught
+   that its tie-break was *positional*, which a sorted backward scan flips.
+2. **A Buffer does not survive structured clone as a Buffer.** It arrives as a plain
+   Uint8Array, whose `toString('utf8')` returns `"104,101,108,…"`. Every docgraph extractor
+   does exactly that call, so the first worker run indexed the whole corpus "successfully"
+   while collapsing 2670 sections into 189. Only the result-identity check saw it.
+
+*Worked:* p95 during indexing 8–11 ms across all three corpora, zero samples over 200 ms,
+against a 200 ms target. Indexing results **byte-for-byte identical** before and after — same
+files, symbols, edges, resolved edges, documents, sections, chunks — and total index time
+unchanged (±3%). `npm run test:unit` 2942/2942 (2900 + 42 new), `npm run test:harness` 33/33,
+`test:integration` 2744/2744, `test:docint` 111/111, `test:e2e` 113/113. Both new regression
+tests were run against a pristine `HEAD` checkout and **fail** there, while the
+result-identity test passes on both sides — which is what proves nothing was lost. Teardown
+left nothing in the repo tree.
+Tests: T2.1 — pass.
 
 **S2.2 Codegraph watcher indexes every supported language.** One shared predicate for
 `watcher.js isIndexable()` and `indexer.js pickExtractor()`.

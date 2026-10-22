@@ -152,11 +152,34 @@ CodeQL. Assert inertness plus badge honesty, not absence.
   run straight after the edits still showed #569. Re-read the issue's own labels
   (`gh issue view 569 --json labels`) before believing a stale listing.
 
-### T2.1 — server stays responsive while indexing
+### T2.1 — server stays responsive while indexing — **PASS 2026-10-22**
 - **Setup:** isolated scratch workdir + non-default port; index a large repo (e.g. this one with `node_modules` excluded).
 - **Baseline:** record `/api/version` p95 latency during indexing **before** the change.
 - **Assertions:** after the change, p95 < 200 ms during indexing; indexing result (symbol count) unchanged.
 - **Edge cases:** a pathological file (huge single-line JS) does not stall the server; teardown leaves no state in the repo tree.
+- **Method:** trivial HTTP server + the real indexer in one process; prober in a **separate**
+  process, so a blocked loop is seen from outside. Each sample is classified by when it
+  *started*, against a marker file the server writes immediately before `indexRepo` — without
+  that, DB open + migrations + seeding get charged to indexing (a 306 ms artifact chased down
+  and eliminated). Baseline re-measured from a pristine `git archive HEAD` tree so both sides
+  used the identical method. Three corpora, two runs each.
+- **Result:** p95 **8–11 ms** across all three corpora ✅, zero samples over 200 ms ✅, against
+  a 200 ms target. Pathological file: worst slice **3012 → 138 ms** ✅. Index result identical ✅
+  (code: 810 files / 53865 symbols / 175718 edges / 58223 resolved; docs: 189 / 2670 / 10125 —
+  same figure on both sides of the change). Teardown clean ✅.
+- **p95 was not sufficient on its own.** The code corpus passed at p95 *before* the change
+  while the server froze for 3 s; the docgraph baseline blocked so hard the prober got 69 of
+  ~250 samples, making its p95 meaningless. Worst-case is reported alongside p95 for this
+  reason.
+- **Committed regressions:** `tests/integration/codegraph/indexing-responsiveness.test.js`
+  and `tests/integration/docgraph/indexing-responsiveness.test.js`. They watch event-loop
+  heartbeat *coverage* (a timer that cannot fire records nothing, so a starved loop shows up
+  as missing samples) plus a slow-slice count, and pin the index counts exactly. Both were
+  verified to **fail** against a pristine `HEAD` checkout; the counts test passes on both
+  sides. Unit cover: `tests/unit/helpers/timeSlice.test.js`,
+  `tests/unit/helpers/extractorPool.test.js`, `tests/unit/codegraph/owner-index.test.js`
+  (differential vs. the old scan, 300k+ probes), and real-worker equivalence in
+  `tests/unit/{codegraph,docgraph}/extract-worker.test.js`.
 
 ### T2.2 — watcher handles every supported language
 - **Setup:** temp root with `.js`, `.cs`, `.py`, `.go` files; watcher running.
