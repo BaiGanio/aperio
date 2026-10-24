@@ -10,6 +10,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 ### Fixed
+- the docgraph → memory bridge no longer leaves orphaned memories behind, or purges valid
+  ones, when a document's lifecycle races an indexing pass (#532). Two gaps closed. First,
+  `documentExists()` — the revalidation a promotion runs immediately before writing a bridge
+  memory, precisely to catch "this document was deleted while I generated its embedding" —
+  read with plain autocommit queries on Postgres. Under READ COMMITTED an uncommitted
+  deletion is invisible to another connection, so a check landing inside that window still
+  saw the pre-delete row, answered "yes", and let the memory be written *after* that
+  deletion's purge had already run: a permanent orphan. It now takes the same repo-row
+  `FOR UPDATE` lock the deleting paths take, so it blocks on an in-flight deletion and reads
+  committed state. Second, `sweepMissingFiles()` deleted its candidates by `rel_path`. Since
+  a reindex reuses the same document row for a path, a file deleted, recreated and reindexed
+  during the sweep's unavoidably slow `fs.stat` scan was still matched — and the purge took
+  its brand-new, valid bridge memory with it. The delete is now pinned to the
+  `(id, indexed_at)` pair the scan captured, so a document reindexed since then survives.
+  Supporting that pin, `indexed_at` now means "last time we confirmed this document" rather
+  than "last time its bytes changed": an unchanged reindex restamps it (a file recreated with
+  identical content would otherwise still be swept), and each restamp is guaranteed to differ
+  from the last — on Postgres via `clock_timestamp()` instead of the transaction-wide `now()`,
+  and on both backends by nudging past the stored value when two restamps share a tick.
 - the Settings panel can now tell a slow server from a dead one. Its schema load awaited
   `/api/config/schema` with no timeout and no abort, so a blocked event loop left the shipped
   "Loading…" placeholder on screen for ever with no hint that anything was wrong. The request

@@ -464,7 +464,12 @@ describe("sweepMissingFiles", () => {
     const store = makeStore((sql) => {
       if (sql.includes("FOR UPDATE")) return [{ id: 1 }];
       if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
-      if (sql.includes("SELECT rel_path FROM docgraph_documents")) return [{ rel_path: "gone.md" }, { rel_path: "still-here.md" }];
+      if (sql.includes("SELECT id, rel_path, indexed_at FROM docgraph_documents")) {
+        return [
+          { id: 10, rel_path: "gone.md", indexed_at: "2026-10-01T00:00:00Z" },
+          { id: 11, rel_path: "still-here.md", indexed_at: "2026-10-01T00:00:00Z" },
+        ];
+      }
       if (sql.includes("DELETE FROM docgraph_documents")) return [{ rel_path: "gone.md" }]; // confirmed by RETURNING
       return []; // BEGIN / wiki UPDATE / memories DELETE / COMMIT
     });
@@ -478,7 +483,9 @@ describe("sweepMissingFiles", () => {
   test("removes nothing when all files exist", async () => {
     const store = makeStore((sql) => {
       if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
-      if (sql.includes("SELECT rel_path FROM docgraph_documents")) return [{ rel_path: "exists.md" }];
+      if (sql.includes("SELECT id, rel_path, indexed_at FROM docgraph_documents")) {
+        return [{ id: 10, rel_path: "exists.md", indexed_at: "2026-10-01T00:00:00Z" }];
+      }
       return [];
     });
     const statFn = async () => {};
@@ -490,6 +497,97 @@ describe("sweepMissingFiles", () => {
     const store = makeStore(() => []);
     const result = await pg.sweepMissingFiles(store, "/repo", async () => {});
     assert.strictEqual(result.removed, 0);
+  });
+
+  // #532 Bug 2. A real Postgres server is out of reach here (same limitation
+  // the tests above accept), so the pin is asserted at the SQL/params level:
+  // the delete must carry the indexed_at each candidate was seen with, and
+  // must match on id + indexed_at rather than rel_path alone.
+  test("pins the delete to the (id, indexed_at) seen at scan time, not rel_path", async () => {
+    const store = makeStore((sql) => {
+      if (sql.includes("FOR UPDATE")) return [{ id: 1 }];
+      if (sql.includes("SELECT id FROM docgraph_repos")) return [{ id: 1 }];
+      if (sql.includes("SELECT id, rel_path, indexed_at FROM docgraph_documents")) {
+        return [
+          { id: 10, rel_path: "gone.md", indexed_at: "2026-10-01T00:00:00Z" },
+          { id: 11, rel_path: "also-gone.md", indexed_at: null },
+        ];
+      }
+      if (sql.includes("DELETE FROM docgraph_documents")) return [{ rel_path: "gone.md" }];
+      return [];
+    });
+    await pg.sweepMissingFiles(store, "/repo", async () => { throw new Error("ENOENT"); });
+
+    const del = store._calls.find(c => c.sql.includes("DELETE FROM docgraph_documents"));
+    assert.ok(del, "the sweep must issue a delete");
+    assert.ok(!del.sql.includes("rel_path = ANY"), "must no longer match candidates by rel_path alone");
+    assert.ok(del.sql.includes("d.id = v.id"), "must match the row id captured at scan time");
+    assert.ok(
+      del.sql.includes("d.indexed_at IS NOT DISTINCT FROM v.indexed_at"),
+      "must pin to the scanned indexed_at, NULL-safely so an unstamped row stays sweepable"
+    );
+    assert.deepEqual(del.params[0], [10, 11], "ids are bound in scan order");
+    assert.deepEqual(
+      del.params[1], ["2026-10-01T00:00:00Z", null],
+      "the indexed_at values seen at scan time are bound alongside them"
+    );
+    assert.strictEqual(del.params[2], 1, "and the delete is still scoped to the repo");
+  });
+});
+
+// =============================================================================
+// documentExists
+// =============================================================================
+
+// #532 Bug 1. The revalidation check has to take the same repo-row lock the
+// deleting paths take, or under READ COMMITTED it reads the pre-delete row of
+// an uncommitted deletion, answers `true`, and lets a bridge memory be
+// written after that deletion's purge already ran. Without a real server the
+// blocking itself can't be observed, so the lock is asserted at the SQL level:
+// the right queries, in the right order, inside one transaction.
+describe("documentExists", () => {
+  test("reads inside a transaction that locks the repo row first", async () => {
+    const store = makeStore((sql) => {
+      if (sql.includes("FOR UPDATE")) return [{ id: 1 }];
+      if (sql.includes("SELECT 1 FROM docgraph_documents")) return [{ "?column?": 1 }];
+      return [];
+    });
+    const result = await pg.documentExists(store, "/repo", "doc.md");
+    assert.strictEqual(result, true);
+
+    const order = store._calls.map(c => c.sql.trim().split("\n")[0].trim());
+    assert.strictEqual(order[0], "BEGIN", "the whole check must be one transaction");
+    assert.ok(
+      order[1].includes("FROM docgraph_repos WHERE root_path=$1 FOR UPDATE"),
+      "the repo row must be locked before the existence read"
+    );
+    assert.ok(order[2].includes("SELECT 1 FROM docgraph_documents"), "then the existence read");
+    assert.strictEqual(order[3], "COMMIT", "and the lock must be released by committing");
+  });
+
+  test("returns false and rolls back when the repo row is gone", async () => {
+    const store = makeStore(() => []);
+    const result = await pg.documentExists(store, "/repo/nonexistent", "doc.md");
+    assert.strictEqual(result, false);
+    assert.ok(
+      store._calls.some(c => c.sql.includes("ROLLBACK")),
+      "must not leave the transaction (and its lock) open"
+    );
+  });
+
+  test("returns false when the document is not in the locked repo", async () => {
+    const store = makeStore((sql) => (sql.includes("FOR UPDATE") ? [{ id: 1 }] : []));
+    assert.strictEqual(await pg.documentExists(store, "/repo", "doc.md"), false);
+  });
+
+  test("rolls back and rethrows when the existence read fails", async () => {
+    const store = makeStore((sql) => {
+      if (sql.includes("FOR UPDATE")) return [{ id: 1 }];
+      if (sql.includes("SELECT 1 FROM docgraph_documents")) throw new Error("simulated transient failure");
+      return [];
+    });
+    await assert.rejects(() => pg.documentExists(store, "/repo", "doc.md"), /simulated transient failure/);
+    assert.ok(store._calls.some(c => c.sql.includes("ROLLBACK")), "a failed read must still release the lock");
   });
 });
 

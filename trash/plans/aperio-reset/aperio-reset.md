@@ -414,7 +414,58 @@ connection is expected to drop and the 90 s deadline loop is the real guard ther
 *Works when:* a hung `/api/config/schema` shows the busy message within the timeout.
 Tests: T2.3 — pass.
 
-**S2.4 Docgraph → memory bridge races (#532).** Tests: T2.4.
+**S2.4 Docgraph → memory bridge races (#532).** — **DONE 2026-10-24.**
+
+**Bug 1 — `documentExists()` now takes the repo-row lock.** On Postgres it read with two
+plain autocommit queries, so under READ COMMITTED an uncommitted deletion was invisible and
+a check landing in that window answered `true` on a row already being deleted — the bridge
+memory was then written after that deletion's purge had run, orphaned for good. It now runs
+`BEGIN` → `SELECT … FROM docgraph_repos WHERE root_path=$1 FOR UPDATE` → the existence read
+→ `COMMIT`, the same lock `removeOneFile`/`sweepMissingFiles`/`deleteDocumentsPage`/
+`finalizeRepoDelete` already take. Public shape unchanged. **SQLite needed no change**: its
+writes are synchronous `db.transaction()` calls on a single-threaded runtime, so no caller
+can observe a delete mid-flight.
+
+**Bug 2 — the sweep's delete is pinned to the version it scanned.** `sweepMissingFiles`
+deleted by `rel_path`, and `upsertDocument` reuses the same row for a path, so a file
+deleted, recreated and reindexed during the slow `fs.stat` scan was still matched and its
+fresh bridge memory purged with it. The delete now matches `(id, indexed_at)` as captured at
+scan time — Postgres via `UNNEST` + `IS NOT DISTINCT FROM` (NULL-safe, so an unstamped row
+stays sweepable), SQLite via a row-value `IN` over `IFNULL(indexed_at,'')`, batched at 500
+because the pin binds two parameters per candidate instead of one. Return shape
+(`{ removed, relPaths }`) and callers unchanged.
+
+**One deviation from the issue's spec, and it was necessary, not cosmetic.** The issue
+assumed `indexed_at` was "bumped on every real content change, unchanged on a no-op
+reindex", and pinned to it as-is. Pinning to that stamp does not hold:
+
+1. *A file recreated with identical content.* `upsertDocument` short-circuits on a matching
+   `sha256` and never restamped, so the revived row kept a stamp older than the scan, matched
+   the pin, and was swept away with its memory anyway. The no-op path now restamps.
+2. *Two restamps inside one clock tick.* `new Date().toISOString()` has millisecond
+   resolution, so a reindex could land on the stamp already stored and keep matching the pin.
+   **This was not theoretical — the end-to-end test failed on it first try.** Both backends
+   now guarantee a strictly increasing stamp per row.
+3. *Postgres `now()` is the transaction timestamp*, not the wall clock, so every document an
+   indexing transaction touched got an identical stamp and a restamp inside that same
+   transaction changed nothing at all. Replaced with `clock_timestamp()`, wrapped in
+   `GREATEST(…, indexed_at + interval '1 microsecond')`.
+
+Nothing reads `indexed_at` anywhere else in the repo (checked), so widening its meaning to
+"last time we confirmed this document" is contained to these two functions.
+
+**Not touched:** `lib/config.js` (no new key), both migration directories (no schema change),
+and the un-registered-env-var audit failure below.
+
+*Works when:* a document reindexed mid-sweep keeps its row and its memory; a promotion that
+races a delete cannot write an orphan. Tests: T2.4 — pass.
+
+**Pre-existing failure, left alone (not caused by this step).** `npm test` is 6462/6463 with
+one red: `audit/tests/config-contract.test.js` reports `APERIO_MCP_AUTH_TOKEN` (`mcp/index.js`)
+and `APERIO_RUNTIME_ROOT` (`lib/handlers/memory/memoryHandlers.js`) as unregistered env reads.
+Both predate this work — `memoryHandlers.js` last changed in `34ef978e ai(slop)`. Registering
+them means touching the `lib/config.js` No-Touch Zone plus `npm run gen:env`, which is its own
+step, and `APERIO_RUNTIME_ROOT` is `ai(slop)` code that S3.1 may well delete instead.
 
 **S2.5 Privacy redact mode (#531).** Either wire `restore()` into the reply path or remove
 the `redact` mode until cloud providers are in focus. Recommend: wire it (small, and it is a

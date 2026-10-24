@@ -164,6 +164,71 @@ describe("docgraph → memory bridge lifecycle reconciliation (#360)", () => {
     assert.ok(await store.getById(userMemory.id), "a user memory colliding on the same dag:* tag must survive deleteRepo");
   });
 
+  // #532 Bug 2, end to end on a real SQLite db — the one place the race can
+  // actually be run rather than asserted at the SQL level. sweepMissingFiles'
+  // stat loop awaits once per document, and the watcher's indexOneFile is a
+  // synchronous db.transaction(), so a delete-then-recreate-then-reindex fits
+  // entirely inside one of those gaps. The injected statFn below does exactly
+  // that: it reports the file missing, then reindexes it before returning, so
+  // the sweep reaches its delete holding a candidate list that is already out
+  // of date. Pinning the delete to the (id, indexed_at) seen at scan time is
+  // what makes the revived document — and its fresh memory — survive.
+  test("sweepMissing leaves a document reindexed mid-scan, and its memory, intact", async () => {
+    mem.writeFile(join(dir, "revived.md"), "# R\noriginal content");
+    await indexFile(store, dir, "revived.md", opts);
+    const staleMem = await store.insert(bridgeMemory(`${dir}/revived.md`), null);
+
+    mem.rm(join(dir, "revived.md"));
+    let freshMem;
+    const racingStat = async (p) => {
+      if (!p.endsWith("revived.md")) return;
+      // The watcher wins the gap: file comes back, gets reindexed, and the
+      // promotion writes a new, valid bridge memory for it.
+      mem.writeFile(join(dir, "revived.md"), "# R\nrewritten content");
+      await indexFile(store, dir, "revived.md", opts);
+      freshMem = await store.insert(bridgeMemory(`${dir}/revived.md`), null);
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    };
+
+    const r = await docgraph.sweepMissingFiles(store, dir, racingStat);
+    assert.equal(r.removed, 0, "a document reindexed since the scan must not be swept");
+    assert.ok(!r.relPaths.includes("revived.md"));
+    assert.ok(await store.getById(freshMem.id), "the reindexed document's fresh bridge memory must survive");
+    assert.ok(await store.getById(staleMem.id), "and nothing under that path may be purged at all");
+
+    mem.rm(join(dir, "revived.md"));
+    await removeFile(store, dir, "revived.md");
+  });
+
+  // The same race with IDENTICAL content on the way back. upsertDocumentSync
+  // short-circuits on a matching sha256 and reports `changed: false`, so this
+  // only survives because that no-op path still restamps indexed_at — without
+  // it the row keeps a stamp older than the scan, matches the pin, and is
+  // swept away with its memory despite the file being back on disk.
+  test("sweepMissing also spares a document recreated mid-scan with unchanged content", async () => {
+    const body = "# S\nbyte-identical content";
+    mem.writeFile(join(dir, "same-bytes.md"), body);
+    await indexFile(store, dir, "same-bytes.md", opts);
+    mem.rm(join(dir, "same-bytes.md"));
+
+    let keptMem;
+    const racingStat = async (p) => {
+      if (!p.endsWith("same-bytes.md")) return;
+      mem.writeFile(join(dir, "same-bytes.md"), body);
+      const res = await indexFile(store, dir, "same-bytes.md", opts);
+      assert.equal(res.reason, "unchanged", "same bytes must still be treated as an unchanged reindex");
+      keptMem = await store.insert(bridgeMemory(`${dir}/same-bytes.md`), null);
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    };
+
+    const r = await docgraph.sweepMissingFiles(store, dir, racingStat);
+    assert.equal(r.removed, 0, "an unchanged reindex must still defeat the sweep's pin");
+    assert.ok(await store.getById(keptMem.id), "its bridge memory must survive too");
+
+    mem.rm(join(dir, "same-bytes.md"));
+    await removeFile(store, dir, "same-bytes.md");
+  });
+
   // P2 (review): retireBridgeMemory used to go through recall(), whose
   // hybrid-search cap tops out at 50 and its own default at 5 — a document
   // with more matching rows than the requested `limit` could leave bridge
