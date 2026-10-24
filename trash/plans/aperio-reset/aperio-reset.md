@@ -467,9 +467,69 @@ Both predate this work — `memoryHandlers.js` last changed in `34ef978e ai(slop
 them means touching the `lib/config.js` No-Touch Zone plus `npm run gen:env`, which is its own
 step, and `APERIO_RUNTIME_ROOT` is `ai(slop)` code that S3.1 may well delete instead.
 
-**S2.5 Privacy redact mode (#531).** Either wire `restore()` into the reply path or remove
-the `redact` mode until cloud providers are in focus. Recommend: wire it (small, and it is a
-user-visible bug). Tests: T2.5.
+**S2.5 Privacy redact mode (#531).** — **DONE 2026-10-24.** Not as planned: the step's own
+premise was stale.
+
+**`restore()` was already wired — the plan and issue #531 were both out of date.** The fix
+landed in the unticketed `34ef978e ai(slop): can't say much - leftovers` (2026-08-31) and
+shipped in **v0.69.2**; CHANGELOG.md already carries it. Nobody closed the issue, so the
+plan inherited a step that was done. Same pattern as #507, where most of the work had
+already landed unnoticed — **verify before assuming a blank slate.** What exists today, all
+of it checked by code read rather than taken from the comments:
+
+- `recallHandler` mints UUID-namespaced placeholders and keeps the map out of the public
+  MCP result; only the private, single-use `aperio/takeRedactionMap` method redeems it.
+- `lib/agent/redaction-relay.js` restores streamed tokens for every provider, including
+  Codex, which bypasses `callToolHooked` and redeems on demand from the text itself.
+- `lib/agent/index.js` restores `finalText`, and attaches `_redactedDisplayText` rather than
+  rewriting `messages[].content` — the PRIVACY-01 invariant, so the model-facing history
+  re-sent to the cloud next turn stays redacted.
+- `createStreamRestorer` holds back a placeholder split across chunks.
+- The on-disk map (needed because Codex's MCP child cannot share an in-memory `Map`) is
+  owner-only `0700`/`0600`, under `APERIO_RUNTIME_ROOT`, with a 20-minute TTL, a writer-side
+  timer, and `lib/workers/redaction-map-prune.js` as the backstop for a child that exits
+  first — started in `backgroundWorkers.js`, stopped in `shutdown.js`.
+- `FEATURES.md:311` already describes round-trip behaviour accurately.
+
+Six review rounds are visible in the comments. **The mechanism needed no change.**
+
+**So the real work was the T2.5 gaps, and one genuine bug found while checking them.**
+
+**Bug found: `npm test` wrote PII-shaped files into the checkout.** The side-channel test
+spawned its MCP child with no `APERIO_RUNTIME_ROOT`, so `memoryHandlers.js` fell back to a
+path derived from its own file location — the source tree — and each recall wrote a real map
+file into the repository's `var/redaction-maps/`. Only the permissions case ever redeemed
+(and so deleted) its own file, so every run left a few behind; 16 had accumulated. Contents
+were the test's fixture addresses, not anyone's real data, and the files were already
+owner-only, but the same code path in production holds genuine PII and a test has no business
+exercising it into the checkout. Both spawns now point at the scratch dir `after()` already
+deletes. Verified: full `npm test`, then `ls var/redaction-maps` → 0 files. The
+checkout-fallback behaviour stays covered by its own dedicated case.
+
+**Tests added for T2.5's uncovered assertions.** T2.5 asks that the map "is not logged or
+persisted beyond the turn" — it *is* persisted, by necessity, so that guarantee rests
+entirely on the TTL sweep, which had no test at all:
+- `tests/unit/privacy/redaction-map-sweep.test.js` (new, 6 cases) — the expiry boundary in
+  both directions, every expired entry swept in one pass, a missing directory returning 0
+  instead of throwing (which would kill the worker's tick), and a racing unlink not
+  stranding later orphans. Sets `APERIO_RUNTIME_ROOT` *before* the dynamic import, since
+  `REDACTION_MAP_DIR` is a module-level const — setting it after would have swept the
+  developer's real `var/`.
+- `tests/unit/workers/redaction-map-prune.test.js` (new, 5 cases) — the worker shipped with
+  a `_sweep` injection seam built for a test and nothing using it, while all three sibling
+  pruners were tested. Covers the start-up sweep (not just the first interval), the interval
+  surviving a throwing tick, and `stop()`. Uses `t.mock.timers` rather than adding a
+  test-only field to the worker.
+- `tests/unit/privacy/redact.test.js` (+2 cases) — T2.5's mangled-placeholder edge: a token
+  the model re-cased, letter-spaced, or stripped a guillemet from passes through untouched
+  and never resolves to the real value.
+
+*Works when:* placeholders never reach the user, the map does not outlive its TTL, and a
+mangled placeholder is not mis-restored. Tests: T2.5 — pass. Suite: 6475/6476, the one red
+being the pre-existing config-contract failure recorded under S2.4.
+
+**Left for the developer:** close #531 on GitHub — it describes a state that has not been
+true since August. Not closed from this session; issue hygiene is the developer's call.
 
 **S2.6 Terminal parity (#539) + a real test seam for `runStandalone`** (injectable
 stdin/stdout/agent). Tests: T2.6.

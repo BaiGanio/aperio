@@ -117,6 +117,47 @@ describe('restore — placeholder reversal', () => {
     const result = restore(null, new Map());
     assert.equal(result, '');
   });
+
+  // A model does not have to echo a placeholder back verbatim. It can
+  // paraphrase it, change its case, translate the label, drop a guillemet or
+  // split the token across a sentence. restore() matches whole tokens only,
+  // so the correct outcome for every mangled form is "leave it exactly as the
+  // model wrote it" — the user sees a harmless placeholder-ish string rather
+  // than PII pasted into the wrong sentence. Issue #531 / T2.5 edge case.
+  test('a placeholder the model mangled is left as-is, never mis-restored', () => {
+    const { map } = redact('Email: alice@example.com');
+    const [token] = [...map.keys()];
+    assert.ok(token, 'redact must have minted a token to mangle');
+
+    const mangled = [
+      token.toLowerCase(),              // case changed
+      token.replace('«', ''),      // opening guillemet dropped
+      token.replace('»', ''),      // closing guillemet dropped
+      token.replace('_', ' '),          // underscore turned into a space
+      `${token.slice(0, -1)}9»`,   // index digit altered
+      token.split('').join(' '),        // letter-spaced
+    ];
+
+    for (const text of mangled) {
+      assert.equal(
+        restore(text, map), text,
+        `a mangled token must pass through untouched: ${JSON.stringify(text)}`
+      );
+      assert.ok(
+        !restore(text, map).includes('alice@example.com'),
+        `a mangled token must never resolve to the real value: ${JSON.stringify(text)}`
+      );
+    }
+  });
+
+  test('an unknown but well-formed placeholder passes through instead of resolving', () => {
+    // Two turns can both carry placeholder-shaped text; a token minted by a
+    // recall whose map this turn does not hold must stay a placeholder rather
+    // than pick up some other entry's value.
+    const { map } = redact('Email: alice@example.com');
+    const foreign = '«EMAIL_99»';
+    assert.equal(restore(foreign, map), foreign);
+  });
 });
 
 describe('redact + restore — combined', () => {

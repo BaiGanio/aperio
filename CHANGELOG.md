@@ -10,6 +10,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 ### Fixed
+- `npm test` no longer leaves redaction-map files behind in the checkout. The Privacy Shield
+  side-channel test spawned its MCP child without `APERIO_RUNTIME_ROOT`, so the child fell
+  back to a path derived from the source tree and wrote each recall's placeholder → value map
+  into the repository's own `var/redaction-maps/`. Only one of its cases ever redeemed (and so
+  deleted) the file its recall minted, so every run left a few behind to sit until some later
+  sweep — in a developer's working tree, indefinitely. The contents were the test's own fixture
+  addresses rather than anyone's real data, and the files were already owner-only, but the
+  production code path writing there holds genuine PII, and a test should not exercise it into
+  the checkout. Both spawns now point at the scratch directory the test already deletes.
+  The checkout-fallback behaviour itself stays covered by its own dedicated case.
+
 - the docgraph → memory bridge no longer leaves orphaned memories behind, or purges valid
   ones, when a document's lifecycle races an indexing pass (#532). Two gaps closed. First,
   `documentExists()` — the revalidation a promotion runs immediately before writing a bridge
@@ -80,6 +91,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - stop the codegraph edge resolver running as one statement over every edge in the
   repository — 365 ms on a 175k-edge graph, and unsliceable, because SQLite runs a
   statement to completion. It is batched by edge id now, with the same total work.
+
+### Added
+- test coverage for the two parts of Privacy Shield's redact mode that had none: the
+  `sweepExpiredRedactionMaps()` TTL sweep (what actually enforces "the map does not outlive
+  the turn" — expiry boundary, multi-entry passes, a missing directory, and a racing unlink),
+  and the background pruner that calls it on a timer, which had shipped with a `_sweep`
+  injection seam and nothing using it while its three sibling pruners were all tested. Also
+  `restore()`'s mangled-placeholder cases: a token the model paraphrased, re-cased,
+  letter-spaced or stripped a guillemet from now has an explicit guarantee that it passes
+  through untouched rather than resolving to the wrong value.
 
 ### Changed
 - park the bot and gamification workflows in `.github/workflows/obsolete/` instead of

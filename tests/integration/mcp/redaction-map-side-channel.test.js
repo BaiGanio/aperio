@@ -81,6 +81,15 @@ before(async () => {
       APERIO_PROVIDER_LOCAL: "0",
       APERIO_CLOUD_SENSITIVE_MODE: "redact",
       APERIO_MCP_AUTH_TOKEN: MCP_AUTH_TOKEN,
+      // Keep every map this child writes inside the scratch dir that after()
+      // deletes. Without it the child falls back to a path derived from
+      // memoryHandlers.js's own location — the code checkout — and each run
+      // of this file left PII-shaped files accumulating in the developer's
+      // var/redaction-maps/, since only the owner-only-permissions test below
+      // ever redeems (and so deletes) the file its own recall minted. The
+      // checkout-fallback behaviour itself is still covered, deliberately, by
+      // the APERIO_RUNTIME_ROOT describe block at the bottom of this file.
+      APERIO_RUNTIME_ROOT: scratchDir,
     },
     stderr: "pipe",
   });
@@ -185,7 +194,7 @@ test("the on-disk redaction map directory and file are owner-only (no group/othe
   const result = await mcp.callTool({ name: "recall", arguments: { maxTier: 2 } });
   const { redactionCorrelationId } = result.structuredContent;
 
-  const redactionMapDir = join(REPO_ROOT, "var", "redaction-maps");
+  const redactionMapDir = join(scratchDir, "var", "redaction-maps");
   const mapPath = join(redactionMapDir, `${redactionCorrelationId}.json`);
 
   assert.equal(statSync(redactionMapDir).mode & 0o777, 0o700, "directory must be owner-only (rwx------)");
@@ -220,6 +229,7 @@ describe("no APERIO_MCP_AUTH_TOKEN configured (standalone/external-client deploy
         VOYAGE_API_KEY: "",
         APERIO_PROVIDER_LOCAL: "0",
         APERIO_CLOUD_SENSITIVE_MODE: "redact",
+        APERIO_RUNTIME_ROOT: scratchDir, // same scratch-hygiene reason as the main spawn
         // Deliberately no APERIO_MCP_AUTH_TOKEN — this is the whole point.
       },
       stderr: "pipe",
