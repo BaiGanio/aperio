@@ -104,7 +104,7 @@
     "bootstrap-icons": "1.13.1",
     "chokidar": "^5.0.0",
     "d3": "7.9.0",
-    "docx": "^9.7.1",
+    "docx": "^9.13.0",
     "dotenv": "^17.4.2",
     "emphasize": "^7.0.0",
     "exceljs": "^4.4.0",
