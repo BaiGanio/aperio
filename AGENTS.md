@@ -142,6 +142,7 @@ Verify: run `npm run test:memory` + tool tests for any ctx field touched.
 | `mcp/tools/*` → `mcp/index.js` ctx | Every tool depends on ctx shape; ctx changes break tools silently |
 | `lib/routes/paths.js` → all file ops | Path validation gates every read/write/edit; a bug here is a security bug everywhere |
 | `db/migrations/` ↔ `db/migrations-sqlite/` | Lockstep required; drift = silent schema mismatch |
+| `db/sqlite/*` ↔ `db/postgres/*` | `db/index.js` is a factory; the two stores must expose the SAME public methods. Six mirror-named mixins per backend — drift = runtime break on one backend only |
 | `lib/config.js` → `scripts/gen-env-example.js` | Config registry is source of truth; add key without generator = CI break |
 | `lib/agent/index.js` ↔ `lib/workers/skills.js` | Skill matching runs during context assembly; changes propagate to every conversation |
 | `server.js` → `lib/handlers/` → `lib/agent/index.js` | WS message protocol has no formal schema; both sides must agree on message shapes |

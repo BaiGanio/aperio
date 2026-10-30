@@ -13,6 +13,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { startRealApp, request } from "../helpers/real-app-helper.js";
+import { isDisposablePostgresUrl, disposablePostgresRefusal } from "../../helpers/disposablePostgres.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..", "..");
@@ -275,9 +276,15 @@ test("CI and backend parity", async (t) => {
     });
   } else {
     await t.test("T64: Postgres target is owned disposable database", () => {
+      // Was `pgUrl.includes("e2e") || pgUrl.includes("test")` over the WHOLE
+      // URL, which a username, host or password containing "test" satisfied
+      // while the database stayed the real one. The shared helper checks the
+      // database NAME — the thing that actually gets written to — and is the
+      // same guard tests/integration/db/contract/backends.js enforces, so the
+      // two edges cannot drift.
       assert.ok(
-        pgUrl.includes("e2e") || pgUrl.includes("test"),
-        "Postgres URL should target a disposable database (name containing 'e2e' or 'test')"
+        isDisposablePostgresUrl(pgUrl),
+        disposablePostgresRefusal(pgUrl)
       );
     });
   }

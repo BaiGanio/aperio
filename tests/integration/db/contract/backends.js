@@ -8,9 +8,23 @@
 // SQLITE_PATH=":memory:" convention already used across tests/integration/db/.
 // Postgres only runs when APERIO_E2E_POSTGRES_URL is set — the same opt-in
 // knob tests/e2e/real-app/real-app-lifecycle.test.js (T64) already checks.
-// Point it at a real, disposable Postgres, e.g.:
-//   docker compose -f docker/docker-compose.yml --env-file .env up -d
-//   export APERIO_E2E_POSTGRES_URL=postgres://aperio:<password>@localhost:8008/aperio
+// Point it at a DISPOSABLE Postgres. Everything here writes — init() runs
+// migrations and seeds baselines, the domain files insert rows — so
+// assertDisposablePostgresUrl() (tests/helpers/disposablePostgres.js) refuses
+// any URL whose database name is not marked with "e2e" or "test". T64 shares
+// that helper, so the two cannot drift.
+//
+// Do NOT use docker/docker-compose.yml for this: its volume carries a
+// hardcoded `name: aperio_data`, and a hardcoded name BYPASSES `-p` project
+// isolation, so a test stack reattaches to the REAL data volume. Use a
+// throwaway container with no named volume on a non-default port:
+//   docker run -d --rm --name aperio_contract_pg \
+//     -e POSTGRES_DB=aperio_test -e POSTGRES_USER=aperio \
+//     -e POSTGRES_PASSWORD=<something-not-aperio_secret> \
+//     -p 55432:5432 pgvector/pgvector:pg16
+//   export APERIO_E2E_POSTGRES_URL=postgres://aperio:<password>@localhost:55432/aperio_test
+//   # ... run the tests ...
+//   docker rm -f aperio_contract_pg
 // If that URL's password is the shipped example (aperio_secret),
 // assertNonDefaultDbUrl() (db/postgres/store.js) refuses to connect — use a
 // real password, or export APERIO_ALLOW_DEFAULT_DB_PASSWORD=1 for disposable
@@ -36,6 +50,7 @@
 
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { assertDisposablePostgresUrl } from "../../../helpers/disposablePostgres.js";
 
 // Arbitrary but fixed lock key — every process calling getStore() must use
 // the same one to actually serialize on each other.
@@ -65,6 +80,10 @@ export async function contractBackends() {
 
   const pgUrl = process.env.APERIO_E2E_POSTGRES_URL;
   if (pgUrl) {
+    // Refuse a non-disposable target BEFORE connecting: everything below this
+    // line migrates, seeds and inserts. assertNonDefaultDbUrl() in
+    // db/postgres/store.js only guards the example password, not the database.
+    assertDisposablePostgresUrl(pgUrl);
     backends.push({
       name: "postgres",
       async getStore() {

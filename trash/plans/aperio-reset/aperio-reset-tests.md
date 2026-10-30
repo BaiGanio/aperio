@@ -370,7 +370,12 @@ test keeps the surface honest while this sleeps. Scope below kept for the unpark
 - **A pre-existing guard fired and was respected, not worked around.** The first throwaway
   Postgres was named `aperio`; e2e T64 failed it because the URL must name a database
   containing `e2e` or `test`. The container was renamed (`aperio_test_s32`), not the test.
-  Noted in the step record: the *contract* suite has no equivalent guard.
+  The *contract* suite had no equivalent guard; that was closed in a follow-up commit
+  (shared `tests/helpers/disposablePostgres.js`, 8 new unit tests), which also tightened T64
+  itself — its check matched the whole URL, so a username/host/password containing "test"
+  passed while the database stayed real. Re-verified after: contract 129/129 both backends,
+  `tests/integration/db` 308/308 0 skipped, e2e 86/86, and a deliberate miss
+  (`/aperio`) refused before connecting.
 - **Isolation:** `docker/docker-compose.yml` was never brought up — its hardcoded
   `name: aperio_data` volume bypasses `-p` isolation. A `docker run --rm` pgvector container
   with no named volume, port 55432, was used and torn down. `aperio_data` untouched.

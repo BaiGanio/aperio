@@ -37,6 +37,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
   machines where the opt-in Postgres suites do not run.
 
 ### Fixed
+- `npm run audit:gate` passes again. It was failing on `master` on two HIGH advisories:
+  `GHSA-27r3-jxmh-p828` (`body-parser` DoS, via `express`) and `GHSA-xcx6-jx8p-x3h5`
+  (`@azure/msal-node` parameter disclosure, via `mssql → tedious → @azure/identity`). Both
+  have real upstream fixes that the existing ranges already permit — only the lockfile was
+  pinning the old versions — so `npm update body-parser @azure/identity` moves four lockfile
+  entries (`body-parser` 2.3.0 → 2.4.0, `@azure/identity` 4.14.0 → 4.14.1, `@azure/msal-node`
+  6.0.1 → 7.1.2, its nested `@azure/msal-common` 16.14.1 → 16.15.0) and that is the whole fix.
+  **No `package.json` change and no allowlist entry were needed**: an allowlist entry would
+  have hidden a fix that exists, which `scripts/npm-audit-gate.js` forbids in its own header.
+  `@azure/msal-node` crosses a major version, so the one place it can reach —
+  `lib/db-connect/drivers/mssql.js`, which lazily imports `mssql` — was exercised separately
+  and `await import("mssql")` was confirmed to resolve at runtime.
+- the opt-in Postgres test suites refuse to run against a database that is not marked
+  disposable. They migrate, seed baselines and insert rows, but the only thing standing
+  between that and a real database was `assertNonDefaultDbUrl()`, which guards the shipped
+  example *password* and says nothing about the target — so `APERIO_E2E_POSTGRES_URL`
+  pointed at a real `aperio` database with a real password was migrated and seeded without
+  complaint. The e2e guard that did exist (T64) matched `"e2e"`/`"test"` anywhere in the
+  **whole URL**, which a username, host or password satisfied while the database stayed
+  real. New `tests/helpers/disposablePostgres.js` checks the database **name** and is shared
+  by both edges, so they cannot drift; the contract suite now refuses before it connects.
+- the DB contract suite's own setup instructions no longer point at
+  `docker/docker-compose.yml`. Its volume carries a hardcoded `name: aperio_data`, which
+  bypasses `-p` project isolation — following the old recipe reattached a test stack to the
+  real data volume. Replaced with a throwaway `docker run --rm` container on a non-default
+  port.
 - the terminal no longer reads an attachment before checking its size.
   `readAttachment()` called `readFileSync(file).toString("base64")` with no size check,
   holding the raw buffer and the ~1.33x base64 string at once and blocking the event loop

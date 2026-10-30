@@ -836,9 +836,15 @@ Comment-only change.
 **Also found: the DB contract suite has no disposable-database guard.** `tests/e2e/real-app`
 asserts (T64) that `APERIO_E2E_POSTGRES_URL` names a database containing `e2e` or `test` —
 and it caught this session's first throwaway container, which was named `aperio`. The
-contract suite under `tests/integration/db/contract/` applies no such check: it only refuses
-the shipped example *password*, so it will happily migrate, seed and write rows into a real
-`aperio` database. Logged to tech-debt.
+contract suite under `tests/integration/db/contract/` applied no such check: it only refused
+the shipped example *password*, so it would happily migrate, seed and write rows into a real
+`aperio` database. **Fixed in a follow-up commit rather than logged**, at the developer's
+request — and T64's own check turned out to be weaker than it reads: it matched `e2e`/`test`
+anywhere in the *whole URL*, so a username, host or password containing "test" bought a pass
+while the database stayed real. Both edges now share
+`tests/helpers/disposablePostgres.js`, which checks the database **name**; the contract suite
+refuses before it connects. Proved both ways: pointed at `/aperio` the suite fails with a
+named refusal without opening a connection, pointed at `/aperio_test_s32` it is 129/129.
 
 *Worked:* `npm test` **6636/6636** (0 skipped; 6631 before, +5 from the new parity test),
 `npm run test:harness` **33/33**, `npm run test:audit` **465/465**, `npm run gen:env:check`

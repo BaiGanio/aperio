@@ -300,6 +300,32 @@ workflow remains available for focused production-process validation. E2E
 concurrency is capped at 2, no model service is required, and Postgres parity
 remains opt-in through `APERIO_E2E_POSTGRES_URL`.
 
+**`APERIO_E2E_POSTGRES_URL` must name a disposable database.** Every suite behind
+that knob *writes*: `PostgresStore.init()` runs migrations and seeds baselines, and
+the contract files insert rows. `tests/helpers/disposablePostgres.js` therefore
+refuses any URL whose **database name** does not contain `e2e` or `test` — the
+contract suite refuses before it connects, and the e2e T64 check shares the same
+helper so the two cannot drift. CI uses `aperio_test`.
+
+Do **not** bring up `docker/docker-compose.yml` to supply it: that file's volume
+carries a hardcoded `name: aperio_data`, and a hardcoded `name` bypasses `-p`
+project isolation, so a test stack reattaches to the real data volume. Use a
+throwaway container instead:
+
+```bash
+docker run -d --rm --name aperio_contract_pg \
+  -e POSTGRES_DB=aperio_test -e POSTGRES_USER=aperio \
+  -e POSTGRES_PASSWORD=<not-aperio_secret> \
+  -p 55432:5432 pgvector/pgvector:pg16
+export APERIO_E2E_POSTGRES_URL=postgres://aperio:<password>@localhost:55432/aperio_test
+node --test --test-concurrency=1 tests/integration/db/contract/
+docker rm -f aperio_contract_pg
+```
+
+Check the **skip count**, not just the pass count: these suites report as
+*skipped* when the variable is absent, so `0 skipped` is what proves the Postgres
+half actually ran.
+
 ## Installation smoke tests
 
 The shared VM contract lives in `vms/smoke.sh` and `vms/smoke.ps1`. It validates
