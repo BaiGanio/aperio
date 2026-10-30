@@ -898,15 +898,17 @@ describe("printSessions", () => {
 });
 
 // ─── readAttachment Tests ─────────────────────────────────────────────────
+// readAttachment is async as of S2.10 — the read is awaited, and the size is
+// checked before it happens.
 describe("readAttachment", () => {
-  test("returns error for non-existent file", () => {
-    const result = readAttachment("tests/lib/__nonexistent_test_file_xyz__");
+  test("returns error for non-existent file", async () => {
+    const result = await readAttachment("tests/lib/__nonexistent_test_file_xyz__");
     assert.ok(result.error, "should have error property");
     assert.ok(result.error.includes("not found"), `error should mention 'not found', got: ${result.error}`);
   });
 
-  test("reads existing file and returns metadata", () => {
-    const result = readAttachment("tests/unit/lib/terminal.test.js");
+  test("reads existing file and returns metadata", async () => {
+    const result = await readAttachment("tests/unit/lib/terminal.test.js");
     assert.ok(result.name, "should have name");
     assert.ok(result.name.endsWith(".test.js"), `name should end with .test.js, got: ${result.name}`);
     assert.strictEqual(result.ext, ".js");
@@ -915,23 +917,29 @@ describe("readAttachment", () => {
     assert.ok(result.sizeKb > 0, "should have positive size");
   });
 
-  test("resolves correct MIME types for different extensions", () => {
+  test("resolves correct MIME types for different extensions", async () => {
     // .md -> text/plain (not in MIME_BY_EXT map, defaults to text/plain)
-    const md = readAttachment("README.md");
+    const md = await readAttachment("README.md");
     assert.strictEqual(md.ext, ".md");
     assert.strictEqual(md.type, "text/plain");
 
     // A .pdf from the repo
-    const pdf = readAttachment("SECURITY.md");
+    const pdf = await readAttachment("SECURITY.md");
     assert.strictEqual(pdf.ext, ".md");
     assert.strictEqual(pdf.type, "text/plain");
   });
 
-  test("resolves known MIME types correctly", () => {
+  test("resolves known MIME types correctly", async () => {
     // .jpg -> image/jpeg
-    const jpg = readAttachment("package.json");
+    const jpg = await readAttachment("package.json");
     assert.strictEqual(jpg.type, "text/plain");
     // package.json is not in MIME_BY_EXT, defaults to text/plain
+  });
+
+  test("a directory is refused as 'not a file', not read", async () => {
+    const result = await readAttachment("lib");
+    assert.ok(result.error, "a directory should not read as an attachment");
+    assert.match(result.error, /not a file/);
   });
 });
 

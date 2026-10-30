@@ -26,7 +26,7 @@ is **red** on today's master before starting the step, then make it green.
 | S2.7 | T2.7 Core-chat parity — **PARKED** | staged discuss, /branch |
 | S2.8a | T2.8 Ergonomics — **PARKED** with S2.7 | /attachments, /detach |
 | S2.9 | T2.9 Config-contract gate — **PASS** | no unregistered reads, no blind spots |
-| S2.10 | T2.10 Attachment bound | refuse before read, shared limit |
+| S2.10 | T2.10 Attachment bound — **PASS** | refuse before read, shared limit |
 | S3.1 | T3.1 Review checklist | every slop-touched file accounted for |
 | S3.2 | T3.2 Refactor safety | suite + harness green, no behaviour change |
 | S4.1–S4.2 | T4.1 Launch map | decisions listed, date set |
@@ -326,7 +326,12 @@ test keeps the surface honest while this sleeps. Scope below kept for the unpark
   at all and the fixture passes under the buggy stripper — proved red against it before
   keeping. `npm run gen:env:check` must stay clean, since no registry key was added.
 
-### T2.10 — terminal attachment bound (from T2.8)
+### T2.10 — terminal attachment bound (from T2.8) — **PASS 2026-10-30**
+- **How the no-read proof works:** an over-limit file with mode `000`. Check-first returns the
+  size refusal; read-first can only fail on EACCES. A stub does **not** work here —
+  `attachments.js` uses `import { readFile }`, which binds at import, so a patched
+  `fs/promises` is never consulted. Skipped under root, which ignores file modes.
+- **Teeth:** with the old read-first body restored, 3 tests go red.
 - **Assertions:** boundary-size tests at just-under / exactly-at / just-over the limit, plus a
   regression test that a rejected file is **never** read or base64-encoded — the current code
   allocates both representations and only `statSync`s afterwards.

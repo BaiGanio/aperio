@@ -201,6 +201,22 @@ list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
 DEPRECATED alias for APERIO_ALLOWED_PATHS, kept so existing .env files keep working. Merged into the same single list as the other two. Use APERIO_ALLOWED_PATHS instead.
 
+### Attachments
+
+One size/count budget for every file a message can carry, shared by the web UI, the terminal client and the server. It also sizes the WebSocket frame cap, so an oversized file gets a stated refusal instead of a dropped connection.
+
+#### `APERIO_ATTACHMENT_MAX_MB`
+
+number · tier 1 (Settings UI, restart to apply) · default: `10` · advanced
+
+Largest single attachment, in megabytes, measured before base64 encoding. Enforced at every edge that can accept a file: the browser checks it before reading, the terminal checks it before reading, and the server refuses anything that slips past either. Raising it also raises the WebSocket frame cap, which is derived from this value and the count below.
+
+#### `APERIO_ATTACHMENT_MAX_COUNT`
+
+number · tier 1 (Settings UI, restart to apply) · default: `5` · advanced
+
+How many attachments one message may carry. Files past this count are refused with a note rather than silently dropped.
+
 ### Shell execution (run_shell tool)
 
 Lets the model run a single allowlisted shell command inside the session workspace. NOT a sandbox — off by default.

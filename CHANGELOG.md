@@ -9,7 +9,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+- an attachment size and count budget, where there was previously **no limit anywhere** —
+  not in `lib/config.js`, not server-side, and not in the browser, which read any file with
+  `readAsDataURL` and no check at all. Two new keys, `APERIO_ATTACHMENT_MAX_MB` (default 10)
+  and `APERIO_ATTACHMENT_MAX_COUNT` (default 5), are the single budget; `lib/helpers/attachmentLimits.js`
+  is the one place that resolves them, so the terminal and web paths cannot drift apart.
+
 ### Fixed
+- the terminal no longer reads an attachment before checking its size.
+  `readAttachment()` called `readFileSync(file).toString("base64")` with no size check,
+  holding the raw buffer and the ~1.33x base64 string at once and blocking the event loop
+  for the whole read — and it `statSync`'d *after* reading, so the one number that could
+  have refused the file was computed too late to help. It is now async, takes the size
+  first, and returns before anything is read or encoded.
+- the browser checks an attachment's size before reading it, at both entry points (the file
+  picker and paste), and takes the limit from the server via `/api/config/client` rather than
+  inventing one of its own.
+- an oversized attachment no longer kills the WebSocket connection. `lib/server/ws.js`
+  passed no `maxPayload`, so `ws` fell back to its own 100 MiB default and the only ceiling
+  was one no product decision had chosen. The cap is now derived from the attachment budget,
+  so a message carrying the maximum legal attachment set always fits and anything larger is
+  refused by a check that can explain itself.
+- `processAttachments` enforces the budget as the authority behind both clients, so a payload
+  that evades a client check is still refused — with a note, rather than silently dropped.
 - the config-drift audit gate no longer goes blind after a `//` comment that mentions a glob
   path. `audit/scripts/config-contract.js` stripped block comments before line comments, so
   the `/api/*` in a comment on `lib/server.js:203` opened a comment the next real `*/` closed

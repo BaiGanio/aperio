@@ -91,6 +91,69 @@ function updateSendBtn() {
   sendBtn.disabled = !(hasText || hasFiles);  // enable if either is true
 }
 
+// ── Attachment budget (S2.10) ─────────────────────────────────────────────
+// The browser used to read ANY file with readAsDataURL and no size or count
+// check at all, keeping the data URL on the File object. The budget below is
+// the server's, fetched once from /api/config/client, so there is exactly one
+// limit rather than a second one invented here. The server enforces it again
+// in processAttachments — this check is the courtesy that saves a pointless
+// read and tells the user why.
+let _attachLimits = null;
+
+const _ATTACH_FALLBACK = { attachmentMaxBytes: 10 * 1024 * 1024, attachmentMaxCount: 5 };
+
+function _formatMb(bytes) {
+  const mb = bytes / (1024 * 1024);
+  return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
+}
+
+// Fetched eagerly, but every caller falls back to the shipped defaults, so a
+// failed or still-pending fetch bounds the file rather than waving it through.
+fetch('/api/config/client')
+  .then(r => r.json())
+  .then(cfg => {
+    _attachLimits = {
+      attachmentMaxBytes: Number(cfg.attachmentMaxBytes) || _ATTACH_FALLBACK.attachmentMaxBytes,
+      attachmentMaxCount: Number(cfg.attachmentMaxCount) || _ATTACH_FALLBACK.attachmentMaxCount,
+    };
+  })
+  .catch(() => { _attachLimits = _ATTACH_FALLBACK; });
+
+function _attachBudget() {
+  return _attachLimits || _ATTACH_FALLBACK;
+}
+
+function _showAttachError(message) {
+  const line = document.createElement('div');
+  line.className = 'attach-error';
+  line.setAttribute('role', 'status');
+  line.textContent = `⚠ ${message}`;
+  attachPreview.appendChild(line);
+  setTimeout(() => line.remove(), 6000);
+}
+
+/**
+ * The single gate every attachment entry point passes through: the file picker,
+ * paste, and anything added later. Returns true when the file may be read.
+ */
+function acceptAttachment(file) {
+  const { attachmentMaxBytes, attachmentMaxCount } = _attachBudget();
+
+  if (attachedFiles.length >= attachmentMaxCount) {
+    _showAttachError(`Only ${attachmentMaxCount} attachments per message.`);
+    return false;
+  }
+  // Checked BEFORE readAsDataURL, so an oversized file is never read or
+  // expanded into a ~1.33x base64 data URL.
+  if (file.size > attachmentMaxBytes) {
+    _showAttachError(
+      `${file.name} is ${_formatMb(file.size)} — over the ${_formatMb(attachmentMaxBytes)} limit.`,
+    );
+    return false;
+  }
+  return true;
+}
+
 function renderPreviews() {
   attachPreview.innerHTML = '';
   attachedFiles.forEach((file, i) => {
@@ -130,6 +193,7 @@ fileInput.addEventListener('change', (e) => {
   // Read each file into a data URL so the message bubble can render thumbnails
   // without a second async read at send time.
   incoming.forEach(file => {
+    if (!acceptAttachment(file)) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       file._dataUrl = ev.target.result; // attach dataUrl directly on the File object
@@ -154,6 +218,7 @@ document.addEventListener('paste', (e) => {
   fileItems.forEach(item => {
     const file = item.getAsFile();
     if (!file) return;
+    if (!acceptAttachment(file)) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       file._dataUrl = ev.target.result;

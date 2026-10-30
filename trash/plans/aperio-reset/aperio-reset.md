@@ -677,16 +677,77 @@ proved red against the old stripper before being kept.
 *Worked:* `npm test` **6609/6609, zero failures** — the first fully green suite of this plan;
 `npm run test:audit` 465/465; `npm run gen:env:check` clean. Tests: T2.9.
 
-**S2.10 Bound the terminal attachment read (from S2.8b).** `readAttachment()`
+**S2.10 Bound the terminal attachment read (from S2.8b).** — **DONE 2026-10-30.**
+Shipped as written below, including the corrected (wider) scope. New
+`lib/helpers/attachmentLimits.js` is the single budget; everything else reads it.
+
+**Four edges, one number.** `APERIO_ATTACHMENT_MAX_MB` (10) and
+`APERIO_ATTACHMENT_MAX_COUNT` (5) are new tier-1 keys in a new `attachments` section.
+`processAttachments` is the **authority** — it is the one chokepoint both the browser and
+the terminal pass through, so it re-checks what the clients checked, and a refused file
+does **not** consume a slot from the count budget (one bad file must not cost a user a good
+one). The terminal takes the size from `statSync` **first** and is now async. The browser
+gate sits in front of *both* entry points — the file picker and paste — and takes the limit
+from `/api/config/client` rather than inventing one; a failed fetch falls back to the
+shipped defaults, so a pending fetch bounds the file instead of waving it through.
+`lib/server/ws.js` now passes a **derived** `maxPayload`, so the frame cap and the
+attachment budget can never contradict: a message carrying the maximum legal set always
+fits, and the cap only trips on traffic the checks already refuse. A `MIN_WS_PAYLOAD_BYTES`
+floor stops a tiny budget from breaking ordinary chat.
+
+**Two things found while building it.** (a) The first regression test I wrote was
+**theatre**: it patched `fs/promises.readFile` to count reads, but
+`lib/terminal/attachments.js` does `import { readFile }`, which binds at import — the stub
+could never have intercepted. Replaced with a proof that cannot be faked: an over-limit
+file with mode `000`. Check-first returns the size refusal; read-first could only fail on
+EACCES. (b) The proxy's count refusal originally pointed the user at `/detach`, a command
+S2.8a parks — a refusal naming a command the user does not have is worse than one that does
+not, so it now says to send the message instead.
+
+**Teeth proved by reverting.** With the old read-first body restored, 3 of the new tests go
+red; restored, 20/20 pass. The end-to-end proof is in the real loop, not just the helper:
+`/attach` on an over-limit file through the S2.6 IO seam refuses with the size as the reason
+and does not queue.
+
+**One new visual, NOT yet approved.** `.attach-error` in `public/styles/input-bar.css` is a
+chip variant (same tokens, same `--fs-micro` role, `var(--danger, #e05252)` matching the
+existing fallback idiom). Standalone preview built and shown per the Co-pilot Contract;
+**awaiting the developer's sign-off** — nothing else in the step depends on it.
+
+*Worked:* `npm test` **6631/6631** (0 skipped), `npm run test:harness` 33/33, `npm run gen:env:check`
+clean, no stray state. Tests: T2.10 — pass.
+
+*Original scope and the corrected premise, kept for the record:* `readAttachment()`
 (`lib/terminal/attachments.js:17-26`) calls `readFileSync(abs).toString("base64")` with **no
 size check at all**, holding the raw buffer and the ~1.33× base64 string at once, and it
 `statSync`s the file *after* reading it — so the one number that could have refused the file
 is computed too late to help. On laptop-class hardware a large attachment means a multiplied
 resident allocation and a blocked event loop. Check size via `statSync` **before** any read,
 share the limit with the web path rather than inventing a second one, and make the read async.
-*Works when:* an over-limit file is refused without ever being read or base64-encoded, and the
-limit is one constant shared with the web upload path.
-Tests: T2.10 (boundary sizes; plus a regression test that a rejected file is never read).
+**The step's premise is wrong, and the scope is bigger than written (checked 2026-10-30).**
+"Share the limit with the web path" assumes a limit exists. **None does, anywhere:** no
+`ATTACHMENT`/size key in `lib/config.js`, no server-side guard, and the browser is **just as
+unbounded** — `public/scripts/input-bar.js:126-142` reads any file with `readAsDataURL` and no
+size or count check, keeps the data URL on the `File` object, and the paste handler at `:147+`
+does the same. So this is not a terminal-only bug; the terminal is simply where it is most
+visible because the read is synchronous and blocks the loop.
+
+**Today's only ceiling is accidental.** `lib/server/ws.js:37` constructs `WebSocketServer`
+with just `{ server, verifyClient }`, so `maxPayload` falls back to the `ws` default of
+104,857,600 bytes (`node_modules/ws/lib/websocket-server.js:74`, ws 8.22.0). An oversized
+attachment therefore does not get a refusal — it **kills the connection**, at a threshold set
+by a library default rather than by any product decision.
+
+So S2.10 must *create* the limit, not borrow one: one new `lib/config.js` key (No-Touch Zone —
+ask first, then `npm run gen:env` + `gen:env:check`), the server as the authority, and both
+edges refusing before they allocate. An explicit `maxPayload` on the WS server is the backstop
+so the failure mode is a message, never a dropped socket.
+
+*Works when:* an over-limit file is refused at both edges without ever being read or
+base64-encoded; the terminal and the browser read the same single constant; and an oversized
+payload produces a stated refusal instead of a closed connection.
+Tests: T2.10 (boundary sizes; a regression test that a rejected file is never read; and one
+that the terminal and web limits cannot drift apart).
 
 ### Phase 3 — Own the code
 

@@ -239,6 +239,20 @@ textarea::placeholder { color: var(--text-muted); }
 }
 .attach-chip .remove-file:hover { color: #ef4444; }
 
+/* Refusal line for an attachment over the size/count budget (S2.10). A chip
+   variant on purpose: same tokens, same type role, so a refusal reads as part
+   of the attachment row rather than as a new piece of UI. */
+.attach-error {
+  flex-basis: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--danger, #e05252);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+  color: var(--danger, #e05252);
+}
+
 /* image thumbnail variant */
 .attach-chip.is-image {
   padding: 3px 8px 3px 3px;

@@ -201,6 +201,25 @@ describe("runStandalone commands", () => {
     assert.match(seen, /note\.md/);
   });
 
+  // S2.10, end to end through the real loop: an over-limit file must be
+  // refused in the terminal flow itself, not just by the helper in isolation.
+  test("/attach refuses an over-limit file with the size as the reason", async () => {
+    const prev = process.env.APERIO_ATTACHMENT_MAX_MB;
+    // readAttachment reads the budget at call time, so setting it here is
+    // enough — nothing froze it at import.
+    process.env.APERIO_ATTACHMENT_MAX_MB = "1";
+    const big = join(root, "big.md");
+    writeFileSync(big, Buffer.alloc(2 * 1024 * 1024, 0x61));
+    try {
+      const seen = await type(`/attach ${big}`, /attachment limit/);
+      assert.match(seen, /big\.md/);
+      assert.doesNotMatch(seen, /queued/, "a refused file must not be queued");
+    } finally {
+      if (prev === undefined) delete process.env.APERIO_ATTACHMENT_MAX_MB;
+      else process.env.APERIO_ATTACHMENT_MAX_MB = prev;
+    }
+  });
+
   test("an unknown command is reported, not sent to the model", async () => {
     await type("/nonsense", "unknown command");
   });
