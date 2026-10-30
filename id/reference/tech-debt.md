@@ -25,6 +25,23 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## DB contract suite has no disposable-database guard
+
+- 2026-10-30 `tests/integration/db/contract/backends.js` connects to whatever
+  `APERIO_E2E_POSTGRES_URL` points at and then **writes**: `PostgresStore.init()` runs
+  migrations and baseline seeding, and the nine domain files insert rows. Its only safety
+  check is `assertNonDefaultDbUrl()`, which refuses the shipped example *password* — nothing
+  checks the *database*. Point it at a real `aperio` database and it will migrate and seed it
+  without complaint. `tests/e2e/real-app/real-app-lifecycle.test.js` (T64) already has the
+  guard the contract suite lacks: it asserts the URL names a database containing `e2e` or
+  `test`, and it caught exactly this during S3.2 — the first throwaway container was named
+  `aperio` and T64 failed it. The contract suite ran happily against that same URL. Fix is
+  small (reuse T64's assertion in `contractBackends()`), but it is a safety change to a test
+  harness and deserves its own commit rather than riding along with whatever is being
+  refactored. Related: `docker/docker-compose.yml` hardcodes `name: aperio_data` on its
+  volume, which bypasses `-p` project isolation, so the "bring up docker compose" recipe in
+  `backends.js`'s own header comment points at the REAL data volume.
+
 ## Dependency audit gate
 
 - 2026-10-30 `npm run audit:gate` already fails on `master` (before any dependabot bumps were

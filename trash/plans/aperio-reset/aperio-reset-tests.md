@@ -27,8 +27,8 @@ is **red** on today's master before starting the step, then make it green.
 | S2.8a | T2.8 Ergonomics — **PARKED** with S2.7 | /attachments, /detach |
 | S2.9 | T2.9 Config-contract gate — **PASS** | no unregistered reads, no blind spots |
 | S2.10 | T2.10 Attachment bound — **PASS** | refuse before read, shared limit |
-| S3.1 | T3.1 Review checklist | every slop-touched file accounted for |
-| S3.2 | T3.2 Refactor safety | suite + harness green, no behaviour change |
+| S3.1 | T3.1 Review checklist — **SKIPPED** | step skipped by developer decision |
+| S3.2 | T3.2 Refactor safety | suite + harness green, no behaviour change — **PASS 2026-10-30** |
 | S4.1–S4.2 | T4.1 Launch map | decisions listed, date set |
 
 ## Test cases
@@ -338,11 +338,42 @@ test keeps the surface honest while this sleeps. Scope below kept for the unpark
 - **Edge cases:** the limit must be the *same* constant the web upload path uses; a test should
   fail if the two drift apart. Drive the command surface through the T2.6 IO seam.
 
-### T3.1 — slop review complete
+### T3.1 — slop review complete — **RETIRED 2026-10-30** (S3.1 skipped)
 - **Assertions:** a checklist of the 284 touched files (from `git log -i --grep=slop --name-only`) has each file marked reviewed / deleted; findings logged to tech-debt.md or fixed.
 
-### T3.2 — refactor safety
-- **Assertions:** `npm test` + `npm run test:harness` green; public exports unchanged; SQLite and Postgres store tests both green.
+### T3.2 — refactor safety — **PASS 2026-10-30**
+- **Assertions (as written):** `npm test` + `npm run test:harness` green; public exports unchanged; SQLite and Postgres store tests both green.
+- **Measured:** `npm test` **6636/6636**, 0 fail, 0 skipped (baseline before the split: 6631 — the
+  +5 are the new parity test). `npm run test:harness` **33/33**, unchanged from its pre-split
+  baseline. `npm run test:audit` **465/465**. `npm run gen:env:check` clean.
+- **Both backends, really both.** The DB contract suite ran with `APERIO_E2E_POSTGRES_URL`
+  set: **129 tests / 18 suites**, i.e. all nine domains (memories, self-memory, settings,
+  wiki, agent-jobs, agent-interrupts, issue-triage, import-export, model-facts) × `[sqlite]`
+  *and* `[postgres]`. SQLite-only green would not have been evidence here, because S3.2
+  changed the Postgres store too.
+- **Proof the opt-in suites were not silently skipped:** `tests/integration/db` reports
+  **308/308 with 0 skipped**. Those suites gate themselves on the env var and report as
+  *skipped*, not failed, when it is absent — so the skip count is the assertion, not the pass
+  count. This is what covers the `vectorMeta` mixin on the Postgres side
+  (`postgres-vec-meta.test.js`, `postgres-vector-dims.test.js`), which the contract directory
+  does not reach.
+- **"Public exports unchanged" is now a test, not a claim.** New
+  `tests/unit/db/store-surface-parity.test.js` asserts both directions of method-name
+  containment between the two store prototypes, keeps a 4-entry `KNOWN_ASYMMETRY` allowlist
+  honest by failing on stale entries, and holds a floor of 74 shared public methods so a
+  mixin that fails to apply to *both* stores cannot pass unnoticed. It walks the prototype
+  chain (the methods now live on mixin ancestors) and needs no database, so it runs in plain
+  `npm test` on every machine — unlike the Postgres half of the contract suite.
+- **Flow exercised, not just compiled.** `tests/e2e/real-app` **86/86** with Postgres
+  configured, and one method from each of the six new mixins driven through `db/index.js`'s
+  factory against live pgvector *and* SQLite, with identical results from both.
+- **A pre-existing guard fired and was respected, not worked around.** The first throwaway
+  Postgres was named `aperio`; e2e T64 failed it because the URL must name a database
+  containing `e2e` or `test`. The container was renamed (`aperio_test_s32`), not the test.
+  Noted in the step record: the *contract* suite has no equivalent guard.
+- **Isolation:** `docker/docker-compose.yml` was never brought up — its hardcoded
+  `name: aperio_data` volume bypasses `-p` isolation. A `docker run --rm` pgvector container
+  with no named volume, port 55432, was used and torn down. `aperio_data` untouched.
 
 ### T4.1 — launch map
 - **Assertions:** new map issue lists each #455 decision as kept/changed, has a date, and local models lead.
@@ -352,7 +383,7 @@ test keeps the surface honest while this sleeps. Scope below kept for the unpark
 1. T0.1 → T0.2 → T0.3 → T0.4 (release only after CI is green).
 2. Phase 1 groups are independent of each other; all need T0.4 done.
 3. Phase 2 groups are independent; T2.1 needs its baseline recorded first.
-4. T3.x after Phase 2. T4.1 last.
+4. T3.x after Phase 2 — in practice only T3.2, since T3.1 is retired. T4.1 last.
 
 ## Required setup
 

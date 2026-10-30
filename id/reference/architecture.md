@@ -46,12 +46,27 @@ aperio/
 │   └── tools/             # MCP tool registrations (memory, files, web, shell, wiki, codegraph, docgraph, github, data, database, image)
 ├── db/
 │   ├── index.js           # Store factory (auto-detects SQLite vs Postgres)
+│   ├── mixins.js          # composeStore(): applies the per-domain store mixins below.
+│   │                      # Both backends compose the SAME six, under the same names
 │   ├── sqlite.js          # SQLite adapter (better-sqlite3 + sqlite-vec + FTS5)
 │   ├── sqlite/            # SQLite internals
-│   │   ├── store.js       # The store class itself
+│   │   ├── store.js       # The store class: bootstrap (init/encrypt/migrate/seed),
+│   │   │                  # memories CRUD, pending inbox, table browser, settings
+│   │   ├── portability.js     # exportAll / importAll
+│   │   ├── vectorMeta.js      # vec_meta signature + reindex lease + vec0 resize
+│   │   ├── selfMemories.js    # the agent's walled-off self_memories store
+│   │   ├── agentJobs.js       # background-agent jobs + run history
+│   │   ├── agentInterrupts.js # durable human-decision interrupts
+│   │   ├── issueTriage.js     # issue-triage ledger
+│   │   ├── mappers.js     # row → object mappers and shared column helpers
+│   │   ├── wiki.js        # SqliteWiki sub-store (also drives self_wiki_*)
+│   │   ├── search.js      # recall: BM25 / cosine / RRF fusion
+│   │   ├── encryption.js  # decrypt-in-place helper for the encrypted-DB path
 │   │   └── vecSupport.js  # sqlite-vec availability + plain-table fallback and
 │   │                      # sidecar reconciliation for platforms with no prebuilt build
 │   ├── postgres.js        # Postgres adapter (pg + pgvector)
+│   ├── postgres/          # Postgres internals — mirrors db/sqlite/ file-for-file for
+│   │                      # the six mixins above, plus store.js/mappers.js/search.js
 │   ├── migrate.js         # Postgres migration runner
 │   ├── migrate-sqlite.js  # SQLite migration runner
 │   ├── migrations/        # Postgres SQL migrations (001_init.sql, ...)
@@ -194,6 +209,7 @@ load-bearing — changing one side without the other breaks things in non-obviou
 | `mcp/tools/*` all depend on `mcp/index.js` ctx | Every tool registration file receives the same `ctx` object. Adding/removing/renaming a field in `createContext()` silently breaks any tool that uses it. |
 | `lib/routes/paths.js` → all file operations | Every `read_file`, `write_file`, `edit_file`, and shell tool gates through `paths.js`. A path traversal bug here is a security bug everywhere. |
 | `db/migrations/` ↔ `db/migrations-sqlite/` | Must stay in lockstep. A migration in one but not the other causes silent schema drift between backends. |
+| `db/sqlite/*` ↔ `db/postgres/*` (store mixins) | `db/index.js` is a factory: callers hold one store and call methods on it, so the two classes must expose the SAME public method names. The six per-domain mixins are mirror-named on both sides for that reason — a method added to one backend and not the other is the storage-layer twin of migration drift, and fails only at runtime on whichever backend the user runs. `tests/unit/db/store-surface-parity.test.js` asserts both directions and needs no database running. |
 | `db/index.js` → `lib/providers/model-facts.js` | Store initialization runs migrations and hydrates the process-local model-facts snapshot before synchronous llama.cpp sizing consumers execute. |
 | `lib/config.js` → `scripts/gen-env-example.js` | The config registry is the single source of truth; `gen-env-example.js` walks it to regenerate both the slim `.env.example` (only `envTemplate` keys) and the full `docs/config-reference.md`. Adding a config key without running the generator breaks CI (`gen:env:check` gates both files). |
 | `public/scripts/settings-overlay.js` → `paths-panel.js`, `db-connections-panel.js`, `github-triage-panel.js` | The Settings overlay owns the configuration navigation while the specialized modules retain their existing path, connection CRUD, secret masking, and triage behavior. Their DOM is mounted as overlay category views; do not duplicate those controls in the Settings drawer. |

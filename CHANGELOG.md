@@ -9,12 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+- the two database store classes are split by responsibility. `db/sqlite/store.js`
+  (1589 lines) and `db/postgres/store.js` (1395) each carried nine parallel responsibilities
+  behind section banners; six of them now live in mirror-named modules per backend —
+  `portability.js`, `vectorMeta.js`, `selfMemories.js`, `agentJobs.js`,
+  `agentInterrupts.js`, `issueTriage.js` — leaving 842 and 614 lines of bootstrap, memories
+  CRUD and search glue. Each module is an ES mixin (`db/mixins.js`), so every method body
+  moved **verbatim** and kept its exact name on the prototype: no public API changed, and
+  `db/index.js` still hands callers one store that behaves identically on either backend.
+- the Postgres store's `Settings` section banner now sits above the settings methods. It had
+  drifted ~290 lines away, above the vec_meta block, so the file advertised a section it did
+  not contain while the real one was unlabelled.
+
 ### Added
 - an attachment size and count budget, where there was previously **no limit anywhere** —
   not in `lib/config.js`, not server-side, and not in the browser, which read any file with
   `readAsDataURL` and no check at all. Two new keys, `APERIO_ATTACHMENT_MAX_MB` (default 10)
   and `APERIO_ATTACHMENT_MAX_COUNT` (default 5), are the single budget; `lib/helpers/attachmentLimits.js`
   is the one place that resolves them, so the terminal and web paths cannot drift apart.
+- a store surface-parity test (`tests/unit/db/store-surface-parity.test.js`). `db/index.js`
+  is a factory, so a method present on one backend's store and missing from the other is a
+  runtime-only failure for whichever backend a user happens to run — the storage-layer twin
+  of the migration drift `db/migrations` / `db/migrations-sqlite` is already guarded against.
+  The test asserts containment both ways, keeps its small backend-specific allowlist honest
+  by failing on stale entries, and needs no database running, so it covers Postgres on
+  machines where the opt-in Postgres suites do not run.
 
 ### Fixed
 - the terminal no longer reads an attachment before checking its size.

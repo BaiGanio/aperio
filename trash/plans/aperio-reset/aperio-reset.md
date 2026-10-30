@@ -709,10 +709,10 @@ red; restored, 20/20 pass. The end-to-end proof is in the real loop, not just th
 `/attach` on an over-limit file through the S2.6 IO seam refuses with the size as the reason
 and does not queue.
 
-**One new visual, NOT yet approved.** `.attach-error` in `public/styles/input-bar.css` is a
-chip variant (same tokens, same `--fs-micro` role, `var(--danger, #e05252)` matching the
-existing fallback idiom). Standalone preview built and shown per the Co-pilot Contract;
-**awaiting the developer's sign-off** — nothing else in the step depends on it.
+**One new visual, APPROVED 2026-10-30 as designed.** `.attach-error` in
+`public/styles/input-bar.css` is a chip variant (same tokens, same `--fs-micro` role,
+`var(--danger, #e05252)` matching the existing fallback idiom). Standalone preview built and
+reviewed per the Co-pilot Contract; the developer approved it unchanged.
 
 *Worked:* `npm test` **6631/6631** (0 skipped), `npm run test:harness` 33/33, `npm run gen:env:check`
 clean, no stray state. Tests: T2.10 — pass.
@@ -751,14 +751,112 @@ that the terminal and web limits cannot drift apart).
 
 ### Phase 3 — Own the code
 
-**S3.1 Review the `ai(slop)` commits.** List all 20 with diffstat; review in batches with
-the developer; delete what is unused, test what stays. Log leftovers to tech-debt.md.
-*Works when:* every file touched by those commits is either reviewed or deleted.
-Tests: T3.1.
+**S3.1 Review the `ai(slop)` commits.** — **SKIPPED 2026-10-30 by developer decision.**
+Reason, in the developer's words: they do not want to review or remove anything already
+done. The 284 files those 20 commits touched stay as they are, unreviewed, and T3.1's
+checklist is not produced.
 
-**S3.2 Split the biggest hand-written files** where cohesive: `db/sqlite/store.js` (1589),
-`db/postgres/store.js` (1395), `lib/agent/index.js` (1103). Only safe, local splits.
-Tests: T3.2.
+**What this costs, recorded honestly rather than left implicit:** the step existed to find
+unowned code, and skipping it means nothing in that set gets a second look. One concrete
+consequence is already known — `APERIO_RUNTIME_ROOT` (added by `34ef978e ai(slop)`) was
+recorded as a reviewed exception in S2.9 on the assumption this step might delete it
+instead. With S3.1 skipped, that exception is now permanent rather than provisional, which
+is fine: the S2.9 pinning test fails loud if the var ever stops being read.
+*Works when:* n/a — skipped step. Tests: T3.1 retired.
+
+**S3.2 Split the biggest hand-written files.** — **DONE 2026-10-30, two of three.**
+The three line counts in the original scope were all accurate when re-measured. **Two of the
+three files were worth splitting; the third was not, and was left alone.**
+
+**The stores: 1589 → 842 and 1395 → 614.** Both files carried nine clearly-named and
+*largely parallel* section banners — the same responsibilities appear in both backends — and
+those banners turned out to be real seams, not just decoration. Six domains moved out of each
+store into mirror-named modules: `portability.js` (export/import), `vectorMeta.js`
+(vec_meta + physical vector-storage resize), `selfMemories.js`, `agentJobs.js`,
+`agentInterrupts.js`, `issueTriage.js`. Twelve new files, six per backend, same names on both
+sides.
+
+**The mechanism was chosen to make the diff reviewable, not clever.** `db/index.js` is a
+factory: callers hold one store object and call methods on it, so every moved method had to
+keep its exact name on the prototype or the split would silently be a public-surface change.
+New `db/mixins.js` exposes one `composeStore(...mixins)` helper, and each domain module is a
+`(Base) => class extends Base { ... }` factory. That lets each method body move **verbatim** —
+no `this` rewriting, no delegating stubs, no object-literal commas to get wrong. The entire
+change to the moved code is a cut and paste, which is the only kind of refactor worth doing
+to code this load-bearing. Three module-level constant tables (`SQLITE_VEC_MAX_DIMS`,
+`SQLITE_VEC_TABLES`; `PGVECTOR_HNSW_MAX_DIMS`, `PG_VECTOR_TABLES`, `PG_VECTOR_INDEXES`) were
+used *only* inside the vec_meta ranges, so they moved with them and left the stores cleaner
+than a method-only split would have.
+
+**The split is symmetric by construction and now guarded.** New
+`tests/unit/db/store-surface-parity.test.js` asserts that every public method on one store
+prototype exists on the other, with a four-entry `KNOWN_ASYMMETRY` allowlist
+(`vectorSupported`, `rebuiltVectorStores`, `refreshCache` on SQLite; `seedBaseline` on
+Postgres) that is itself checked for stale entries, plus a floor on the shared surface
+(74 methods) that fails if a mixin silently fails to apply to *both* stores. It walks the
+whole prototype chain rather than own properties, because after this change the methods live
+on mixin ancestors — an own-properties check would report a shrinking surface where callers
+see none. The test needs neither backend running, so unlike the Postgres contract tests it
+runs everywhere, always. **This guard did not exist before** and was written first, green on
+the pre-split code, so it pins the real baseline rather than whatever the split produced.
+
+**`lib/agent/index.js` was deliberately NOT split, and the step's premise is wrong about it.**
+Measured: 1103 lines, of which **308 are comment-only** and 36 blank — about 760 lines of
+actual code. Critically, `createAgent()` spans lines **116–1103 as a single closure**: every
+inner function (`ensureTurn`, `callTool`, `getSystemPrompt`, `createPrepareModelContext`, …)
+reads and writes shared mutable closure state — `state`, `shellBox`, `provider`, `ctx`,
+`turnCacheByMessages`, `skillsChipEmitted`. There is no banner seam because there is no seam:
+splitting it means either hoisting that state into a passed-around object or threading a large
+bag of parameters into extracted factories. Both are non-local rewrites of the file the Module
+Coupling Map ties to `lib/context/` **and all six provider loops** — the exact opposite of the
+"only safe, local splits" this step asks for, and of AGENTS.md's "split by responsibility,
+lifecycle, or domain boundary — never merely to satisfy a line count." The heavy comment
+density is also not bloat: those comments record *why* specific races were fixed (the
+`turnCacheByMessages` WeakMap keying, the `meta`-as-parameter rule) and are load-bearing
+documentation. `npm run test:harness` was run first and stayed 33/33 throughout; the file is
+byte-identical to where it started.
+
+**Both stores are still above the 500-line recommendation (842 and 614) and that is the
+correct outcome.** What remains in each is one cohesive thing: bootstrap (`static init()`:
+open, decrypt, migrate, reconcile vec sidecars, seed) plus memories CRUD, the pending-memory
+inbox, the whitelisted table browser, search glue, wiki-draft pass-throughs and settings.
+Settings/model-facts was considered as a seventh mixin and rejected — at 38 lines in SQLite it
+would buy 842 → 804, which is a line-count move, not a boundary. `static init()` is the single
+biggest remaining block (~210 lines) and is a genuine lifecycle concern, but it is a *static*
+method that constructs the class, so it does not fit the mixin pattern and moving it is not a
+safe local split; logged to A2D rather than forced.
+
+**Found along the way: an orphaned section banner in the Postgres store.** The
+`// ── Settings (key/value preferences)` banner sat immediately above the vec_meta banner
+while the settings methods lived ~290 lines lower with no banner at all — so the file
+advertised a section it did not contain, and the real one was unlabelled. Relocated to sit
+above `getSetting()`, which also makes the two backends' banner sets genuinely parallel.
+Comment-only change.
+
+**Also found: the DB contract suite has no disposable-database guard.** `tests/e2e/real-app`
+asserts (T64) that `APERIO_E2E_POSTGRES_URL` names a database containing `e2e` or `test` —
+and it caught this session's first throwaway container, which was named `aperio`. The
+contract suite under `tests/integration/db/contract/` applies no such check: it only refuses
+the shipped example *password*, so it will happily migrate, seed and write rows into a real
+`aperio` database. Logged to tech-debt.
+
+*Worked:* `npm test` **6636/6636** (0 skipped; 6631 before, +5 from the new parity test),
+`npm run test:harness` **33/33**, `npm run test:audit` **465/465**, `npm run gen:env:check`
+clean. **The DB contract suite was run against BOTH backends — 129/129, 18 suites, all nine
+domains × sqlite *and* postgres** — plus `tests/integration/db` **308/308 with 0 skipped**,
+which is how the Postgres-only `postgres-vec-meta` / `postgres-vector-dims` suites (the live
+cover for the `vectorMeta` mixin) are confirmed to have actually run rather than silently
+skipped. `tests/e2e/real-app` **86/86** with the Postgres URL set. Beyond the suites, one
+method from each of the six mixins was driven through `db/index.js`'s own factory — not the
+harness's direct `PostgresStore.init()` — against live pgvector *and* against SQLite, with
+byte-identical output from both.
+*Postgres ran on a disposable container, never `docker/docker-compose.yml`:* that file
+hardcodes `volumes: aperio_data: name: aperio_data`, and a hardcoded `name:` bypasses `-p`
+project isolation, so bringing it up would have reattached a test stack to the real data
+volume. Used `docker run --rm` with **no named volume** on port 55432, database
+`aperio_test_s32`, a non-default password; torn down after. The pre-existing `aperio_data`
+volume (created 2026-06-26) was never mounted and is untouched. No stray state in the repo
+tree. Tests: T3.2 — pass.
 
 ### Phase 4 — Launch v1
 
