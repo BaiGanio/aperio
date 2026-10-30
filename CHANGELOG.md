@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+
+## [0.69.4] — 2026-10-30
+
+### Fixed
+- close the bridge memory lifecycle races (#532)
+
+---
+
 ### Added
 - the terminal can approve and reject consequential tool actions (#539, Phase 1). A write,
   delete, `db_execute`, `index_folder` or template proposal reaches the client as
