@@ -26,6 +26,8 @@ Every v2 choice answers to that.
 | v1 safety | Tag `archive/v1-final` holds every v1 file forever. |
 | In-flight v1 work | The other session's store split finishes and commits first. Then we archive. |
 | UI | New small UI. Copy parts in one by one. Every new look is previewed first. |
+| UI tech | **No framework, no build step. Angular-style structure:** one native Web Component per file, plain service modules, one tiny store on `EventTarget`, `// @ts-check` + JSDoc checked by `tsc --noEmit` in CI. **Switch to Angular** only at a return gate, and only if one of these is true: > ~10 screens, > ~5k UI lines, or a returning feature needs heavy forms or routing. |
+| v1 launch vs v2 | **OPEN.** Another session set a v1 public launch for 2026-12-15. The v2 plan freezes master. Decide before S0.1: ship v1 on Dec 15 and then start v2, or drop the v1 launch and launch v2 as v1.0.0. |
 | Later features (gated) | Doc intelligence · Wiki · Cloud providers + Postgres · Code graph + terminal CLI · Shell + GitHub tools. |
 | Self-memory | Parked. Comes back only if a test shows a small model does better with it. |
 | Return gate | After v1.0.0 ships. One feature at a time. Needs a real need + a test score that goes up. |
@@ -392,6 +394,25 @@ finds old memories, and the v1 file's checksum is unchanged. → **T2.12**
 ### Phase 3 — New small UI (copy parts in)
 
 Each part is **previewed as standalone HTML → you approve → then it is integrated**.
+
+**UI structure (Angular-style, no framework):**
+
+| Angular idea | v2 version | Where |
+|---|---|---|
+| Component | One native Web Component (`customElements.define`) per file, ≤ 500 lines (AP7) | `public/components/<name>.js` |
+| Service | A plain ES module with one job (socket, memories, settings) | `public/services/<name>.js` |
+| Signals / state | One tiny store on `EventTarget` (about 50 lines): `get`, `set`, `subscribe` | `public/state/store.js` |
+| TypeScript | `// @ts-check` + JSDoc types; `tsc --noEmit` in CI; no compile step | every UI file |
+| Typed API | The shared WebSocket schema (S2.11, AP8), imported by client and server | `src/shared/ws-schema.js` |
+| Styles | Design tokens + per-component CSS; no inline styles (CSP) | `public/styles/` |
+
+Rules: components never talk to the socket directly, only through services. Services never touch
+the DOM. State changes go only through the store. These are the same rules Angular enforces, kept
+by review and the AP guards. That keeps a later move to Angular mechanical, not a rewrite.
+
+**Step S3.0 — UI skeleton.** Set up the store, the socket service (using the shared schema), one
+empty component, and `tsc --noEmit` in CI. Do this before S3.1.
+*Works when:* the empty shell loads, connects, `tsc --noEmit` is green, and a planted type error fails CI. → **T3.0**
 
 | Part | Take from v1 (at tag) | Cut |
 |---|---|---|

@@ -25,24 +25,6 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
-## Script runners are not gated or confirmed
-
-- 2026-10-30 `run_node_script` and `run_python_script` are registered unconditionally
-  (`mcp/tools/shell.js:640`, `:652`). `SHELL_ENABLED` is declared at `shell.js:76` and
-  checked exactly once, at `:519`, inside the `run_shell` handler — so
-  `APERIO_ENABLE_SHELL` gates `run_shell` and nothing else. Neither runner appears in
-  `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`). On a default install both
-  runners are therefore live and silent. Issue #456 **already decided** the posture
-  (2026-08-15): both move behind `APERIO_ENABLE_SHELL` at registration, both join
-  `CONFIRMABLE_TOOLS` so the first call still asks even with the switch on, the pptx/docx
-  skills say plainly that advanced tools are off rather than half-running, and `write_file`
-  gains an `isSecretFile()` check. Only that last part shipped
-  (`mcp/tools/files/write.js:114`). The decision was written, tested green and lost without
-  ever being committed — re-verified on 2026-10-30 that no ref carries it. Narrower than the
-  2026-08 audit framed it, because `write_file` *is* confirmable, so the write half of
-  write-then-run does prompt; the execute half neither gates nor confirms. **Launch-blocking
-  for 2026-12-15** and not tracked by any open issue.
-
 ## Indexing shares the server's event loop
 
 - 2026-10-17 Code-graph and doc-graph indexing run in-process on the main thread. Tree-sitter
@@ -774,6 +756,7 @@ These are intentional deferrals. Do not "fix" them without discussion.
 | CSP headers disabled | Resolved: Helmet CSP is enforced by default; use `APERIO_CSP=report` for rollout diagnostics | — |
 | `tree-sitter` pinned at `^0.24.7` | Cannot upgrade to 0.25+ (ABI 15) | `tree-sitter-wasms` must ship ABI-15 grammar builds |
 | A graph read can briefly see one file or document mid-rebuild (`lib/codegraph/backends/sqlite.js` `reindexFile()`, `lib/docgraph/backends/sqlite.js` `reindexDocument()`) | Permanent and accepted (S2.1, 2026-10-22): the write loops yield to the event loop so indexing cannot freeze the server, which means a file's symbols and its edges are no longer written in one event-loop turn. There was never a transaction around them — each statement already autocommitted, so a crash mid-file always left exactly this state; yielding only makes the window reachable by a reader. A query that lands in it sees a momentarily thin file instead of a server that stopped answering for three seconds. Do not "fix" by holding a transaction across the yields: better-sqlite3 transactions must be synchronous, and a manual `BEGIN`/`COMMIT` spanning awaits would fold any other writer's statement on the shared connection into this transaction | Deliberate trade-off — nothing to unblock |
+| `run_node_script` / `run_python_script` are registered unconditionally and are not in `CONFIRMABLE_TOOLS`, so a clean turn can `write_file` a `.js` file and run it with no confirm click and `APERIO_ENABLE_SHELL` unset (`mcp/tools/shell.js:640,652`; the one `SHELL_ENABLED` check is at `:519`, inside `runShellHandler`) | Permanent and accepted (2026-10-30). **Do not "fix" this by implementing #456** — its 2026-08-15 resolution (gate at registration + join `CONFIRMABLE_TOOLS`) was overruled nine days later by commit `1d1b4ccb`, *"docs(security): record ungated script execution as a decision, not a gap"*, which wrote `SECURITY.md:41-79`. Eight bundled skills build output by writing a script then running it, and both runners ship in the default `file-generate` profile (`lib/agent/tool-profiles.js:109`), so a gate leaves a fresh install unable to produce a deck or a document until the user edits `.env`. Only #456 part 4 was kept and shipped (`write_file` calls `isSecretFile()`, `mcp/tools/files/write.js:114`). Confirm-once-per-session was weighed on 2026-10-30 as the one option `SECURITY.md`'s "several clicks per document" objection does not cover, and **declined** for the 2026-12-15 launch: the posture is already stated plainly and in public, and the time goes to #467's missing capability note instead. #456 is superseded, not outstanding | Nothing to unblock — the posture is the decision, documented at `SECURITY.md:41-79` |
 | A v1-era `extraction` row whose connection string is edited before the new build's first touch stays orphaned (`lib/db-connect/extraction.js`) | Permanent: the old identity is gone the moment the process restarts with a new connection string, and a one-way hash can't be inverted. Fails closed on purpose (rejects rather than silently adopting an arbitrary path). 2026-08-22: error message now names the stranded file for manual recovery (`reservedExtractionNameError()`) | Unrecoverable by design — nothing to unblock |
 
 ## Investigated and rejected

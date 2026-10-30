@@ -34,7 +34,8 @@ weakened to pass. Any scope change is written down in the commit.
 | S2.10 | T2.10 skills | on/off eval delta |
 | S2.11 | T2.11 WS schema | AP8: known types accepted, unknown/malformed rejected |
 | S2.12 | T2.12 v1 → v2 import | no lost rows, v1 DB untouched |
-| S3.1–S3.7 | T3.x UI parts | preview approved + Playwright |
+| S3.0 | T3.0 UI skeleton | store, socket service, tsc check, no build |
+| S3.1–S3.7 | T3.x UI parts | preview approved + Playwright + structure checks |
 | S4.1 | T4.1 daily use | 2 weeks, no open blocker |
 | S4.2 | T4.2 done check | all green + ledger ported |
 | S4.3 | T4.3 swap + install | fresh install runs core flow |
@@ -158,7 +159,12 @@ weakened to pass. Any scope change is written down in the commit.
 
 ## Phase 3
 
+### T3.0 — UI skeleton
+- **Assertions:** the shell loads with no build step (served as plain files); the socket service connects and validates messages with the shared schema; the store notifies subscribers on `set`; `tsc --noEmit` is green; a planted JSDoc type error fails CI; there is no framework dependency in `package.json`.
+- **Edge cases:** the socket drops → the service reconnects and the store keeps its state; the store has no subscribers left after a component is removed (no leak).
+
 ### T3.x — UI parts (one per part)
+- **Structure checks (each part):** it is one Web Component file ≤ 500 lines; it does not import the socket directly (only services); it changes state only through the store.
 - **Setup:** standalone preview HTML in scratch.
 - **Assertions:** developer approved the preview; integrated part matches it; Playwright test covers it (chat: send + stream + stop; memory table: view/edit/delete; inbox: approve/reject; settings: change a key and see it applied; theme + font scale persist).
 - **Edge cases:** phone width; dark mode; no localStorage.
@@ -187,7 +193,7 @@ weakened to pass. Any scope change is written down in the commit.
 
 T0.1 → T0.2 → (T0.3, T0.4 in parallel) → T0.5 → T0.6 → T1.1 → T1.2 → T1.3 →
 **T2.1 (baseline) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 →
-T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
+T3.0 → T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
 
 ## Required setup
 

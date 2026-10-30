@@ -925,16 +925,28 @@ S4.1 to earn it.** `e0044abe feat(attachments)` already sits past the `v0.69.4` 
 `scripts/release-bump.js` takes a single `feat` over any number of `fix`es, so the next
 release computes `minor` by itself. The round number is safe without a manufactured feature.
 
-*One launch blocker found that no open issue tracks.* #456's resolution has four parts;
-part 4 shipped (`write_file` does call `isSecretFile()`, `mcp/tools/files/write.js:114`) but
-**parts 1 and 3 did not**. `run_node_script` and `run_python_script` are still registered
-unconditionally (`mcp/tools/shell.js:640`, `:652`); `SHELL_ENABLED` exists at `shell.js:76`
-and is checked once, at `:519`, inside the `run_shell` handler only; and
-`lib/helpers/confirmableTools.js` lists neither runner. So on a default install both runners
-are live and silent. It is less sharp than the 2026-08 audit framed it — `write_file` *is* in
-`CONFIRMABLE_TOOLS`, so the write half of write-then-run does ask — but the execute half
-neither gates nor confirms. Logged as code depth; it belongs on the new map as execution,
-since the posture itself was already decided in #456 and does not need re-deciding.
+*A sixth decision changed, and the first pass of this re-check got it wrong.* #456's gate
+was first written up here as a launch blocker that "was written, tested green and lost
+without ever being committed" — the claim every earlier note repeated. **It is false.** The
+decision was *overruled nine days later, on purpose.* #456 resolved 2026-08-15 to move
+`run_node_script` / `run_python_script` behind `APERIO_ENABLE_SHELL` at registration and add
+them to `CONFIRMABLE_TOOLS`; commit `1d1b4ccb` (2026-08-24), titled **"docs(security):
+record ungated script execution as a decision, not a gap"**, wrote `SECURITY.md:41-79`,
+which states in public that the ungated posture is deliberate. The reason is the launch
+story itself: eight bundled skills build their output by writing a script and then running
+it, both runners ship in the default `file-generate` profile
+(`lib/agent/tool-profiles.js:109`), and a gate leaves a fresh install unable to produce a
+deck or a document until the user edits `.env`. Only part 4 was kept and shipped
+(`write_file` calls `isSecretFile()`, `mcp/tools/files/write.js:114`).
+
+**Resolved 2026-10-30: nothing changes, #456 is superseded.** The one option
+`SECURITY.md`'s own objection does not cover — confirm-*once per session* rather than per
+document — was weighed and declined for this launch: the posture is already stated plainly
+and publicly, and the time goes to #467's missing capability note, which is the launch
+promise with nothing behind it. Recorded in `id/reference/tech-debt.md`'s **Intentional
+deferrals** table, not as open code depth. The lesson for the rest of this map: a #455
+ticket's resolution is not the last word — check whether a later commit reversed it before
+treating it as outstanding work.
 
 **S4.2 Locales.** Resume #421/#422 only after S4.1 is set.
 Tests: T4.1.
