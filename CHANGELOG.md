@@ -187,6 +187,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
   manual dispatch — never on a direct commit to `master`.
 
 
+## [0.69.3] — 2026-10-22
+
+### Fixed
+- give the settings schema load an abort deadline
+- index every supported language on live saves
+- keep the server responsive during a code/doc index pass
+
+---
+
 ## [0.69.2] — 2026-10-22
 
 ### Fixed
