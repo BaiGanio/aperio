@@ -25,6 +25,18 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Dependency audit gate
+
+- 2026-10-30 `npm run audit:gate` already fails on `master` (before any dependabot bumps were
+  applied), independent of this session's dependency update batch: `GHSA-xcx6-jx8p-x3h5`
+  (`@azure/msal-node`, via `mssql → tedious → @azure/identity`) and `GHSA-27r3-jxmh-p828`
+  (`body-parser`, via `express`). Neither package's version changed in this session's
+  `package-lock.json` diff — confirmed by stashing the session's changes and re-running the
+  gate against clean `master`, same two failures. Not caused by, or fixed by, the 12
+  dependabot PRs applied this session. Needs its own look: either bump `express`/add
+  `@azure/identity` to a fixed range, or add dated allowlist entries in
+  `scripts/npm-audit-gate.js` with a real justification.
+
 ## Indexing shares the server's event loop
 
 - 2026-10-17 Code-graph and doc-graph indexing run in-process on the main thread. Tree-sitter

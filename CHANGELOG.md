@@ -178,6 +178,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - document in `id/reference/ci-cd.md` which workflows are switched off in the GitHub
   Actions UI. A disabled workflow's file looks live in the tree and no `grep` can tell you
   otherwise: `ci.pr-guard.yml`, `ci.pr-lint-feedback.yml` and `cd.k3s-deploy.yml`.
+- bump dependencies: `@anthropic-ai/sdk` 0.123.0 → 1.1.0, `@anthropic-ai/claude-agent-sdk`
+  0.3.302 → 0.3.308, `chokidar` 5.0.0 → 6.0.0, `dotenv` 17.4.2 → 18.0.9, `docx` 9.12.0 →
+  9.13.0, `mssql` 12.7.9 → 12.7.11, `gpt-tokenizer` 4.0.3 → 4.1.0, `bootstrap-icons` 1.13.1 →
+  1.13.2 (Dependabot #571, #572, #573, #574, #575, #577, #579, #581); pin
+  `github/codeql-action/analyze`, `actions/download-artifact`, `actions/upload-artifact` and
+  `codecov/codecov-action` to their latest released SHAs in the CI workflows (#576, #578,
+  #580, #582).
 
 ### Fixed
 - re-enable `ci.codeql.yml`, which had been `disabled_manually` on GitHub since
