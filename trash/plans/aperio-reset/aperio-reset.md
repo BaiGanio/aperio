@@ -869,6 +869,73 @@ tree. Tests: T3.2 — pass.
 **S4.1 New launch map.** Re-check the #455 decisions (most should still hold), pick a new
 date, open a fresh map. Local models lead the story. **This is where v0.70.0 is spent** —
 S0.4 shipped v0.69.2, so the round number is still free and should ride a real `feat:`.
+
+**Date set: Tuesday 2026-12-15.** Decided live with the developer 2026-10-30. Chosen over a
+January date to keep the runway short after one already-missed date, and deliberately clear
+of 2026-11-25, when the two `image-size` acceptances in `scripts/npm-audit-gate.js` expire
+and turn CI red on their own.
+
+**The #455 re-check is done (2026-10-30), the map itself is parked** at the developer's
+request — the research below is the map's raw material, so it does not have to be re-derived.
+Each line was verified against the repo, not recalled.
+
+*Eleven decisions still hold:* all three install surfaces exist and work (#492) — the
+`aperio-lite.zip` asset ships on `v0.69.4`, `git clone` is in `README.md`, and
+`.github/lite/install.sh` is live on the `release` branch behind the landing page's
+`curl … | bash`; platforms macOS/Windows/Linux; the first-five-minutes win; `aperio.live` out
+of scope (#239 — now permanently cut by Phase 1, which is stronger than the old
+"out of scope for this window"); GitHub Discussions is enabled, so the 72-hour triage answer
+stands (#493); "lite" shipped as a profile (#495); installs/clones as the success measure
+(#496, though its 242-clones/2wk baseline is August data and needs re-reading); the 0.x line
+continues (#458), and its stale-support-table follow-up is done — `SECURITY.md` now reads
+0.69.x. **All three of #466's pre-launch code fixes landed:** the SQLite file is created 0600
+(`db/sqlite/store.js`, `precreateSecureFile` + `_hardenDbFiles`, tagged SECRET-02), the
+`cdn.jsdelivr.net` mermaid tag carries an SRI hash (`public/index.html:20`), and the
+allowed-folders wording states read **and** write (`lib/config.js:57,203`,
+`lib/agent/host-tools/index-folder.js:88`). #468's split holds: `trash/plans/`, `vms/`,
+`k8s/`, `id/` are public and `audit/runs/` is out of the tracked tree (30 files remain under
+`audit/` — `ledger/`, `scripts/`, `tests/` — with the findings in `trash/audits/`).
+
+*Five decisions changed and need re-stating on the new map:*
+
+- **#465 (npm audit) is wrong in every part.** It decided "accept all three advisories, take
+  no bumps, write a dated exception table in `SECURITY.md`, re-check 2026-11-13". Today:
+  `adm-zip` and `uuid` are gone from the tree entirely; the two advisories that were actually
+  failing the gate (`GHSA-27r3-jxmh-p828` body-parser, `GHSA-xcx6-jx8p-x3h5`
+  @azure/msal-node) **were fixed by a lockfile bump**, not accepted; the allowlist lives in
+  `scripts/npm-audit-gate.js` with per-entry `reviewBy` dates, not in `SECURITY.md`; and the
+  `SECURITY.md` table and the 2026-11-13 date were never written — neither string appears in
+  the file. Only the two `image-size` entries are accepted, `reviewBy: 2026-11-25`.
+  `SECURITY.md`'s "Automated Security Coverage" table still does not mention the gate at all,
+  though `FEATURES.md:339` advertises it.
+- **#467 (the honest capability note) was never executed.** `README.md` has no such section,
+  and neither "less proven" nor "experimental" appears anywhere in it. This is the one
+  decided launch promise with nothing behind it.
+- **#460 (extraction in the launch story)** turned on deciding *on 1 September itself*, from
+  that day's pass rate. The date passed with no launch, and doc-intelligence WS4 / T-G6 is
+  still not started (#250, #251 open), so the decision point has to be re-pinned to
+  2026-12-15.
+- **#459 (the Manual) is spent.** Epic #405 is closed; the manual shipped. Its other half —
+  master's red CI from `tests/integration/manual/**` — is also fixed.
+- **#494 (26 locales)** still holds in substance ("ship partial, say so plainly"), but the
+  sequencing is new: #421/#422 are S4.2, explicitly *after* this map, not parallel to it.
+
+*One correction to the plan's own premise, in the good direction:* **v0.70.0 does not need
+S4.1 to earn it.** `e0044abe feat(attachments)` already sits past the `v0.69.4` tag, and
+`scripts/release-bump.js` takes a single `feat` over any number of `fix`es, so the next
+release computes `minor` by itself. The round number is safe without a manufactured feature.
+
+*One launch blocker found that no open issue tracks.* #456's resolution has four parts;
+part 4 shipped (`write_file` does call `isSecretFile()`, `mcp/tools/files/write.js:114`) but
+**parts 1 and 3 did not**. `run_node_script` and `run_python_script` are still registered
+unconditionally (`mcp/tools/shell.js:640`, `:652`); `SHELL_ENABLED` exists at `shell.js:76`
+and is checked once, at `:519`, inside the `run_shell` handler only; and
+`lib/helpers/confirmableTools.js` lists neither runner. So on a default install both runners
+are live and silent. It is less sharp than the 2026-08 audit framed it — `write_file` *is* in
+`CONFIRMABLE_TOOLS`, so the write half of write-then-run does ask — but the execute half
+neither gates nor confirms. Logged as code depth; it belongs on the new map as execution,
+since the posture itself was already decided in #456 and does not need re-deciding.
+
 **S4.2 Locales.** Resume #421/#422 only after S4.1 is set.
 Tests: T4.1.
 

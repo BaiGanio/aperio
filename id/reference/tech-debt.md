@@ -25,6 +25,24 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Script runners are not gated or confirmed
+
+- 2026-10-30 `run_node_script` and `run_python_script` are registered unconditionally
+  (`mcp/tools/shell.js:640`, `:652`). `SHELL_ENABLED` is declared at `shell.js:76` and
+  checked exactly once, at `:519`, inside the `run_shell` handler — so
+  `APERIO_ENABLE_SHELL` gates `run_shell` and nothing else. Neither runner appears in
+  `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`). On a default install both
+  runners are therefore live and silent. Issue #456 **already decided** the posture
+  (2026-08-15): both move behind `APERIO_ENABLE_SHELL` at registration, both join
+  `CONFIRMABLE_TOOLS` so the first call still asks even with the switch on, the pptx/docx
+  skills say plainly that advanced tools are off rather than half-running, and `write_file`
+  gains an `isSecretFile()` check. Only that last part shipped
+  (`mcp/tools/files/write.js:114`). The decision was written, tested green and lost without
+  ever being committed — re-verified on 2026-10-30 that no ref carries it. Narrower than the
+  2026-08 audit framed it, because `write_file` *is* confirmable, so the write half of
+  write-then-run does prompt; the execute half neither gates nor confirms. **Launch-blocking
+  for 2026-12-15** and not tracked by any open issue.
+
 ## Indexing shares the server's event loop
 
 - 2026-10-17 Code-graph and doc-graph indexing run in-process on the main thread. Tree-sitter
