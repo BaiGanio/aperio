@@ -41,12 +41,57 @@ export const REVIEWED_EXCEPTIONS = {
   APERIO_REPORT_PORT: "internal restart-supervisor signal",
   APERIO_BENCHMARK_RUN: "internal benchmark-harness signal (scripts/local-bench.js)",
   APERIO_INTERRUPT_TTL_MS: "test-only override, per its own inline comment (mcp/tools/files/interrupt.js)",
+  // Minted per MCP-child spawn by the parent and forwarded in the child's env
+  // (lib/agent/mcp-connect.js, lib/agent/providers/codex.js). A user editing
+  // either one in Settings could only break the handshake, so neither belongs
+  // in the registry.
+  APERIO_MCP_AUTH_TOKEN: "internal per-spawn MCP auth token (minted in lib/agent/mcp-connect.js)",
+  APERIO_RUNTIME_ROOT: "internal per-spawn runtime-root handoff (set in lib/agent/mcp-connect.js)",
 };
 
-function stripComments(source) {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+// One pass, because order matters and two independent regexes get it wrong:
+// a `//` comment mentioning a path like `/api/*` used to open a *fake* block
+// comment that ran to the next `*/` and ate ~300 lines of real lib/server.js,
+// hiding a genuine env read from this gate. Strings are tracked so a `//` or
+// `/*` inside one is not mistaken for a comment.
+export function stripComments(source) {
+  let out = "";
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (c === "/" && next === "/") {
+      while (i < n && source[i] !== "\n") i += 1;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      i += 2;
+      while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i += 1;
+      i += 2;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      out += c;
+      i += 1;
+      while (i < n && source[i] !== c) {
+        if (source[i] === "\\") {
+          out += source[i];
+          i += 1;
+        }
+        if (i < n) {
+          out += source[i];
+          i += 1;
+        }
+      }
+      out += source[i] ?? "";
+      i += 1;
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
 }
 
 function listJsFiles(dir) {

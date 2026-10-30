@@ -23,8 +23,10 @@ is **red** on today's master before starting the step, then make it green.
 | S2.4 | T2.4 Integration: bridge races | delete/sweep/reindex interleavings |
 | S2.5 | T2.5 Unit: redact round trip | restore or mode removed |
 | S2.6 | T2.6 Integration: terminal loop + T2.6b protocol contract | commands via injected IO; every protocol member classified |
-| S2.7 | T2.7 Core-chat parity | staged discuss, /branch |
-| S2.8 | T2.8 Ergonomics | bounded attachments, /detach |
+| S2.7 | T2.7 Core-chat parity — **PARKED** | staged discuss, /branch |
+| S2.8a | T2.8 Ergonomics — **PARKED** with S2.7 | /attachments, /detach |
+| S2.9 | T2.9 Config-contract gate — **PASS** | no unregistered reads, no blind spots |
+| S2.10 | T2.10 Attachment bound | refuse before read, shared limit |
 | S3.1 | T3.1 Review checklist | every slop-touched file accounted for |
 | S3.2 | T3.2 Refactor safety | suite + harness green, no behaviour change |
 | S4.1–S4.2 | T4.1 Launch map | decisions listed, date set |
@@ -300,18 +302,36 @@ CodeQL. Assert inertness plus badge honesty, not absence.
   whole cannot be scraped; `INDIRECT_EVENT_PRODUCERS` declares those and a test asserts the
   named file still mints the type, so a rename fails instead of shrinking the surface.
 
-### T2.7 — terminal core-chat parity (#539 Phase 2)
+### T2.7 — terminal core-chat parity (#539 Phase 2) — **PARKED 2026-10-30**
+All five protocol types stay `web-only` with their existing written reasons; the S2.6 contract
+test keeps the surface honest while this sleeps. Scope below kept for the unpark.
 - **Assertions:** the staged discuss flow drives `discuss_start` → `discuss_summary` → a
   terminal accept/skip → `discuss_confirm`; `/branch` creates a child session or returns a
   tested limitation; `session_branched` renders. Each type moves from `web-only` to
   `handled`/`sends` in the parity policy tables — the contract test fails until it does.
 - **Edge cases:** reuse the stub-`ws` harness from T2.6 rather than booting a real server.
 
-### T2.8 — terminal ergonomics (#539 Phase 3)
-- **Assertions:** boundary-size tests for the attachment limit, plus a regression test that a
-  rejected file is **not** read or base64-encoded (the current code allocates both
-  representations before any check); `/attachments` and `/detach <n|all>` through the T2.6 IO
-  seam.
+### T2.8 — terminal ergonomics (#539 Phase 3) — **PARKED with S2.7**
+- `/attachments` and `/detach <n|all>` through the T2.6 IO seam. The attachment-limit half of
+  this entry moved to T2.10, because it tests a bug rather than an ergonomic.
+
+### T2.9 — config-drift gate has no blind spots — **PASS 2026-10-30**
+- **Assertions:** the real scan reports zero unregistered env reads; **every**
+  `REVIEWED_EXCEPTIONS` entry is actually read somewhere in the scanned surface (the old test
+  only asserted `length >= 10`, so a stale entry went silent); a `//` comment naming a glob
+  path does not swallow the code after it; a `/*` or `//` inside a string literal survives;
+  real comments of both kinds are still stripped.
+- **Edge cases:** the glob-comment fixture must contain **both** the `//`-with-`/api/*` line
+  **and** a later genuine `/* ... */`. Without the closing half the old regex fails to match
+  at all and the fixture passes under the buggy stripper — proved red against it before
+  keeping. `npm run gen:env:check` must stay clean, since no registry key was added.
+
+### T2.10 — terminal attachment bound (from T2.8)
+- **Assertions:** boundary-size tests at just-under / exactly-at / just-over the limit, plus a
+  regression test that a rejected file is **never** read or base64-encoded — the current code
+  allocates both representations and only `statSync`s afterwards.
+- **Edge cases:** the limit must be the *same* constant the web upload path uses; a test should
+  fail if the two drift apart. Drive the command surface through the T2.6 IO seam.
 
 ### T3.1 — slop review complete
 - **Assertions:** a checklist of the 284 touched files (from `git log -i --grep=slop --name-only`) has each file marked reviewed / deleted; findings logged to tech-debt.md or fixed.

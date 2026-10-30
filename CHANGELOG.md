@@ -9,6 +9,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+- the config-drift audit gate no longer goes blind after a `//` comment that mentions a glob
+  path. `audit/scripts/config-contract.js` stripped block comments before line comments, so
+  the `/api/*` in a comment on `lib/server.js:203` opened a comment the next real `*/` closed
+  — swallowing ~300 lines of live code and hiding a genuine `process.env` read from the gate.
+  Replaced with a single-pass, string-aware stripper; the scan now sees 120 env vars and every
+  documented exception is proven live.
+- `APERIO_MCP_AUTH_TOKEN` and `APERIO_RUNTIME_ROOT` are recorded as reviewed exceptions in the
+  same gate rather than registry keys. Both are minted per MCP-child spawn by the parent and
+  forwarded in the child's env, so neither is user-facing config and `lib/config.js` is
+  untouched. This clears the last standing red in `npm test`.
+
 
 ## [0.69.4] — 2026-10-30
 

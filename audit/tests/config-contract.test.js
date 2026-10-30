@@ -6,7 +6,9 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { envReadsInSource, checkConfigContract, REVIEWED_EXCEPTIONS } from "../scripts/config-contract.js";
+import {
+  envReadsInSource, checkConfigContract, REVIEWED_EXCEPTIONS, scanEnvReads, stripComments,
+} from "../scripts/config-contract.js";
 
 describe("audit/scripts/config-contract.js", () => {
   test("envReadsInSource finds both process.env.X and process.env['X'] forms", () => {
@@ -65,7 +67,46 @@ const real = process.env.REAL_VAR;
 
   test("current real state — the documented OS/internal exceptions are all actually read somewhere " +
     "(a stale exception entry would go silent, not fail loud, so pin the live ones)", () => {
-    const result = checkConfigContract();
-    assert.ok(Object.keys(REVIEWED_EXCEPTIONS).length >= 10);
+    const byVar = scanEnvReads();
+    const stale = Object.keys(REVIEWED_EXCEPTIONS).filter((name) => !(name in byVar));
+    assert.deepStrictEqual(
+      stale, [],
+      `exception entries no longer read in lib/, mcp/, db/, server.js or bootstrap.js: ${stale.join(", ")}`,
+    );
+  });
+
+  test("a `//` comment naming a glob path does not swallow the code after it " +
+    "(lib/server.js:203's `/api/*` opened a fake block comment and hid a real env read)", () => {
+    // The later `/* ... */` is what made this bite in lib/server.js: it closed
+    // the comment the `/api/*` glob had opened, so everything between the two
+    // vanished. Without a closing `*/` anywhere the old regex simply failed to
+    // match and the bug stayed invisible — so the fixture needs both halves.
+    const src = [
+      "// AUTH-01: opt-in gate on /api/* (no-op unless APERIO_AUTH_TOKEN set).",
+      "const later = process.env.APERIO_AFTER_THE_COMMENT;",
+      "try { shutdown(); } catch { /* non-fatal */ }",
+      "const t = process.env.APERIO_AUTH_TOKEN;",
+    ].join("\n");
+    assert.deepStrictEqual(
+      [...envReadsInSource(src)].sort(),
+      ["APERIO_AFTER_THE_COMMENT", "APERIO_AUTH_TOKEN"],
+    );
+  });
+
+  test("stripComments keeps a `//` or `/*` that lives inside a string literal", () => {
+    assert.match(stripComments('const u = "https://x.test/api/*";'), /https:\/\/x\.test\/api/);
+    assert.deepStrictEqual(
+      [...envReadsInSource('const u = "https://x.test/*"; const v = process.env.AFTER_URL;')],
+      ["AFTER_URL"],
+    );
+  });
+
+  test("real block comments and line comments are still stripped", () => {
+    assert.deepStrictEqual([...envReadsInSource("/* process.env.IN_BLOCK */")], []);
+    assert.deepStrictEqual([...envReadsInSource("// process.env.IN_LINE")], []);
+    assert.deepStrictEqual(
+      [...envReadsInSource("/* a */ const x = process.env.REAL_ONE; // process.env.FAKE")],
+      ["REAL_ONE"],
+    );
   });
 });

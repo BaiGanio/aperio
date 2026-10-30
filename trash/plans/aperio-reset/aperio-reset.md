@@ -605,7 +605,27 @@ up from 204). Suite: 6605/6606, the one red being the pre-existing config-contra
 recorded under S2.4 (same two keys, `APERIO_MCP_AUTH_TOKEN` and `APERIO_RUNTIME_ROOT`, in
 files this step never touched).
 
-**S2.7 Terminal core-chat parity (#539 Phase 2).** Adopt the staged `discuss_start` →
+**S2.7 Terminal core-chat parity (#539 Phase 2).** — **PARKED 2026-10-30 by developer
+decision.** Reason, as raised by the developer and checked: every item here is *parity* work,
+not new user capability — the web UI already has staged discuss, `/branch` and completable
+memory suggestions. Parking it costs terminal users features; it costs no user a feature.
+The developer's framing was hardware ("not a data centre"); the sharper reason is **model
+capability plus audience**. A staged three-turn discuss flow is where small local models
+already fail (see the weak-model recall history), and the terminal's audience is devs and
+other agents via MCP — the smaller group. Local-models-first is the locked focus, so a flow
+that needs a strong model to be pleasant is the wrong thing to widen now.
+
+**Parking is structurally free, and that was verified, not assumed.** All five events are
+*already* `WEB_ONLY` with written reasons in `tests/integration/terminal/protocol-parity.test.js`
+(`session_branched:111`, `discuss_summary:122`, `save_suggestions:154`, `discuss_start:156`,
+`discuss_confirm:157`). The S2.6 contract test therefore keeps holding the line: a *new*
+protocol event still fails CI until classified, so the parity surface cannot drift silently
+while this step sleeps. Unparking means flipping those five policies, nothing more.
+
+The ~440-line proxy command dispatcher extraction rides along into the park — S2.6 already
+found it was not needed for the test seam, so it has no remaining sponsor.
+
+*Original scope, kept verbatim for when this unparks:* Adopt the staged `discuss_start` →
 `discuss_summary` → `discuss_confirm` flow; add `/branch` and render `session_branched`;
 decide and document whether memory suggestions are completable from the terminal
 (`save_suggestions`) or stay a `remember that …` route. Flip each from `web-only` to
@@ -613,12 +633,60 @@ decide and document whether memory suggestions are completable from the terminal
 dispatcher is ~440 lines and this step adds to it — extract it here, where the work pays for
 itself. Tests: T2.7.
 
-**S2.8 Terminal ergonomics (#539 Phase 3).** Bound and async-ify `readAttachment()` — it is
-still `readFileSync` → base64 with no size check before allocation, holding both
-representations at once (`lib/terminal/attachments.js:22`); share the limit with the web path.
-Add `/attachments` and `/detach <n|all>`. Add only the session/memory commands real usage asks
-for — not a TUI clone of the dashboard. Decide and write down the product contract first:
-"terminal chat client", not "full TUI". Tests: T2.8.
+**S2.8 Terminal ergonomics (#539 Phase 3).** — **SPLIT 2026-10-30.** The attachment bound is
+a real resource bug and is promoted to S2.10; the ergonomics commands are parked with S2.7.
+
+**S2.8a — PARKED with S2.7.** `/attachments`, `/detach <n|all>`, and any session/memory
+commands. Write the product contract down first when it unparks: "terminal chat client", not
+"full TUI". Not a TUI clone of the dashboard.
+
+**S2.8b → promoted to S2.10 below.** The `readAttachment()` bound is not ergonomics and not
+parity — it is an unbounded synchronous allocation, and it bites hardest on exactly the
+laptop-class hardware this product targets. Parking it would park a bug.
+Tests: T2.8 (the boundary half moves to T2.10).
+
+**S2.9 Clear the standing config-contract red.** — **DONE 2026-10-30.**
+Chosen over starting S2.7 so the suite was fully green first. The step was expected to touch
+`lib/config.js` (a No-Touch Zone) and need `npm run gen:env`; **it needed neither.** Both
+reads — `APERIO_MCP_AUTH_TOKEN` (`mcp/index.js:243`) and `APERIO_RUNTIME_ROOT`
+(`lib/handlers/memory/memoryHandlers.js:72`) — are minted per MCP-child spawn by the parent
+and forwarded in the child's env (`lib/agent/mcp-connect.js:42-43`,
+`lib/agent/providers/codex.js:364-368`). A user editing either in Settings could only break
+the handshake, so they are `REVIEWED_EXCEPTIONS` in `audit/scripts/config-contract.js`, which
+is precisely the category that list already documents. `npm run gen:env:check` stays clean and
+the registry is untouched. **This also retires the A2D worry that S3.1 would undo the work:**
+if the slop review deletes `APERIO_RUNTIME_ROOT`, the now-toothed pinning test fails loud and
+the one exception line comes out.
+
+**The real find was a hole in the gate itself.** `stripComments()` stripped block comments
+*before* line comments, so the `/api/*` glob inside the `//` comment at `lib/server.js:203`
+opened a comment that the next genuine `*/` (`/* non-fatal */`, line 478) closed —
+**swallowing ~300 lines of live code**, among them the `APERIO_REPORT_PORT` read at line 234.
+The gate was blind over a quarter of its largest scanned file and nobody could see it: a
+false negative here reads exactly like a pass. Replaced with a single-pass, string-aware
+stripper. The widened scan now sees **120** env vars and still reports zero unregistered, so
+the hole was hiding no other offender.
+
+**Two tests that were lying, now fixed.** The exception-pinning test's *name* promised it
+pinned live entries; its body only asserted `length >= 10`. Given teeth, it immediately found
+`APERIO_REPORT_PORT` "stale" — which is how the stripper bug surfaced at all. And the first
+regression fixture I wrote for the `/api/*` bug **did not reproduce it**: with no closing `*/`
+anywhere the old regex simply failed to match and the fixture passed under both strippers. It
+needs *both* halves — the glob comment and a later real block comment — and now has them;
+proved red against the old stripper before being kept.
+*Worked:* `npm test` **6609/6609, zero failures** — the first fully green suite of this plan;
+`npm run test:audit` 465/465; `npm run gen:env:check` clean. Tests: T2.9.
+
+**S2.10 Bound the terminal attachment read (from S2.8b).** `readAttachment()`
+(`lib/terminal/attachments.js:17-26`) calls `readFileSync(abs).toString("base64")` with **no
+size check at all**, holding the raw buffer and the ~1.33× base64 string at once, and it
+`statSync`s the file *after* reading it — so the one number that could have refused the file
+is computed too late to help. On laptop-class hardware a large attachment means a multiplied
+resident allocation and a blocked event loop. Check size via `statSync` **before** any read,
+share the limit with the web path rather than inventing a second one, and make the read async.
+*Works when:* an over-limit file is refused without ever being read or base64-encoded, and the
+limit is one constant shared with the web upload path.
+Tests: T2.10 (boundary sizes; plus a regression test that a rejected file is never read).
 
 ### Phase 3 — Own the code
 
