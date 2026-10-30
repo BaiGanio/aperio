@@ -9,7 +9,58 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+- the terminal can approve and reject consequential tool actions (#539, Phase 1). A write,
+  delete, `db_execute`, `index_folder` or template proposal reaches the client as
+  `action_confirm_pending`, and durable pending actions are replayed as `interrupts` after a
+  reconnect. `lib/emitters/cliEmitter.js` had a case for none of the three, so both landed in
+  its unknown-event fallback as a bare `[event: action_confirm_pending]` line — without even
+  the token — and a terminal user could not finish the action at all: not approve it, not
+  reject it, not see what it would do. New commands in both proxy and standalone mode:
+  `/pending` lists what is waiting with its tool and target, and `/approve`, `/reject`,
+  `/respond <text>` and `/edit <json>` answer it, taking the item's number when more than one
+  is waiting. Proxy mode answers over the WebSocket with the same `confirm_action` /
+  `interrupt_decision` messages the browser sends, so validation and execution stay in
+  `lib/routes/api-interrupts.js` rather than being reimplemented; standalone mode redeems the
+  token in-process by calling the tool with it, which is the fallback the WS handler already
+  uses when the interrupt row is not in the database. No model round-trip and no raw-token
+  workaround either way. The shared logic — which item a command refers to, whether that item
+  accepts the decision, what goes on the wire — lives in a new transport-neutral
+  `lib/terminal/confirm.js`.
+- `/discuss on` can no longer claim a round table the server cannot run (#539). It flipped a
+  local boolean and announced success while ignoring the `roundtableAvailable` and
+  `roundtableReason` fields the server sends in every `provider` message; the server then
+  quietly served a normal chat turn. It now refuses with the server's own reason, and a
+  `/model` switch that takes the capability away turns the mode off instead of letting the
+  next turn claim it. The staged `discuss_start` → `discuss_summary` → `discuss_confirm` flow
+  the browser uses is still web-only.
+- a protocol-parity contract test for the terminal
+  (`tests/integration/terminal/protocol-parity.test.js`). The WS protocol has no schema, and
+  the browser's existing contract pins only the browser's own handlers against a hand-written
+  list — so an event the browser does not handle is absent from both sides of it and nothing
+  goes red. The new test reads the protocol surface out of the source instead (every `send(`
+  call site in the WS handlers and `lib/agent/`, every `case` in `cliEmitter.js`, every
+  inbound `case` in `wsHandler.js`, every message the proxy builds) and requires each member
+  to be classified as handled, intercepted, internal, or web-only with a stated reason. An
+  event added anywhere in the agent or the WS handlers now fails CI until someone decides what
+  the terminal does with it.
+- a test seam for the terminal clients. `runStandalone` and `runProxy` take an optional `deps`
+  bag (`stdin`, `stdout`, and for standalone `root`, `createAgent`, `hydrateRuntime`,
+  `processAttachments`), so the real command loop can be driven with a fake agent, a scratch
+  root and a pipe — no provider, no llama.cpp, no database, and nothing written into the
+  developer's own `var/`. `runProxy` also returns a `{ close }` handle: its `close` handler
+  re-dials after 1.5s by design, so a client nobody closes keeps the process alive forever.
+  Two new suites use it: `tests/integration/terminal/standalone-loop.test.js` drives `/help`,
+  `/pending`, `/attach`, `/restart` and the full propose → approve → tool and propose → reject
+  paths, and `tests/integration/terminal/proxy-decisions.test.js` drives proxy mode against a
+  stub WebSocket server, asserting the frames that leave the client.
+
 ### Fixed
+- a dead confirmation branch in the CLI emitter. `cliEmitter.js` carried a
+  `delete_confirm_pending` case with a working token prompt, but nothing in `lib/` or `mcp/`
+  has emitted that event since the generic confirm flow replaced it — so the terminal's only
+  confirmation path was unreachable code. Removed, and the protocol-parity test now fails on
+  any policy entry naming an event nothing emits, which is the assertion that found it.
 - `npm test` no longer leaves redaction-map files behind in the checkout. The Privacy Shield
   side-channel test spawned its MCP child without `APERIO_RUNTIME_ROOT`, so the child fell
   back to a path derived from the source tree and wrote each recall's placeholder → value map

@@ -531,8 +531,94 @@ being the pre-existing config-contract failure recorded under S2.4.
 **Left for the developer:** close #531 on GitHub — it describes a state that has not been
 true since August. Not closed from this session; issue hygiene is the developer's call.
 
-**S2.6 Terminal parity (#539) + a real test seam for `runStandalone`** (injectable
-stdin/stdout/agent). Tests: T2.6.
+**S2.6 Terminal parity (#539) + a real test seam for `runStandalone`.** — **DONE 2026-10-24.**
+Scoped down, with the developer's agreement, to **#539 Phase 1 + the seam + one piece of
+Phase 2**. #539 is an epic: 7 findings, 3 phases, 8 acceptance criteria. Phases 2 and 3 are
+now S2.7 and S2.8 below.
+
+**All 7 findings were checked against master first, and none had been fixed.** Unlike S2.5,
+the issue was not stale — the 2026-08-30 audit at `4cb410e8` still described the code. One
+finding was *understated*: it called the legacy `delete_confirm_pending` prompt "not the
+current flow", when in fact **nothing in `lib/` or `mcp/` emits that event any more**, so
+`cliEmitter.js:302` was unreachable and the terminal's only confirmation path was dead code.
+
+**The P1 safety gap, closed.** `action_confirm_pending`, `interrupts` and `interrupt_decided`
+had no case in `cliEmitter.js`, so a pending write/delete/database/index/template action
+printed as `[event: action_confirm_pending]` — *without the token*, so even the manual
+type-the-token fallback was unavailable. A terminal user could not finish the action at all.
+New `lib/terminal/confirm.js` (transport-neutral: a numbered pending store, renderers, the
+command parser, `planDecision`, `buildDecisionMessage`) plus `/pending`, `/approve`,
+`/reject`, `/respond <text>` and `/edit <json>` in both modes.
+
+**The two modes differ, deliberately.** Proxy mode sends the browser's own `confirm_action` /
+`interrupt_decision` messages, so validation and execution stay in `api-interrupts.js`;
+standalone mode redeems the token in-process via `callTool(tool, { confirmation_token })`,
+which is exactly the fallback `handleConfirmAction` already uses on a 404. **Standalone gets
+approve + reject only**: `edit` and `respond` go through the interrupt service, which needs a
+store `createAgent()` does not return (checked: `lib/agent/index.js:773`). `planDecision`
+refuses them with what *is* available rather than leaving the user typing a dead command.
+Durable-interrupt *restore* likewise stays proxy-only. Rejecting a live proposal sends
+nothing — the token is one-shot, so dropping it IS the rejection; a durable row behind it
+comes back in the next `interrupts` replay, where `/reject` goes through the service properly.
+
+**Two bugs found by the new unit tests, both the same root cause.** A numeric reference is
+ambiguous: an interrupt id is a UUID, so `11111111` is both a plausible list index and a real
+id prefix. `resolve()` read it as index 11,111,111 and refused, making a legitimate id
+unusable — an out-of-range number now falls through to prefix matching. And `/edit 42` parsed
+`42` as the item and left an empty payload; for `respond`/`edit` a lone argument is now the
+payload, never a reference.
+
+**The protocol-inventory contract test is the highest-value piece, as the developer suspected.**
+`tests/integration/terminal/protocol-parity.test.js` + `tests/helpers/protocolInventory.js`
+**scrape** the protocol surface out of the source rather than restating it: every `send(` call
+site in the WS handlers and `lib/agent/`, every `case` in `cliEmitter.js` and `wsHandler.js`,
+every message the proxy builds. 60 outbound events and 18 inbound types, each of which must
+now carry a policy — `handled` / `intercepted` / `internal` / `web-only`, the last two with a
+written reason. **Teeth proved both ways**: deleting a policy entry fails and names the
+producer file; removing a `cliEmitter` case fails and names the event. The one hole is
+declared, not hidden: an envelope built by a factory (`workflow_suggestion`) cannot be
+scraped, so `INDIRECT_EVENT_PRODUCERS` lists it and a test asserts that file still mints it.
+
+**The seam.** `runStandalone(initialReasoning, deps)` and `runProxy(port, reasoning, deps)`
+take `stdin`/`stdout`, and standalone also `root`, `createAgent`, `hydrateRuntime`,
+`processAttachments`. **The IMPORT-ORDER CONTRACT is intact**: the injected variants *replace*
+the dynamic imports, they do not move them, and the comments now say so explicitly.
+`runProxy` also returns `{ close }` — its `close` handler re-dials after 1.5s by design, so a
+client nobody closes is immortal; the new proxy suite hung on exactly that before the handle
+existed. Two new live suites: the standalone loop driven through a pipe with a fake agent, and
+proxy mode driven against a stub `ws` server on port 0 (no Aperio, no DB, nothing to clean up).
+
+**Not done, and why.** (a) The full proxy command-dispatcher extraction I proposed turned out
+**not to be needed** — scraping gave the inventory without executing the dispatcher, and the
+IO seam gave a real end-to-end test without refactoring it. (b) The confirm output is English
+only, like the rest of `cliEmitter.js`. (c) `out` is not threaded through `lib/terminal/ui.js`
+or `chat-utils.js`, so `/help`'s body and the banner still print to `process.stdout`; the new
+suites capture both streams. (d) `standalone.js` is now 791 lines. (b)–(d) are in A2D.md.
+
+**Left for the developer:** #539 itself — close Phase 1 / update the acceptance boxes, and
+decide whether S2.7/S2.8 become their own issues.
+
+*Works when:* a confirmable action can be approved or rejected from both modes with no model
+round-trip; restored interrupts are listed and decidable after a proxy connect; `/discuss on`
+cannot lie; a new protocol event fails CI until classified. Tests: T2.6 — pass (307 focused,
+up from 204). Suite: 6605/6606, the one red being the pre-existing config-contract failure
+recorded under S2.4 (same two keys, `APERIO_MCP_AUTH_TOKEN` and `APERIO_RUNTIME_ROOT`, in
+files this step never touched).
+
+**S2.7 Terminal core-chat parity (#539 Phase 2).** Adopt the staged `discuss_start` →
+`discuss_summary` → `discuss_confirm` flow; add `/branch` and render `session_branched`;
+decide and document whether memory suggestions are completable from the terminal
+(`save_suggestions`) or stay a `remember that …` route. Flip each from `web-only` to
+`handled`/`sends` in the parity test's policy tables as it lands. The proxy command
+dispatcher is ~440 lines and this step adds to it — extract it here, where the work pays for
+itself. Tests: T2.7.
+
+**S2.8 Terminal ergonomics (#539 Phase 3).** Bound and async-ify `readAttachment()` — it is
+still `readFileSync` → base64 with no size check before allocation, holding both
+representations at once (`lib/terminal/attachments.js:22`); share the limit with the web path.
+Add `/attachments` and `/detach <n|all>`. Add only the session/memory commands real usage asks
+for — not a TUI clone of the dashboard. Decide and write down the product contract first:
+"terminal chat client", not "full TUI". Tests: T2.8.
 
 ### Phase 3 — Own the code
 

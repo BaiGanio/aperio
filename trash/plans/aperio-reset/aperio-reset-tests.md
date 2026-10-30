@@ -22,7 +22,9 @@ is **red** on today's master before starting the step, then make it green.
 | S2.3 | T2.3 Unit/UI: overlay timeout — **PASS** | busy message |
 | S2.4 | T2.4 Integration: bridge races | delete/sweep/reindex interleavings |
 | S2.5 | T2.5 Unit: redact round trip | restore or mode removed |
-| S2.6 | T2.6 Integration: terminal loop | commands via injected IO |
+| S2.6 | T2.6 Integration: terminal loop + T2.6b protocol contract | commands via injected IO; every protocol member classified |
+| S2.7 | T2.7 Core-chat parity | staged discuss, /branch |
+| S2.8 | T2.8 Ergonomics | bounded attachments, /detach |
 | S3.1 | T3.1 Review checklist | every slop-touched file accounted for |
 | S3.2 | T3.2 Refactor safety | suite + harness green, no behaviour change |
 | S4.1–S4.2 | T4.1 Launch map | decisions listed, date set |
@@ -250,8 +252,66 @@ CodeQL. Assert inertness plus badge honesty, not absence.
 - **Assertions:** with `APERIO_CLOUD_SENSITIVE_MODE=redact`, a reply echoing a placeholder is shown with the original value; placeholders never reach the user; the map is not logged or persisted beyond the turn.
 - **Edge cases:** placeholder that the model mangled is left as-is, not mis-restored.
 
-### T2.6 — terminal interactive loop
-- **Assertions:** `runStandalone` with injected IO handles `/attach`, `/help`, `/restart`; parity list from #539 covered.
+### T2.6 — terminal interactive loop — **PASS 2026-10-24**
+- **Setup:** `runStandalone(false, { stdin, stdout, root, createAgent, hydrateRuntime,
+  processAttachments })` — a pipe for stdin, a fake agent, a `mkdtemp` root, and
+  `APERIO_CLI_PREFS` set **before** the dynamic import. `runProxy(port, false, { stdin,
+  stdout })` against a stub `ws` server on port 0.
+- **Assertions:** `tests/integration/terminal/standalone-loop.test.js` (16) — boots on the
+  injected agent, greets through the injected stream, writes nothing into the checkout;
+  `/help` (and that `/pending` is discoverable from it), `/help pending`, `/pending`,
+  `/attach`, an unknown command, a plain turn, `/restart`; then the P1 flow: a proposal shown
+  with tool + target + token and **not** as `[event: …]`, `/pending` listing it, `/approve`
+  calling the tool with `{ confirmation_token }` and nothing pending afterwards, `/reject`
+  calling nothing, `/respond` refused with what *is* available, `/approve` on nothing refused.
+  `tests/integration/terminal/proxy-decisions.test.js` (16) — the same flows over a real
+  socket, asserting the frames that leave: `confirm_action` for a live approve, **no frame at
+  all** for a live reject, `interrupt_decision` with `response` / `editedArguments` for the
+  durable rows, a restored 2-row replay listed with each tool and target, `/approve` refusing
+  to guess between two, `/edit` refused on a row that does not allow it and **not** reaching
+  the server, and the `/discuss` capability gate in all four states (refused with the server's
+  reason, no `roundtable` flag on the next chat, accepted once available, flag then present,
+  auto-off when a `provider` frame withdraws it).
+  `tests/unit/terminal/confirm.test.js` (82) — the pure rule set.
+- **Edge cases found and fixed in the code:** a numeric interrupt-id prefix read as a huge
+  list index; `/edit 42` reading `42` as the item and leaving an empty payload.
+- **Traps worth remembering:** (1) lines cannot be written ahead — the loop re-arms
+  `rl.once("line")` from `promptUser()`, so a line typed before the previous step finishes is
+  emitted with no listener and silently lost; the proxy suite hung on this. (2) In proxy mode
+  every step that leaves the client waiting must be closed with a `stream_end`, or the prompt
+  never re-arms. (3) Waits must read a **window** of output, not the cumulative buffer — a
+  string from an earlier test satisfies a later wait instantly and the test then races the
+  loop. (4) A `process.stdout.write` stub **must forward**: node:test's reporter writes
+  through it, and a capture-only stub silently hid 11 of 16 results. (5) `runProxy` needs its
+  `{ close }` handle in teardown, or the 1.5s reconnect keeps the process alive forever.
+
+### T2.6b — terminal protocol parity contract — **PASS 2026-10-24**
+- **Setup:** `tests/helpers/protocolInventory.js` scrapes the protocol surface from source.
+- **Assertions:** `tests/integration/terminal/protocol-parity.test.js` (16) — every one of
+  the 60 outbound events and 18 inbound types carries a policy; `internal`/`web-only` carry a
+  reason; every `handled` claim has a real `case` in `cliEmitter.js` and vice versa; every
+  `sends` claim is really built by the proxy; the proxy sends nothing `wsHandler.js` lacks a
+  case for; no policy entry names an event or message that no longer exists.
+- **Red/green proof (run, not assumed):** deleting one policy entry fails and names the
+  producer file (`session_branched (lib/emitters/handlers/ws/session.js)`); renaming a
+  `cliEmitter` case fails with `claimed handled but no case in lib/emitters/cliEmitter.js`.
+- **Edge cases:** the staleness assertion is what caught `delete_confirm_pending` — a case in
+  `cliEmitter.js` that nothing had emitted for months. An event built by a factory and sent
+  whole cannot be scraped; `INDIRECT_EVENT_PRODUCERS` declares those and a test asserts the
+  named file still mints the type, so a rename fails instead of shrinking the surface.
+
+### T2.7 — terminal core-chat parity (#539 Phase 2)
+- **Assertions:** the staged discuss flow drives `discuss_start` → `discuss_summary` → a
+  terminal accept/skip → `discuss_confirm`; `/branch` creates a child session or returns a
+  tested limitation; `session_branched` renders. Each type moves from `web-only` to
+  `handled`/`sends` in the parity policy tables — the contract test fails until it does.
+- **Edge cases:** reuse the stub-`ws` harness from T2.6 rather than booting a real server.
+
+### T2.8 — terminal ergonomics (#539 Phase 3)
+- **Assertions:** boundary-size tests for the attachment limit, plus a regression test that a
+  rejected file is **not** read or base64-encoded (the current code allocates both
+  representations before any check); `/attachments` and `/detach <n|all>` through the T2.6 IO
+  seam.
 
 ### T3.1 — slop review complete
 - **Assertions:** a checklist of the 284 touched files (from `git log -i --grep=slop --name-only`) has each file marked reviewed / deleted; findings logged to tech-debt.md or fixed.
