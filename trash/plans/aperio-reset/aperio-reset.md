@@ -1,5 +1,10 @@
 # Aperio Reset — green, lean, shipped
 
+> **SUPERSEDED 2026-11-01 by `trash/plans/aperio-v2/aperio-v2.md`.** Aperio is being rebuilt
+> as a small core (step S0.6). The v1 public launch planned for 2026-12-15 is dropped; the
+> first v2 release is v1.0.0. This file stays as the record of what the reset did — its
+> Phase 0 and Phase 1 work is committed and still in `master`. Do not start new work from it.
+
 > Written 2026-10-22, after a 7-week pause (last feature work 2026-08-31).
 > Source: full-repo audit of the same day + two grilling rounds with the developer.
 > Companion tests: `trash/plans/aperio-reset/aperio-reset-tests.md`.

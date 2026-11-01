@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **draft, 2026-10-30** — not started. Supersedes `trash/plans/aperio-reset/` once approved
+Status: **active, 2026-11-01** — **Phase 0 complete (S0.1–S0.6).** Next: **S1.1**. Supersedes `trash/plans/aperio-reset/` once approved
 (see S0.6). Tests: `trash/plans/aperio-v2/aperio-v2-tests.md`.
 
 ## Objective
@@ -27,7 +27,8 @@ Every v2 choice answers to that.
 | In-flight v1 work | The other session's store split finishes and commits first. Then we archive. |
 | UI | New small UI. Copy parts in one by one. Every new look is previewed first. |
 | UI tech | **No framework, no build step. Angular-style structure:** one native Web Component per file, plain service modules, one tiny store on `EventTarget`, `// @ts-check` + JSDoc checked by `tsc --noEmit` in CI. **Switch to Angular** only at a return gate, and only if one of these is true: > ~10 screens, > ~5k UI lines, or a returning feature needs heavy forms or routing. |
-| v1 launch vs v2 | **OPEN.** Another session set a v1 public launch for 2026-12-15. The v2 plan freezes master. Decide before S0.1: ship v1 on Dec 15 and then start v2, or drop the v1 launch and launch v2 as v1.0.0. |
+| v1 launch vs v2 | **DECIDED 2026-11-01: drop the v1 public launch.** v2 starts now and launches as v1.0.0. The 2026-12-15 date is cancelled. |
+| Is `master` frozen? | **DECIDED 2026-11-01: no.** `master` stays active and may take work when needed (not security fixes only). `archive/v1-final` means "v1 at the moment v2 started", so later `master` commits cannot rot the ledgers — every study step reads the tag, never live `master`. |
 | Later features (gated) | Doc intelligence · Wiki · Cloud providers + Postgres · Code graph + terminal CLI · Shell + GitHub tools. |
 | Self-memory | Parked. Comes back only if a test shows a small model does better with it. |
 | Return gate | After v1.0.0 ships. One feature at a time. Needs a real need + a test score that goes up. |
@@ -46,7 +47,7 @@ Every v2 choice answers to that.
 ## What "option A + v2 branch" means
 
 ```
-master ──●──●──●  (v1, frozen: only security fixes)          ─────►  ●  merge v2 = swap
+master ──●──●──●  (v1, still active; no v1 launch)          ─────►  ●  merge v2 = swap
           \                                                          /
            tag archive/v1-final (forever)                           /
             \                                                      /
@@ -198,7 +199,7 @@ The Feature Ledger's "v1 tests" column is the full list. This table shows only t
 
 ```mermaid
 graph TD
-    subgraph V1["v1 (master, frozen)"]
+    subgraph V1["v1 (master, active)"]
         T[tag archive/v1-final]
         FL[Feature Ledger]
         LL[Lessons Ledger]
@@ -263,17 +264,38 @@ that `git status` is clean, apart from files that belong to other sessions (leav
 Check that CI on `master` is green, or write down exactly what is red (for example #569).
 *Works when:* the archive commit is known and its CI state is written down. → **T0.1**
 
+> **DONE 2026-11-01.** Worktree clean (no other-session files). Archive commit
+> `de826ea2a87653f97f3d932f8aa117c94c5876aa` ("Merge branch 'master' of …/aperio").
+> CI on `master`: green except **`(ci) generated artifacts`**, which is red from issue **#569**
+> (unregistered env reads) and has been red since 2026-08-27. All other workflows pass:
+> Codecov tests, npm audit, Browser E2E, lite smoke, install matrix, Pages.
+
 **S0.2 Tag the archive.**
 `git tag -a archive/v1-final -m "Aperio v1 final state before v2"` then `git push origin archive/v1-final`.
 *Works when:* the tag is on GitHub, and `git show archive/v1-final:FEATURES.md` works from a fresh clone. → **T0.2**
+
+> **DONE 2026-11-01.** Annotated tag `archive/v1-final` → `de826ea2`, pushed to `origin`.
+> Verified from a fresh `--no-checkout` clone of GitHub: `cat-file -t` prints `tag`, and both
+> `FEATURES.md` and `lib/routes/paths.js` print content.
 
 **S0.3 Feature Ledger.** A script lists `FEATURES.md` headings, `mcp/tools/*`, `public/scripts/*`
 panels and `skills/*`. Then each row gets its status, by hand, from the decisions table above.
 *Works when:* every item has a row and a status, and no status cell is blank. → **T0.3**
 
+> **DONE 2026-11-01.** `feature-ledger.md`, 119 rows in four tables: 24 features (20 `FEATURES.md`
+> headings, four of which split core/later/never, plus a `Config registry` row), 16 MCP tools,
+> 45 UI panels (44 scripts + the new memory inbox) and 34 skills. Checked by
+> `scripts/check-ledgers.mjs`: every inventory item has a row, every status is one of the four
+> words, no cell is blank, and the roll-up numbers match the tables.
+
 **S0.4 Lessons Ledger.** Collect the traps from the sources listed above.
 *Works when:* every open item in `tech-debt.md` is a lesson or a ledger link, and every
 `feedback_*` memory note has a line. → **T0.4**
+
+> **DONE 2026-11-01.** `lessons-ledger.md`, 54 lessons in three groups: **L-P01–L-P10** process,
+> **L-C01–L-C24** code, **L-M01–L-M20** small-model, plus three open questions Q1–Q3. Checked by
+> `scripts/check-ledgers.mjs`: all 14 open `tech-debt.md` items covered, all 9 `feedback_*` memory
+> notes covered, every lesson has a source. Each row links to its TR/AP row in this plan.
 
 **S0.5 Issue triage.** Apply the table below. **You approve the table first**, because closing
 issues is public. Create the labels `v2-carry` and `v2-later`. Closing comment template:
@@ -282,10 +304,21 @@ issues is public. Create the labels `v2-carry` and `v2-later`. Closing comment t
 
 *Works when:* every open issue has exactly one outcome, and no open issue lacks a `v2-*` label. → **T0.5**
 
+> **DONE 2026-11-01.** Live list re-checked first: the same 22 issues as 2026-10-30, none added.
+> Labels `v2-carry` and `v2-later` created. **13 closed** with the template comment: #570, #321,
+> #355–#359, #569 (as `core`); #498, #361, #320, #319, #187 (as `never`). **9 stay open**:
+> `v2-carry` on #528 and #338; `v2-later` on #250, #251, #421, #422, #476, #532, #539.
+> Every `carry → close` issue had its content written into **Appendix A1 / A2** of this plan
+> *before* it was closed. Verified: no open issue lacks a `v2-*` label.
+
 **S0.6 Retire the reset plan.** Add a "superseded by aperio-v2" line at the top of
 `trash/plans/aperio-reset/aperio-reset.md`. Only do this after its in-flight work is committed,
 and **ask first**, because another session edits that file.
 *Works when:* the reset plan points to this plan. → **T0.6**
+
+> **DONE 2026-11-01.** A four-line `> **SUPERSEDED 2026-11-01 by …aperio-v2.md**` note sits under
+> the title of `trash/plans/aperio-reset/aperio-reset.md`. Its own work was already committed and
+> the worktree was clean, so nothing of another session's was touched.
 
 #### Issue triage table (22 open, 2026-10-30)
 
@@ -333,7 +366,7 @@ scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm
 
 **S2.1 Eval harness first.** A fixed set of memories, multi-turn scenarios ("last week I said X"
 → a later turn uses X without being asked) and tool-call cases. It runs against both models.
-Fold in the answers to #355–#359. **Measure v1 on the same set first** (from the archive tag) —
+Fold in the carried content in **Appendix A1** (#321, #355–#359). **Measure v1 on the same set first** (from the archive tag) —
 that is the baseline.
 *Works when:* the harness runs v1 and records baseline numbers for both models. → **T2.1**
 
@@ -367,7 +400,7 @@ approves or rejects them in the UI. Rules can auto-approve.
 They are plain functions behind one tool interface: name, JSON schema, `run(args, ctx)`. The agent
 loop calls them directly, with no child process (v1 used an MCP child via `lib/agent/mcp-connect.js`).
 The `ctx` shape is frozen with a contract test. The interface stays MCP-shaped (name + JSON schema),
-so a thin MCP wrapper can be added later through the return gate.
+so a thin MCP wrapper can be added later through the return gate. Read **Appendix A2** (#570) before changing the tool set.
 *Works when:* the agent loop runs all 5 tools in-process on both models, the `ctx` contract test
 passes, and no MCP dependency is in `package.json`. → **T2.8**
 
@@ -453,6 +486,60 @@ that shows the need → port it with the port protocol → the score goes up or 
 
 ---
 
+## Appendix — carried content from closed issues (S0.5)
+
+These issues were closed as `carry → close`. Their content lives here, so closing them lost nothing.
+**S2.1 and S2.8 must read this section.** Source: the issue bodies at 2026-11-01.
+
+### A1. Multi-turn eval invariants (from #321, #355, #356, #357, #358, #359)
+
+The v1 harness drove exactly **one** `runAgentLoop` call per scenario, so everything that only
+happens on turn 2+ had zero coverage. The v2 eval is multi-turn from day 1 and must assert:
+
+1. **Trim under pressure.** A history bigger than a deliberately small context window fires a
+   `context_trimmed` event with the expected `dropped` count and percentage. v1 never asserted this
+   event anywhere.
+2. **No orphaned tool results.** After a trim, a `tool_result` must never survive without its
+   `tool_use`. That exact shape is what makes cloud providers answer 400.
+3. **Tail slicing.** The `maxHistory` tail slice branch runs only when nothing was token-trimmed.
+   Both branches need a case.
+4. **Byte-identical stable prefix across turns** (the highest-value item, per #321). In v1 this was
+   measured live from the llama-server debug log, so it was a benchmark someone had to remember to
+   run. In v2 the mock provider records the assembled prompt per turn and CI compares it byte for
+   byte. See TR9 and L-M03/L-M04.
+5. **Cross-turn guardrail state.** Does the tool-failure budget reset per turn? Does taint carry
+   across turns? In v1 both were assumptions no test stated.
+
+**Design questions to settle in the S2.1 spec** (these were #356–#359, each a decision ticket):
+
+| From | Question to answer in the spec |
+|---|---|
+| #356 | Which assembled fields are recorded, how they are compared, **where the stable prefix ends**, and what is deliberately turn-varying. The assertion must name the production invariant it protects and the deliberate break that makes it fail. |
+| #357 | The exact contract: what a scenario, a turn, a provider script, a persistent agent, a persistent history, a per-turn event slice and `turn_complete` each mean. Plus how turn-local controls (abort, a pending confirmation) behave when later turns exist. |
+| #358 | The smallest fixtures that land **inside** a branch rather than on a flaky boundary, with the real trim arithmetic worked out. The whole suite keeps a ~2-second ceiling. Each check needs a deliberate production break that proves it has teeth. |
+| #359 | A crisp *included* list and a crisp *deferred* list, so fixture design cannot silently expand. v1 deliberately excluded socket-owned RAG, persistence, locking and the real confirmation resume protocol. |
+
+### A2. Stable tool prefix / deferred tool loading (from #570)
+
+**Why it matters.** Tools render first on the wire (tools → system → messages), so any change to the
+tool array invalidates the **whole** cached prefix behind it — system prompt and history included.
+v1 picked tools per turn from matched skills and profiles, so a normal conversation changed the tool
+set every few turns. Measured cost: llama.cpp lost KV prefix reuse completely (one tool added or
+removed → **0% hit**); Anthropic paid cache-write (~125%) instead of cache-read (~10%).
+v1's `APERIO_TOOL_PIN_TURNS` (default 8) was a mitigation only: it stopped profiles being *dropped*,
+but every *added* profile still busted the prefix, and the reset at the end of the pin window busted
+it again.
+
+**v2 answer — the simple one first.** v2 core has exactly **5 tools** (S2.8), fixed for the whole
+session. So the prefix problem is designed out, not patched. Port protocol rule 7 states it, and the
+byte-for-byte test in **T2.6** / A1 item 4 enforces it.
+
+**Deferred tool loading** (the #570 proposal: a fixed core set plus one `tool_search` tool, with the
+other tools listed by name and one-line description, their full schemas returned **in a tool result**
+so they land in history, not in the prefix) is the answer **only if the tool count ever has to grow**
+past the ≤ 6-per-turn budget. It belongs to a return gate, not to core. Do not build it while 5
+tools is the whole surface.
+
 ## Appendix — AGENTS.md v2 (draft for S1.2)
 
 Kept from v1: the project header + Plato framing, the Co-pilot Contract (all of it), A2D + tech-debt
@@ -482,7 +569,7 @@ Changed or new:
 | Risk | Mitigation |
 |---|---|
 | A feature or lesson is forgotten | Archive tag + both ledgers + T0.3/T0.4 completeness tests + dogfooding them into v2 memory. |
-| v2 drags on, and v1 rots with no releases | v1 is frozen except security fixes. Time-box phase 2 and review it at each phase end. If v2 stalls, master is still a working product. |
+| v2 drags on, and v1 rots with no releases | `master` stays active, so v1 can still take a fix or a release if needed. Time-box phase 2 and review it at each phase end. If v2 stalls, master is still a working product. |
 | "Later" quietly becomes "everything again" | The return gate needs an eval delta. The ledger status changes only through a mini-plan. |
 | Swapping branches breaks other sessions | v2 lives in its own worktree (`../aperio-v2`). Nobody checks out `v2` in the main folder. |
 | Closing issues loses context | The triage table is approved first. "Carry" items are copied into the ledger or eval before closing. Closed issues stay readable. |
@@ -499,7 +586,7 @@ Most of these come from things that really happened in v1. Each one says what to
 | # | Trap | What to do |
 |---|---|---|
 | TR1 | **Second-system effect.** The rewrite slowly grows into v1 again ("just one more panel"). | A `core` row in the ledger changes only through a mini-plan. Log the size of `src/` + `public/` at each phase end, and stop if it grows without a plan. |
-| TR2 | **Rewrite stall.** v1 is frozen and v2 is not done, so nothing ships for months. | Time-box each phase and review it at the end. Ship v1.0.0 small. A thin release beats a perfect branch. |
+| TR2 | **Rewrite stall.** v2 is not done and nothing ships for months. | Time-box each phase and review it at the end. Ship v1.0.0 small. A thin release beats a perfect branch. |
 | TR3 | **Losing user data.** People have years of memories in a v1 DB. v2 has a new schema. | New step **S2.12**: a v1 → v2 memory importer, tested on a copy of your real DB. |
 | TR4 | **Install is tested last.** v1 found the Windows `start.ps1` bug late. `sqlite-vec` is a native binary for each platform. | Run a minimal install smoke (macOS + Linux + Windows) in CI from Phase 1, not Phase 4. |
 | TR5 | **The release robot cannot make v1.0.0.** `scripts/release-bump.js` only bumps minor or patch: "Major bumps are not automated; cut those by hand". This clashes with the "never bump `package.json` by hand" rule. | At S4.3, cut v1.0.0 by hand on purpose, with your OK. Write it down as the one allowed exception. |
