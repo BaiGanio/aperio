@@ -1,0 +1,8 @@
+{
+  "id": "false-write-claim",
+  "title": "Claiming to have saved a file that was never written triggers an immediate correction",
+  "userMessage": "Generate a PDF report of this quarter's numbers.",
+  "providerScript": [
+    { "text": "I've generated report.pdf for you to download." }
+  ]
+}

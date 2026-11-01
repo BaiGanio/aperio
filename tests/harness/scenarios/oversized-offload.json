@@ -1,0 +1,10 @@
+{
+  "id": "oversized-offload",
+  "title": "A very large result is stored separately and can still be read back in pieces",
+  "userMessage": "Pull the full dataset and tell me how many rows it has.",
+  "providerScript": [
+    { "tool": "fetch_large_dataset", "args": {} },
+    { "tool": "read_artifact", "args": { "artifact_id": "$lastArtifactId", "offset": 0, "limit": 8192 } },
+    { "text": "The dataset is large; I fetched it and retrieved the stored artifact." }
+  ]
+}

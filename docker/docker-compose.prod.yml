@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aperio}
+      POSTGRES_USER: ${POSTGRES_USER:-aperio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    ports:
+      - "127.0.0.1:8008:5432"
+    volumes:
+      - aperio_data:/var/lib/postgresql/data
+      # NOTE: do NOT mount db/migrations into /docker-entrypoint-initdb.d.
+      # Postgres' initdb hook runs those files as raw SQL with no bookkeeping,
+      # which double-applies migrations and leaves schema_migrations empty —
+      # the aperio service then fails to boot when its own PostgresStore.init()
+      # (db/postgres/store.js) reruns 001_core.sql and hits "already exists".
+      # migrate.js is the single source of truth for schema; the aperio
+      # service below calls it automatically on startup, so no manual
+      # `npm run migrate` step is needed for this Compose file.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aperio} -d ${POSTGRES_DB:-aperio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  aperio:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    # Aperio's allowed-folders floor keeps the project root (here /app) on the
+    # list no matter what APERIO_ALLOWED_PATHS or the saved list says — see
+    # lib/routes/paths.js and the "Aperio's own source tree is always
+    # write-allowed" entry in SECURITY.md. A read-only root filesystem is the boundary that
+    # actually holds: write_file / edit_file / delete_file / run_node_script
+    # cannot modify the running application code, while /app/var stays writable
+    # through the volume below. Every runtime write target already lives under
+    # /app/var (sessions, scratch, logs, uploads, HOME, the caches the
+    # Dockerfile points there), so nothing legitimate needs the rest of /app.
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "${PORT:-31337}:31337"
+    environment:
+      DB_BACKEND: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aperio}
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-voyage}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+      # One list, and it grants read AND write — Aperio has no read-only tier.
+      # This was already the effective grant: the old _TO_READ=/app +
+      # _TO_WRITE=/app/var pair was merged into a single /app list at startup.
+      APERIO_ALLOWED_PATHS: /app
+    volumes:
+      - aperio_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  aperio_data:
+    name: aperio_data
+  aperio_var:
+    name: aperio_var

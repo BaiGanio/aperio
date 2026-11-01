@@ -1,0 +1,11 @@
+{
+  "id": "bad-json-budget",
+  "title": "Three broken tool requests in a row stop the assistant before it repeats the mistake",
+  "userMessage": "Save a report of this quarter's numbers.",
+  "providerScript": [
+    { "tool": "save_report", "args": { "__parse_error__": "Unexpected token in JSON at position 14 — must be valid JSON" } },
+    { "tool": "save_report", "args": { "__parse_error__": "Unexpected token in JSON at position 22 — must be valid JSON" } },
+    { "tool": "save_report", "args": { "__parse_error__": "Unexpected token in JSON at position 31 — must be valid JSON" } },
+    { "text": "I hit repeated tool-call errors and stopped." }
+  ]
+}

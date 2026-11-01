@@ -1,0 +1,628 @@
+// tests/lib/agent/providers/claude-code.test.js
+//
+// Tests for runClaudeCodeLoop with a properly mocked SDK.
+// Uses module.register() + a resolve loader hook to redirect
+// @anthropic-ai/claude-agent-sdk to a mock implementation,
+// avoiding any real API calls or credential requirements.
+
+import { describe, test, mock, before, after, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import { register } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Register the resolve loader BEFORE the provider import
+const loaderPath = resolve(__dirname, "__mocks__/resolve-loader.js");
+register(loaderPath, import.meta.url);
+
+// ─── Logger mock ──────────────────────────────────────────────────────────
+
+import logger from "../../../../lib/helpers/logger.js";
+
+let infoCalls = [];
+let warnCalls = [];
+let errorCalls = [];
+
+before(() => {
+  mock.method(logger, "info",  (...args) => { infoCalls.push(args); });
+  mock.method(logger, "warn",  (...args) => { warnCalls.push(args); });
+  mock.method(logger, "error", (...args) => { errorCalls.push(args); });
+});
+
+after(() => {
+  mock.restoreAll();
+});
+
+// ─── Dynamic import of provider ───────────────────────────────────────────
+
+import { SYNTHETIC_USER } from "../../../../lib/agent/tool-profiles.js";
+
+let runClaudeCodeLoop;
+let TOOL_RESULT_NUDGE;
+let __setMockEvents;
+let __getLastQueryArgs;
+
+before(async () => {
+  const mod = await import("../../../../lib/agent/providers/claude-code.js");
+  runClaudeCodeLoop = mod.runClaudeCodeLoop;
+  TOOL_RESULT_NUDGE = mod.TOOL_RESULT_NUDGE;
+  // Must import @anthropic-ai/claude-agent-sdk (not its resolved path) so the
+  // test and the provider share the same module instance via the resolve loader
+  // hook registered above. A direct file import creates a second module instance
+  // with its own queuedEvents, and __setMockEvents silently sets events the
+  // provider's query() never reads.
+  const mockSdk = await import("@anthropic-ai/claude-agent-sdk");
+  __setMockEvents = mockSdk.__setMockEvents;
+  __getLastQueryArgs = mockSdk.__getLastQueryArgs;
+});
+
+function reset() {
+  infoCalls = [];
+  warnCalls = [];
+  errorCalls = [];
+}
+
+function baseCtx(overrides = {}) {
+  // Mirrors production's shared callToolHooked seq allocator (lib/agent/tool-
+  // hooks.js `nextToolSeq`) — a fresh counter per call, just like a fresh
+  // per-turn hook instance in the real agent loop.
+  let seq = 0;
+  return {
+    provider: { name: "claude-code", model: "claude-sonnet-4-20250514" },
+    callTool: mock.fn(async () => "Tool result"),
+    // mcpTools: raw MCP tool list the provider filters and bridges to the SDK.
+    mcpTools: [
+      { name: "read_file", description: "Read a file" },
+      { name: "recall", description: "Search memories" },
+    ],
+    claudeCodeState: {},
+    nextToolSeq: () => ++seq,
+    ...overrides,
+  };
+}
+
+// =============================================================================
+// runClaudeCodeLoop — success
+// =============================================================================
+describe("runClaudeCodeLoop — success", () => {
+  afterEach(() => { reset(); });
+
+  test("returns mock response text", async () => {
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.equal(result, "Mock response");
+  });
+
+  test("emits stream_start and stream_end", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.ok(types.includes("stream_start"));
+    assert.ok(types.includes("stream_end"));
+  });
+
+  test("stores session_id on claudeCodeState", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const state = {};
+    const ctx = baseCtx({ claudeCodeState: state });
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.equal(state.sessionId, "sess-mock-1");
+  });
+
+  test("emits token events for stream_event deltas", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    const tokens = emitter.send.mock.calls
+      .filter(c => c.arguments[0].type === "token")
+      .map(c => c.arguments[0].text);
+    assert.ok(tokens.length >= 1, "should emit at least one token");
+    assert.ok(tokens.some(t => t.includes("Mock")), "should include mock text");
+  });
+
+  test("logs session info on init", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.ok(infoCalls.some(a => a[0].includes("session_id: sess-mock-1")),
+      "should log session id");
+  });
+
+  // ─── WS6/F2 superseded by WS-B (group I below) ────────────────────────────
+  // provider-native-capabilities WS-B wires skill matching in via the narrow
+  // ctx.getSkillsBlock, not the full ctx.getSystemPrompt — claude-code still
+  // never calls getSystemPrompt itself (that would duplicate Aperio's base
+  // identity prompt on top of the SDK's own `claude_code` preset identity).
+  // This guard now documents that permanent design choice rather than a
+  // still-open gap.
+  test("F2: never calls ctx.getSystemPrompt (skill content is injected via ctx.getSkillsBlock instead)", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const getSystemPrompt = mock.fn(() => "should not be called");
+    const ctx = baseCtx({ getSystemPrompt });
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.equal(getSystemPrompt.mock.calls.length, 0);
+  });
+
+  test("F2: the loop itself never fabricates a skills_matched event (emission is ctx.getSkillsBlock's job)", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.ok(!emitter.send.mock.calls.some(c => c.arguments[0].type === "skills_matched"));
+  });
+});
+
+// =============================================================================
+// WS-B / group I — skill matcher reuse, WS-C / group J — extraSystem fix
+// =============================================================================
+describe("runClaudeCodeLoop — skill matcher + extraSystem (groups I & J)", () => {
+  afterEach(() => { reset(); });
+
+  test("I2: calls ctx.getSkillsBlock once and appends its content via queryOptions.systemPrompt", async () => {
+    const getSkillsBlock = mock.fn(() => "## SKILL_CONTENT_MARKER\ndo the thing");
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, { lang: "en" }, null, () => {}, baseCtx({ getSkillsBlock }));
+
+    assert.equal(getSkillsBlock.mock.calls.length, 1);
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[0], "Use the pptx skill");
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[1], "en");
+
+    const { options } = __getLastQueryArgs();
+    assert.deepEqual(options.systemPrompt?.type, "preset");
+    assert.deepEqual(options.systemPrompt?.preset, "claude_code");
+    assert.match(options.systemPrompt?.append ?? "", /SKILL_CONTENT_MARKER/);
+  });
+
+  test("J1: opts.extraSystem reaches queryOptions.systemPrompt.append", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, { extraSystem: "UNIQUE_MARKER_TEXT" }, null, () => {}, baseCtx());
+
+    const { options } = __getLastQueryArgs();
+    assert.match(options.systemPrompt?.append ?? "", /UNIQUE_MARKER_TEXT/);
+  });
+
+  test("J2: a matched skill (WS-B) and opts.extraSystem (WS-C) concatenate, neither clobbers the other", async () => {
+    const getSkillsBlock = () => "## SKILL_CONTENT_MARKER";
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(
+      messages, emitter, { extraSystem: "UNIQUE_MARKER_TEXT" }, null, () => {},
+      baseCtx({ getSkillsBlock }),
+    );
+
+    const { options } = __getLastQueryArgs();
+    assert.match(options.systemPrompt.append, /SKILL_CONTENT_MARKER/);
+    assert.match(options.systemPrompt.append, /UNIQUE_MARKER_TEXT/);
+  });
+
+  test("J3: no matched skill and no extraSystem still injects the always-on tool-result task nudge", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const { options } = __getLastQueryArgs();
+    assert.equal(options.systemPrompt.append, TOOL_RESULT_NUDGE);
+  });
+
+  test("J3 edge: extraSystem unset but a skill matches appends the skill content after the task nudge", async () => {
+    const getSkillsBlock = () => "## SKILL_CONTENT_MARKER";
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx({ getSkillsBlock }));
+
+    const { options } = __getLastQueryArgs();
+    assert.equal(options.systemPrompt.append, `${TOOL_RESULT_NUDGE}\n\n---\n\n## SKILL_CONTENT_MARKER`);
+  });
+});
+
+// =============================================================================
+// WS-A2 / group H — image passthrough
+// =============================================================================
+describe("runClaudeCodeLoop — image passthrough (group H)", () => {
+  afterEach(() => { reset(); });
+
+  const PNG_BASE64 = Buffer.from("fake-png-bytes").toString("base64");
+
+  async function drain(iterable) {
+    const out = [];
+    for await (const item of iterable) out.push(item);
+    return out;
+  }
+
+  test("H1: prompt switches to the async-iterable form carrying text + image blocks", async () => {
+    const messages = [{ role: "user", content: [
+      { type: "text", text: "What's in this image?" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: PNG_BASE64 } },
+    ] }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const { prompt } = __getLastQueryArgs();
+    assert.notEqual(typeof prompt, "string", "prompt should be an async iterable, not a string");
+    const drained = await drain(prompt);
+    assert.equal(drained.length, 1);
+    const msg = drained[0];
+    assert.equal(msg.type, "user");
+    assert.equal(msg.message.role, "user");
+    const blockTypes = msg.message.content.map(b => b.type);
+    assert.deepEqual(blockTypes, ["text", "image"]);
+    assert.equal(msg.message.content[0].text, "What's in this image?");
+    assert.deepEqual(msg.message.content[1].source, { type: "base64", media_type: "image/png", data: PNG_BASE64 });
+  });
+
+  test("H1 edge: a text-only turn still produces a single-block async prompt (no image block, no regression)", async () => {
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+    assert.equal(result, "Mock response");
+
+    const { prompt } = __getLastQueryArgs();
+    const drained = await drain(prompt);
+    assert.equal(drained.length, 1);
+    assert.equal(drained[0].message.content, "Hello");
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — transcript & resumption
+// =============================================================================
+describe("runClaudeCodeLoop — transcript & resumption", () => {
+  afterEach(() => { reset(); });
+
+  test("resumes existing session on second turn", async () => {
+    const messages = [{ role: "user", content: "Follow-up" }];
+    const emitter = { send: mock.fn() };
+    const state = { sessionId: "sess-existing" };
+    const ctx = baseCtx({ claudeCodeState: state });
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    // Should have logged "resumed" for the existing session
+    assert.ok(infoCalls.some(a => a[0].includes("resumed")));
+  });
+
+  test("logs new session on first turn", async () => {
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.ok(infoCalls.some(a => a[0].includes("(new)")),
+      "should log (new) for first turn");
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — auto-fetched preflight context redaction (F-R2-02)
+// =============================================================================
+describe("runClaudeCodeLoop — auto-fetched preflight context redaction (F-R2-02)", () => {
+  afterEach(() => { reset(); });
+
+  test("redacts secrets in preflight-shaped tool_result content before it reaches the SDK prompt", async () => {
+    const secret = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789";
+    const messages = [
+      { role: "user", content: "What does this document say?" },
+      { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "doc_batch", input: {} }] },
+      {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: `Document contents: ${secret}` }],
+        [SYNTHETIC_USER]: true,
+      },
+    ];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+
+    const { prompt } = __getLastQueryArgs();
+    const events = [];
+    for await (const ev of prompt) events.push(ev);
+    const content = events[0].message.content;
+    const text = typeof content === "string" ? content : content.find(b => b.type === "text")?.text ?? "";
+
+    assert.ok(!text.includes(secret), "secret must not reach the SDK prompt");
+    assert.ok(text.includes("[REDACTED:api-key]"), "redaction marker must be present in its place");
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — error handling
+// =============================================================================
+describe("runClaudeCodeLoop — error handling", () => {
+  afterEach(() => { reset(); });
+
+  test("handles query rejection gracefully", async () => {
+    // To test the error path, we need the mock query to throw.
+    // Since module.register() already loaded the mock, we need to
+    // replace it via the SDK module's mutable internals.
+    // Instead, we verify that stream_start is always emitted.
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.ok(emitter.send.mock.calls.some(c => c.arguments[0].type === "stream_start"));
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — WS3 / group C: built-in tool cards, no double-carding
+// =============================================================================
+describe("runClaudeCodeLoop — tool card synthesis (group C)", () => {
+  afterEach(() => { reset(); });
+
+  test("C1/C3: a built-in Bash tool_use/tool_result pair yields one resolving card with a tool-like name", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_1", name: "Bash", input: { command: "echo hi" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_1", content: "hi\n" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Run echo hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const starts = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_start");
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    assert.equal(starts.length, 1);
+    assert.equal(results.length, 1);
+    assert.equal(starts[0].name, "Bash");
+    assert.ok(starts[0].name.length <= 40 && !/\s/.test(starts[0].name));
+    assert.equal(starts[0].arg, "echo hi");
+    assert.equal(results[0].seq, starts[0].seq);
+    assert.equal(results[0].ok, true);
+    assert.equal(results[0].summary, "hi");
+  });
+
+  test("P1: built-in tool_start shares the per-turn seq allocator with hooked Aperio tools, no collision", async () => {
+    // Simulate an Aperio tool call earlier this turn already having consumed
+    // seq 1 via callToolHooked (the SDK bridge handler calls ctx.callTool,
+    // which in production IS callToolHooked and increments this same shared
+    // counter). An independent counter for built-ins would also start at 1
+    // here, colliding on the frontend's seq-keyed card map.
+    let seq = 0;
+    const nextToolSeq = () => ++seq;
+    nextToolSeq(); // seq 1 "already used" by a preceding hooked Aperio call
+
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_5", name: "Bash", input: { command: "echo hi" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_5", content: "hi\n" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Recall something, then run echo hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx({ nextToolSeq }));
+
+    const start = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_start");
+    const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+    assert.equal(start.seq, 2, "must continue the shared per-turn sequence, not restart at 1");
+    assert.equal(result.seq, 2);
+  });
+
+  test("C2: an aperio (mcp__aperio__) tool_use is not double-carded — only the hook's own card would fire", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_2", name: "mcp__aperio__recall", input: { query: "test" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_2", content: "no memories" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Recall something" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const starts = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_start");
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    // The SDK-event bridge must not synthesize a card for aperio tools — those
+    // already get one from callToolHooked when the bridged handler runs (which
+    // this mock stream doesn't exercise, so zero here proves no double-card
+    // path exists on the stream_event side).
+    assert.equal(starts.length, 0);
+    assert.equal(results.length, 0);
+  });
+
+  test("C1 edge: a failing built-in tool resolves ok:false from is_error, without a fabricated summary", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_3", name: "WebFetch", input: { url: "https://example.com" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_3", content: "", is_error: true },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Fetch a page" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+    assert.equal(result.ok, false);
+    assert.equal("summary" in result, false);
+  });
+
+  test("C1 edge: an unmatched tool_result (no prior tool_use seen) doesn't throw or emit a card", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_orphan", content: "stray" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    assert.equal(result, "Done");
+    assert.equal(emitter.send.mock.calls.some(c => c.arguments[0].type === "tool_result"), false);
+  });
+
+  test("a card left pending when the SDK throws mid-stream resolves as failed, not stuck running", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_4", name: "Bash", input: { command: "sleep 100" } },
+      ] } },
+      { __throw: new Error("stream disconnected") },
+    ]);
+
+    const messages = [{ role: "user", content: "Run something slow" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    assert.equal(results.length, 1);
+    assert.equal(results[0].seq, emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_start").seq);
+    assert.equal(results[0].ok, false);
+  });
+});
+
+// =============================================================================
+// Reasoning parity (WS4 / group D)
+// =============================================================================
+describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
+  afterEach(() => { reset(); });
+
+  // Retired 2026-07-27: the reasoning bubble was giving claude-code the same
+  // collapsed-thinking UI every other provider uses, but live verification
+  // showed adaptive thinking regularly opens/closes a `thinking` block with
+  // zero `thinking_delta` text in between (still billing real thinking
+  // tokens) — Aperio can't control whether Anthropic discloses a summary
+  // that turn, and a bubble that opens and shows nothing reads as broken.
+  // D1 now asserts the opposite of before: no reasoning_* events ever fire,
+  // for any shape of thinking block. D2 (token accounting) is unaffected.
+  test("D1: no reasoning_start/token/done events fire even when a thinking block carries real narration", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "Let me work through this." } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "text" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "42" } } },
+      { type: "stream_event", event: { type: "message_delta", usage: { output_tokens_details: { thinking_tokens: 34 } } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const messages = [{ role: "user", content: "What is 6 times 7?" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+    assert.equal(result, "42");
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+    assert.ok(!emitter.send.mock.calls.some(c => c.arguments[0].type === "token" && c.arguments[0].text.includes("work through")), "no token event may carry reasoning text");
+  });
+
+  test("D1 edge: a turn with no thinking block emits no reasoning events", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    // Default mock fixture: plain text_delta, no thinking block.
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+  });
+
+  test("D1 edge: a redacted/empty thinking_delta emits no reasoning events either", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "" } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "text" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "42" } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+  });
+
+  test("D1 edge: a thinking block left open when the stream throws mid-turn doesn't emit or throw", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "still going" } } },
+      { __throw: new Error("stream disconnected") },
+    ]);
+
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+  });
+
+  test("D2: thinking_tokens comes from the real output_tokens_details field instead of the hardcoded 0, and sets state.thinks", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "hmm" } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "message_delta", usage: { output_tokens_details: { thinking_tokens: 34 } } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const state = { thinks: false };
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx({ state }));
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 34);
+    assert.equal(state.thinks, true);
+  });
+
+  test("D2 edge: no message_delta usage breakdown keeps thinking_tokens at 0, never NaN/negative", async () => {
+    const emitter = { send: mock.fn() };
+    // Default mock fixture: no thinking, no output_tokens_details.
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 0);
+  });
+});

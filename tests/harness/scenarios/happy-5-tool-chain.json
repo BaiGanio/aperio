@@ -1,0 +1,17 @@
+{
+  "id": "happy-5-tool-chain",
+  "title": "A normal multi-step task completes with every step recorded correctly",
+  "userMessage": "Pull the sales data, analyze it, save a report, verify it, then send it.",
+  "providerScript": [
+    { "tool": "fetch_data", "args": {} },
+    { "tool": "analyze_data", "args": {} },
+    { "tool": "save_report", "args": { "filename": "sales-report.txt", "content": "Sales are up 12%." } },
+    { "tool": "verify_report", "args": { "filename": "sales-report.txt" } },
+    { "tool": "send_report", "args": { "filename": "sales-report.txt" } },
+    { "text": "Done — pulled the data, analyzed it, saved and verified the report, then sent it. Sales are trending up 12%." }
+  ],
+  "expectedToolSequence": ["fetch_data", "analyze_data", "save_report", "verify_report", "send_report"],
+  "requiredAnswerTerms": ["report"],
+  "requireAllToolsSuccessful": true,
+  "expectFiles": ["sales-report.txt"]
+}
