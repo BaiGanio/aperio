@@ -1,8 +1,0 @@
----
-# Namespace for all Aperio resources
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: aperio
-  labels:
-    app.kubernetes.io/part-of: aperio
