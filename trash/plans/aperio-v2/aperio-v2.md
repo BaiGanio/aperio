@@ -1,6 +1,10 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-01** — **Phase 0 complete (S0.1–S0.6).** Next: **S1.1**. Supersedes `trash/plans/aperio-reset/` once approved
+Status: **active, 2026-11-01** — **Phase 0 complete. S1.1 complete.** Next: **S1.2**.
+
+> **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
+> at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
+> here. Supersedes `trash/plans/aperio-reset/` once approved
 (see S0.6). Tests: `trash/plans/aperio-v2/aperio-v2-tests.md`.
 
 ## Objective
@@ -352,6 +356,21 @@ The first commit on `v2` removes everything except the keep list:
 `LICENSE`, `CHANGELOG.md` (with a new "## Unreleased — v2" section), `docs/` (the GitHub Pages
 site keeps working), `trash/`, `.gitignore`, `.github/` (cut down in S1.3) and a short `README.md`.
 *Works when:* `v2` has only the keep list, and `master` is not touched. → **T1.1**
+
+> **DONE 2026-11-01**, commit `8c7b8ddc`. 1403 files removed, 240 kept. `v2` top level is now
+> `.github/` `.gitignore` `CHANGELOG.md` `docs/` `LICENSE` `README.md` `trash/`. `master` is
+> untouched at `9b5a9fd5` with a clean worktree.
+>
+> **Three changes to the written step, each on purpose:**
+> 1. `v2` was fast-forwarded to `master` (`9b5a9fd5`) before the wipe, so the Phase 0 ledgers are
+>    in `v2` history from the start. The branch point is still the same v1 tree as the tag.
+> 2. **All 21 workflows were deleted now, not cut down in S1.3.** `ci.browser.yml` had a `push:`
+>    trigger with **no branch filter** on `public/**`, `server.js` and `package.json`, so it would
+>    have fired and failed on the first `v2` push. That is trap **TR6** in the flesh. The rest of
+>    `.github/` (FUNDING, dependabot, images, lite, scripts, capability-exam) still waits for S1.3.
+> 3. **`CHANGELOG.md` starts empty.** The v1 file was 1675 lines ≈ **29k tokens** — too expensive
+>    for an agent to read. It is preserved at the tag and copied to `docs/changelog-v1.md`.
+>    New rule for S1.2: past ~300 lines, old releases move to `docs/changelog-archive.md`.
 
 **S1.2 New AGENTS.md.** I write a draft from the appendix below. **You approve it** (it is a doc
 change). It goes only into `v2`. `master` keeps the v1 AGENTS.md until the swap.
