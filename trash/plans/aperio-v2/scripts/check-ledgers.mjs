@@ -65,7 +65,8 @@ check("self-memory row = parked",
   /\| Self-Memory \| \*\*parked\*\*/.test(features) ? [] : ["Self-Memory is not parked"], 1);
 
 // --- T0.4: every open tech-debt item is a lesson ---------------------------
-const debt = readFileSync("id/reference/tech-debt.md", "utf8")
+// read at the tag: the v2 branch has no id/ tree, and the ledger is about v1 anyway
+const debt = git("show", `${TAG}:id/reference/tech-debt.md`)
   .split("\n").filter((l) => l.startsWith("## "))
   .map((l) => l.slice(3).trim())
   .filter((h) => !["Running Code Depth", "<Topic / Area>", "Intentional deferrals",
@@ -78,10 +79,20 @@ const debtMissing = debt.filter((h) => {
 check("open tech-debt items covered", debtMissing, debt.length);
 
 // --- T0.4: every feedback_* memory note is a lesson ------------------------
+// the memory notes live outside the repo, so this check is skipped when they are not there
 const memDir = `${process.env.HOME}/.claude/projects/-Users-lk-Projects-BaiGanio-aperio/memory`;
-const notes = readdirSync(memDir).filter((f) => f.startsWith("feedback_"));
-check("feedback_* notes covered",
-  notes.filter((n) => !lessons.includes(n.replace(/\.md$/, ""))), notes.length);
+let notes = null;
+try {
+  notes = readdirSync(memDir).filter((f) => f.startsWith("feedback_"));
+} catch {
+  // cleanup: no memory dir on this machine
+}
+if (notes) {
+  check("feedback_* notes covered",
+    notes.filter((n) => !lessons.includes(n.replace(/\.md$/, ""))), notes.length);
+} else {
+  ok.push(`feedback_* notes covered: skipped (no ${memDir})`);
+}
 
 // --- T0.4: every lesson has a source --------------------------------------
 const lessonRows = lessons.split("\n").filter((l) => /^\| L-[PCM]\d\d \|/.test(l));
