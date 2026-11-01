@@ -15,6 +15,14 @@ All notable changes to this project are documented here, following
 Aperio is being rebuilt as a small core that a 4–9B local model uses well.
 Plan: `trash/plans/aperio-v2/aperio-v2.md`. First release will be **v1.0.0**.
 
+### Added
+
+- Tooling and CI for branch `v2` (step S1.3): a minimal `package.json` (Node ESM, `node --test`,
+  c8), eslint with a working guard for each anti-pattern AP1–AP6, scripts for AP7 (file size) and
+  AP9 (duplicate basenames), and two fresh workflows — `v2-ci.yml` (lint, guards, tests, npm audit)
+  and `v2-codeql.yml`. Every trigger filters on branch `v2`. Each guard is proved by a planted
+  violation in `tests/guards/`.
+
 ### Removed
 
 - The v1 tree (1403 files). Every file stays readable at tag `archive/v1-final`.

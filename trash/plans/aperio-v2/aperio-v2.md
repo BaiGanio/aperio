@@ -381,6 +381,56 @@ all anti-pattern guards AP1–AP7 and AP9 (AP8 comes in S2.11), the file-size an
 scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm audit.
 *Works when:* CI is green on an empty project, and one planted violation per guard fails CI. → **T1.3**
 
+> **DONE 2026-11-01**, commit `<pending>`. `npm run check` (lint + guards + tests) is green on the
+> otherwise-empty project: **19/19 guard tests pass**, lint reports 0 problems, both guard scripts
+> exit 0.
+>
+> **What landed**
+>
+> | Piece | Where |
+> |---|---|
+> | `package.json` — Node ESM, `engines: >=22`, `node --test`, c8 | one runtime dep (`express ^5.3.0`), two dev deps (`eslint ^10.0.1`, `c8 ^12.0.0`) + `@eslint/js`. No MCP dependency (L-C07). |
+> | Scripts | `lint`, `guards`, `test`, `test:coverage`, `check`, `ledgers` |
+> | AP1–AP6 guards | `eslint.config.mjs` + three custom rules in `eslint-rules/` |
+> | AP7 file size | `scripts/guard-file-size.mjs` (>500 lines with no `// size-reason:`) |
+> | AP9 duplicate basenames | `scripts/guard-duplicate-basenames.mjs` (unique names inside `src/`, `public/`) |
+> | T1.3 gate | `tests/guards/anti-pattern-guards.test.js` + `tests/guards/fixtures/` |
+> | CI | `.github/workflows/v2-ci.yml` (lint · guards · tests on node 22.x + 26.x · npm audit) and `.github/workflows/v2-codeql.yml` |
+>
+> **Every guard has been seen to fail** (lesson L-C02). One violating file per guard is planted,
+> the guard is run, and the failure message must carry the AP id: AP1 `process.env` in
+> `src/agent/`, AP2 `provider === "llamacpp"`, AP3 `import fs` in `src/tools/`, AP4 `readFileSync`
+> off boot, AP5 `catch {}` **and** `.catch(() => {})`, AP6 a mutated module-level `new Map()`,
+> AP7 a 600-line file, AP9 `src/server.js` + `src/http/server.js`. Each has a matching green case:
+> the Tier-0 env file, a capability call, `gatedRead`, sync `fs` in `src/boot/`, a `// cleanup`
+> marker, a frozen `new Set([...])`, a `// size-reason:` header, unique names. The T1.3 edge case
+> is covered too: an `eslint-disable` that names no AP id and reason fails.
+>
+> **Five decisions worth knowing:**
+> 1. **Guard globs are segment-anchored** (`**/src/tools/**`), not root-anchored. The test copies
+>    each fixture into a throwaway directory outside the repo and runs the *same* config there, so
+>    the suite proves the real config, not a test-only copy. Nothing is planted in the repo tree
+>    (L-P02). AP7 and AP9 fixtures are generated instead of committed, because both scripts scan
+>    the repo and would otherwise flag their own fixtures.
+> 2. **AP2 and AP4 share one `no-restricted-syntax` block.** In flat config the last block that
+>    sets a rule replaces it outright, so splitting them silently dropped AP2. The selectors are
+>    grouped by which folder is exempt (`src/providers/` for AP2, `src/boot/` for AP4), never by
+>    guard. This bug was live until the test caught it.
+> 3. **AP5 is a custom rule, not core `no-empty`.** T1.3 requires the AP id in the message and core
+>    rules cannot carry one. The same rule also catches `.catch(() => {})`, which `no-empty` misses.
+> 4. **npm audit is gated in two steps** (L-C07 in the flesh): runtime deps at `moderate`
+>    (0 findings), dev tooling at `high`. A plain `npm audit` already reports 8 moderate advisories
+>    inside eslint's and c8's own `minimatch`/`glob` trees with no non-breaking fix. A single
+>    moderate gate would be red from day one and stop meaning anything.
+> 5. **The Tier-0 env allowlist is one named file**, `src/boot/tier0-env.js`, plus `src/config/**`.
+>    An allowlist of folders is an allowlist that grows.
+>
+> **One deferral:** browser globals for `public/**` are not in the lint config yet. They arrive with
+> the first UI file in Phase 3 (TR16: build no layer before it is needed).
+>
+> **Next step: S2.1 — the eval harness.** S2.1 is a Phase 2 step, so it needs the full loop:
+> study v1 → spec in `trash/plans/aperio-v2/specs/` → your approval → red tests → build.
+
 ### Phase 2 — Core (each step is test-first)
 
 **S2.1 Eval harness first.** A fixed set of memories, multi-turn scenarios ("last week I said X"

@@ -1,0 +1,86 @@
+# Aperio v2 CI. Written fresh for branch v2, not copied from a v1 workflow.
+#
+# Plan trap TR6: a workflow that fires from the wrong branch. v1's
+# ci.browser.yml had a `push:` trigger with no branch filter, so it would have
+# fired and failed on the first v2 push. Every trigger here names branch v2.
+#
+# This file runs only: tests, lint, the AP guards, and npm audit. CodeQL lives
+# in v2-codeql.yml. The release workflow comes back at the v1 -> v2 swap.
+
+name: v2 CI
+
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  guards:
+    name: anti-pattern guards (AP7, AP9)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run guards
+
+  test:
+    name: tests (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22.x is the engines floor; 26.x is current. The AP1-AP9 guard suite
+        # (T1.3) runs here, so a lint-rule regression fails the test job too.
+        node: [22.x, 26.x]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      # Runtime dependencies ship to users, so they are gated at moderate.
+      - name: audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      # Lesson L-C07: a moderate advisory in dev tooling with no non-breaking
+      # upstream fix will sit open forever. Dev tooling is gated at high so the
+      # audit stays a signal instead of permanent noise.
+      - name: audit dev tooling
+        run: npm audit --audit-level=high

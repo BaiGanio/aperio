@@ -1,0 +1,41 @@
+# CodeQL static analysis for branch v2. Separate from v2-ci.yml because it
+# needs extra permissions and runs on a schedule as well.
+#
+# Plan trap TR6: every trigger names branch v2.
+
+name: v2 CodeQL
+
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  schedule:
+    # Mondays, 05:17 UTC. An odd minute avoids the top-of-hour queue.
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze javascript
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript
