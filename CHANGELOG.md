@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+
+## [0.70.0] — 2026-10-30
+
+### Added
+- clear the npm audit gate without an allowlist entry
+- one size and count budget for every attachment edge
+- close a blind spot in the config-drift gate
+
+---
+
 ### Changed
 - the two database store classes are split by responsibility. `db/sqlite/store.js`
   (1589 lines) and `db/postgres/store.js` (1395) each carried nine parallel responsibilities
