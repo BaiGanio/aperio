@@ -30,7 +30,7 @@ Aperio v1 is archived at tag `archive/v1-final`. v2 is a deliberate restart.
 - **A feature not marked `core` in `trash/plans/aperio-v2/feature-ledger.md` is not built. Ask.**
   The ledger has a row for every v1 feature, tool, UI panel and skill, with its status
   (`core` / `later` / `parked` / `never`) and where its v1 code and tests live at the tag.
-- **Read `trash/plans/aperio-v2/lessons-ledger.md` before each step.** 54 lessons that cost v1
+- **Read `trash/plans/aperio-v2/lessons-ledger.md` before each step.** 55 lessons that cost v1
   real time. One minute of reading saves a day. Port-protocol rule 5 points there.
 - **Nothing returns without a measured need.** A `later` feature comes back one at a time,
   after v1.0.0, through the return gate: a real need, plus an eval score that goes **up**.

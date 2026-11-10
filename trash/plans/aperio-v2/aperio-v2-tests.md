@@ -115,7 +115,7 @@ weakened to pass. Any scope change is written down in the commit.
 ### T2.1 — eval harness + baseline
 - **Setup:** fixture `evals/memories.json` (~30 memories, dated across weeks), `evals/scenarios/*.json` (multi-turn: fact set in turn 1 of session A, used in session B without a hint), tool-call cases.
 - **Expected:** harness runs against v1 (from the tag, isolated scratch DB, non-default port) and later v2, same fixtures.
-- **Assertions:** baseline per model recorded in `evals/baseline.json`: recall precision@5, "used without hint" rate, tool-call success, p95 + max turn latency.
+- **Assertions:** baseline per model recorded in `evals/baseline.json`: recall hit-rate@5 (`hitRateAt5`), "used without hint" rate, tool-call success, p95 + max turn latency.
 - **Edge cases:** model returns empty completion (gemma quirk) → retried, counted; scratch state cleaned after run; no thresholds invented — v2 targets = v1 baseline.
 
 ### T2.2 — config
@@ -134,7 +134,7 @@ weakened to pass. Any scope change is written down in the commit.
 - **Edge cases:** server not started; model mid-load; abort mid-stream frees resources.
 
 ### T2.6 — auto-recall
-- **Assertions:** on both models: "used without hint" rate ≥ v1 baseline; recall precision@5 ≥ baseline; injected block stays within token budget; prompt prefix (system + tool schemas) byte-identical across turns.
+- **Assertions:** on both models: "used without hint" rate ≥ v1 baseline; recall hit-rate@5 (`hitRateAt5`) ≥ baseline; injected block stays within token budget; prompt prefix (system + tool schemas) byte-identical across turns.
 - **Edge cases:** zero relevant memories → nothing injected; 1000 memories → still budget-bound.
 
 ### T2.7 — auto-capture

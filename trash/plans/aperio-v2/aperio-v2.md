@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-10** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** Next: **S2.1** — spec is a draft, waiting for approval.
+Status: **active, 2026-11-10** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** Next: **S2.1** — spec approved 2026-11-10; red tests, then build.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
