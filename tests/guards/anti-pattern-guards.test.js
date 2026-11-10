@@ -75,6 +75,7 @@ async function guard(script, root) {
 /** @type {{id: string, fixture: string, target: string}[]} */
 const RED = [
   { id: 'AP1', fixture: 'ap1/bad-reads-env.js', target: 'src/agent/env-reader.js' },
+  { id: 'AP1', fixture: 'ap1/bad-reads-env.js', target: 'src/boot/tier0-env.js' },
   { id: 'AP2', fixture: 'ap2/bad-provider-name.js', target: 'src/agent/provider-branch.js' },
   { id: 'AP3', fixture: 'ap3/bad-raw-fs.js', target: 'src/tools/read-note-tool.js' },
   { id: 'AP4', fixture: 'ap4/bad-sync-fs.js', target: 'src/agent/prompt-loader.js' },
@@ -85,7 +86,7 @@ const RED = [
 
 /** @type {{name: string, fixture: string, target: string}[]} */
 const GREEN = [
-  { name: 'AP1: the Tier-0 env file may read process.env', fixture: 'ap1/good-tier0-env.js', target: 'src/boot/tier0-env.js' },
+  { name: 'AP1: the config registry may read process.env', fixture: 'ap1/good-config-reads-env.js', target: 'src/config/env-reader.js' },
   { name: 'AP2: asking for a capability is allowed', fixture: 'ap2/good-capability.js', target: 'src/agent/capability-ask.js' },
   { name: 'AP3: a tool using the file gate is allowed', fixture: 'ap3/good-gated-read.js', target: 'src/tools/read-note-gated.js' },
   { name: 'AP4: sync fs is allowed in boot code', fixture: 'ap4/good-sync-in-boot.js', target: 'src/boot/prompt-loader-boot.js' },
@@ -95,7 +96,7 @@ const GREEN = [
 ];
 
 for (const { id, fixture, target } of RED) {
-  test(`${id}: a planted violation fails lint and names ${id}`, async (t) => {
+  test(`${id}: a planted violation in ${target} fails lint and names ${id}`, async (t) => {
     const root = await newProject();
     t.after(() => rm(root, { recursive: true, force: true }));
     const file = await plant(root, fixture, target);

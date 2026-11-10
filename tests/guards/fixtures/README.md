@@ -11,7 +11,7 @@ This folder is in `eslint.config.mjs`'s global `ignores`. Without that, the norm
 
 | Guard | Bad fixture | Good fixture |
 |---|---|---|
-| AP1 `process.env` outside the config registry | `ap1/bad-reads-env.js` | `ap1/good-tier0-env.js` |
+| AP1 `process.env` outside the config registry | `ap1/bad-reads-env.js` | `ap1/good-config-reads-env.js` |
 | AP2 branching on a provider name | `ap2/bad-provider-name.js` | `ap2/good-capability.js` |
 | AP3 raw `fs` in a tool | `ap3/bad-raw-fs.js` | `ap3/good-gated-read.js` |
 | AP4 sync `fs` off boot code | `ap4/bad-sync-fs.js` | `ap4/good-sync-in-boot.js` |

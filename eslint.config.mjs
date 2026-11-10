@@ -41,8 +41,8 @@ const NODE_GLOBALS = Object.fromEntries(
   ].map((name) => [name, 'readonly']),
 );
 
-/** Files allowed to read process.env: the config registry plus one Tier-0 file. */
-const ENV_READERS = ['**/src/config/**/*.js', '**/src/boot/tier0-env.js'];
+/** Files allowed to read process.env: only the config registry (spec S2.2). */
+const ENV_READERS = ['**/src/config/**/*.js'];
 
 /** Provider names must only be compared inside the provider folder (AP2). */
 const PROVIDER_NAMES = [
@@ -132,7 +132,7 @@ export default [
     },
   },
 
-  // AP1 - only the config registry (and one Tier-0 file) reads process.env.
+  // AP1 - only the config registry reads process.env.
   {
     name: 'aperio/ap1-env',
     files: ['**/src/**/*.js'],

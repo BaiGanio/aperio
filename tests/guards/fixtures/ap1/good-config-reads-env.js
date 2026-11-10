@@ -1,4 +1,4 @@
-// AP1 green: the one Tier-0 bootstrap file is allowed to read env.
+// AP1 green: the config registry is the one place allowed to read env.
 export function dataDir() {
   return process.env.APERIO_DATA_DIR ?? './var';
 }
