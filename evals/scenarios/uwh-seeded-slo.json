@@ -1,0 +1,26 @@
+{
+  "id": "uwh-seeded-slo",
+  "kind": "used-without-hint",
+  "split": "train",
+  "title": "A seeded latency target is used to judge a new number without a hint",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Morning! I am planning the week for the platform team.",
+          "expect": {}
+        },
+        {
+          "user": "We see 70ms at p99 on /quote this week. Is that inside our target?",
+          "expect": {
+            "metric": "usedWithoutHint",
+            "requiredAnswerTerms": [
+              "50"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

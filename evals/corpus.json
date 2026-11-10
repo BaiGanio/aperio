@@ -1,0 +1,248 @@
+{
+  "_comment": "S2.1 recall corpus. The 16 train queries are v1 recall-corpus.json at archive/v1-final, unchanged (semantic = natural-language questions, keyword = literal phrases from a target row; never filter prose). The 8 holdout queries are new in v2 and target rows the train set does not touch. Holdout is never used for tuning (L-M10). A query is a hit at k if ANY expectedTitles entry is in the top-k rows. Every query runs under each search mode.",
+  "queries": [
+    {
+      "id": "sem-1",
+      "category": "semantic",
+      "split": "train",
+      "query": "What event bus does the Nimbus service use, and why did we pick it?",
+      "expectedTitles": [
+        "Nimbus uses NATS for events, not Kafka"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-2",
+      "category": "semantic",
+      "split": "train",
+      "query": "How did the team fix the slow /quote endpoint?",
+      "expectedTitles": [
+        "Fixed N+1 query in Nimbus pricing endpoint"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-3",
+      "category": "semantic",
+      "split": "train",
+      "query": "What caused Nimbus to open too many Redis connections, and how was it fixed?",
+      "expectedTitles": [
+        "Tamed the Redis connection storm in Nimbus"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-4",
+      "category": "semantic",
+      "split": "train",
+      "query": "What programming languages does Maya use for backend work?",
+      "expectedTitles": [
+        "Maya's primary languages are Go and Rust"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-5",
+      "category": "semantic",
+      "split": "train",
+      "query": "How does Maya prefer to communicate with the team?",
+      "expectedTitles": [
+        "Maya prefers async-first communication"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-6",
+      "category": "semantic",
+      "split": "train",
+      "query": "What mobile app shows Nimbus pricing alerts to field reps?",
+      "expectedTitles": [
+        "Beacon — iOS companion app"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-7",
+      "category": "semantic",
+      "split": "train",
+      "query": "Why did the team choose SwiftUI and iOS 16 as the minimum for Beacon?",
+      "expectedTitles": [
+        "Beacon is SwiftUI, minimum iOS 16"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "sem-8",
+      "category": "semantic",
+      "split": "train",
+      "query": "What's Nimbus's latency and availability target?",
+      "expectedTitles": [
+        "Nimbus SLO: 50ms p99, 99.95% availability"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-1",
+      "category": "keyword",
+      "split": "train",
+      "query": "Redis connection storm Nimbus",
+      "expectedTitles": [
+        "Tamed the Redis connection storm in Nimbus",
+        "Nimbus data stores: Postgres + Redis"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-2",
+      "category": "keyword",
+      "split": "train",
+      "query": "Nimbus Fly.io blue-green deploy",
+      "expectedTitles": [
+        "Nimbus deploys on Fly.io with blue-green"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-3",
+      "category": "keyword",
+      "split": "train",
+      "query": "NATS JetStream consumer tuning",
+      "expectedTitles": [
+        "NATS JetStream tuning post",
+        "Nimbus uses NATS for events, not Kafka"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-4",
+      "category": "keyword",
+      "split": "train",
+      "query": "Beacon SwiftUI iOS 16 NavigationStack",
+      "expectedTitles": [
+        "Beacon is SwiftUI, minimum iOS 16"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-5",
+      "category": "keyword",
+      "split": "train",
+      "query": "Go style guide error wrapping package layout",
+      "expectedTitles": [
+        "Go style guide the team follows"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-6",
+      "category": "keyword",
+      "split": "train",
+      "query": "table-driven tests Go t.Run subtests",
+      "expectedTitles": [
+        "Table-driven tests in Go"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-7",
+      "category": "keyword",
+      "split": "train",
+      "query": "Nimbus on-call rotation weekly Monday",
+      "expectedTitles": [
+        "Nimbus on-call rotation is weekly"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "kw-8",
+      "category": "keyword",
+      "split": "train",
+      "query": "tabs not spaces indentation code-review blocker",
+      "expectedTitles": [
+        "Indentation: tabs, not spaces"
+      ],
+      "source": "v1 recall-corpus.json at archive/v1-final"
+    },
+    {
+      "id": "hold-sem-1",
+      "category": "semantic",
+      "split": "holdout",
+      "query": "Where does Maya live, and what time does her workday start?",
+      "expectedTitles": [
+        "Maya's working hours and timezone",
+        "Maya Chen — staff backend engineer"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-sem-2",
+      "category": "semantic",
+      "split": "holdout",
+      "query": "Who has to sign off before we break the contract the storefront and the iPhone app depend on?",
+      "expectedTitles": [
+        "Maya owns the pricing API contract"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-sem-3",
+      "category": "semantic",
+      "split": "holdout",
+      "query": "Should I push back when Maya proposes adding yet another caching tier?",
+      "expectedTitles": [
+        "Maya tends to over-build caching layers"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-sem-4",
+      "category": "semantic",
+      "split": "holdout",
+      "query": "How should I phrase the subject line of my commit messages?",
+      "expectedTitles": [
+        "Conventional Commits, imperative mood"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-kw-1",
+      "category": "keyword",
+      "split": "holdout",
+      "query": "Catppuccin Mocha palette",
+      "expectedTitles": [
+        "Catppuccin Mocha, dark mode everywhere"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-kw-2",
+      "category": "keyword",
+      "split": "holdout",
+      "query": "oat-milk flat white",
+      "expectedTitles": [
+        "Oat-milk flat white, no sugar"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-kw-3",
+      "category": "keyword",
+      "split": "holdout",
+      "query": "Notion nimbus-architecture canonical design reference",
+      "expectedTitles": [
+        "Nimbus architecture doc (Notion)"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    },
+    {
+      "id": "hold-kw-4",
+      "category": "keyword",
+      "split": "holdout",
+      "query": "100-column soft limit",
+      "expectedTitles": [
+        "Tabs over spaces, 100-column limit"
+      ],
+      "source": "new in v2 S2.1, holdout"
+    }
+  ]
+}

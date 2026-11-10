@@ -1,0 +1,25 @@
+{
+  "id": "empty-completion-short-turns",
+  "kind": "empty-completion",
+  "split": "train",
+  "title": "Very short turns that tempt an empty completion still get an answer",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Hi!",
+          "expect": {}
+        },
+        {
+          "user": "Ok.",
+          "expect": {}
+        },
+        {
+          "user": "Thanks, that is all.",
+          "expect": {}
+        }
+      ]
+    }
+  ]
+}

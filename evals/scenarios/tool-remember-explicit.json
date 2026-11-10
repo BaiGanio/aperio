@@ -1,0 +1,27 @@
+{
+  "id": "tool-remember-explicit",
+  "kind": "tool-call",
+  "split": "train",
+  "title": "The assistant saves a new fact with the remember tool when asked to",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Hi, quick admin task coming.",
+          "expect": {}
+        },
+        {
+          "user": "Please remember that the Beacon beta ships to TestFlight every Friday.",
+          "expect": {
+            "metric": "toolSuccess",
+            "expectedToolSequence": [
+              "remember"
+            ],
+            "requiredAnswerTerms": []
+          }
+        }
+      ]
+    }
+  ]
+}

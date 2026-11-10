@@ -21,7 +21,7 @@ weakened to pass. Any scope change is written down in the commit.
 | S1.1 | T1.1 wipe | only keep list on v2; master untouched |
 | S1.2 | T1.2 AGENTS.md | approved, rules present |
 | S1.3 | T1.3 lint/CI teeth | one planted violation per anti-pattern guard AP1–AP9 fails |
-| S2.1 | T2.1 eval harness + baseline | v1 baseline recorded, both models |
+| S2.1 | T2.1 eval harness | harness green in `npm run check` |
 | S2.2 | T2.2 config | precedence, generator check |
 | S2.3 | T2.3 store | CRUD, hybrid search, forget cleans vectors |
 | S2.4 | T2.4 embeddings | round-trip, signature mismatch |
@@ -112,11 +112,11 @@ weakened to pass. Any scope change is written down in the commit.
 - **Assertions:** the v1 study section is filled (files, best parts, bad parts, lessons, v1 tests table); the spec section has goal, behaviour, interface, errors, limits, non-goals; every acceptance item maps to a named test case; zero open questions; status line says **approved <date>**; the approval date is earlier than the step's first test or code commit (`git log`).
 - **Edge cases:** the spec changed during the build → it is re-approved before the code commit that depends on it; a spec over 2 pages → the step is split.
 
-### T2.1 — eval harness + baseline
+### T2.1 — eval harness
 - **Setup:** fixture `evals/memories.json` (~30 memories, dated across weeks), `evals/scenarios/*.json` (multi-turn: fact set in turn 1 of session A, used in session B without a hint), tool-call cases.
-- **Expected:** harness runs against v1 (from the tag, isolated scratch DB, non-default port) and later v2, same fixtures.
-- **Assertions:** baseline per model recorded in `evals/baseline.json`: recall hit-rate@5 (`hitRateAt5`), "used without hint" rate, tool-call success, p95 + max turn latency.
-- **Edge cases:** model returns empty completion (gemma quirk) → retried, counted; scratch state cleaned after run; no thresholds invented — v2 targets = v1 baseline.
+- **Expected:** harness runs against v2 (mock, then v2-live), same fixtures. No v1 live run (spec S2.1 decision 6).
+- **Assertions:** the first v2-live run records `evals/baseline.json` per model: recall hit-rate@5 (`hitRateAt5`), "used without hint" rate, tool-call success, p95 + max turn latency.
+- **Edge cases:** model returns empty completion (gemma quirk) → retried, counted; scratch state cleaned after run; no thresholds invented — v2 targets = the first v2-live baseline.
 
 ### T2.2 — config
 - **Assertions:** DB overlay beats env beats default (`db` mode); `env` mode flips it; Tier-0 key ignores DB; unknown key rejected; `.env.example` regen is idempotent.
@@ -134,7 +134,7 @@ weakened to pass. Any scope change is written down in the commit.
 - **Edge cases:** server not started; model mid-load; abort mid-stream frees resources.
 
 ### T2.6 — auto-recall
-- **Assertions:** on both models: "used without hint" rate ≥ v1 baseline; recall hit-rate@5 (`hitRateAt5`) ≥ baseline; injected block stays within token budget; prompt prefix (system + tool schemas) byte-identical across turns.
+- **Assertions:** on both models: "used without hint" rate ≥ baseline; recall hit-rate@5 (`hitRateAt5`) ≥ baseline; injected block stays within token budget; prompt prefix (system + tool schemas) byte-identical across turns.
 - **Edge cases:** zero relevant memories → nothing injected; 1000 memories → still budget-bound.
 
 ### T2.7 — auto-capture
@@ -192,7 +192,7 @@ weakened to pass. Any scope change is written down in the commit.
 ## Test execution order
 
 T0.1 → T0.2 → (T0.3, T0.4 in parallel) → T0.5 → T0.6 → T1.1 → T1.2 → T1.3 →
-**T2.1 (baseline) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 →
+**T2.1 (harness) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 →
 T3.0 → T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
 
 ## Required setup
@@ -200,6 +200,6 @@ T3.0 → T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
 - `gh` CLI with repo rights (tag, labels, issues).
 - Worktree `../aperio-v2`; main folder stays on `master`.
 - Both test models in `var/models/`; llama.cpp binary.
-- Scratch dir for v1 baseline runs (isolated DB, non-default port, cleaned after).
+- Scratch dir for live eval runs (isolated DB, non-default port, cleaned after).
 - Playwright for T3.x.
 - Clean container/VM for T4.3 (Docker smoke is enough).

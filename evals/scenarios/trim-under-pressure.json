@@ -1,0 +1,58 @@
+{
+  "id": "trim-under-pressure",
+  "kind": "trim",
+  "split": "train",
+  "title": "A history bigger than a small context window is trimmed by a computed number of turns",
+  "budget": {
+    "contextWindowTokens": 3200,
+    "padTokensPerTurn": 700,
+    "expectedDropped": 2,
+    "_math": "6 turns x 700 = 4200 > 3200; over = 1000; dropped = ceil(1000/700) = 2; margins 1000 and 400, both >= 350"
+  },
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Part 1 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Part 2 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Part 3 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Part 4 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Part 5 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Part 6 of my notes on the Nimbus pricing rules.",
+          "expect": {
+            "pad": true,
+            "contextTrimmed": {
+              "dropped": 2
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

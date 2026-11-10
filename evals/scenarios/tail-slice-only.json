@@ -1,0 +1,56 @@
+{
+  "id": "tail-slice-only",
+  "kind": "tail-slice",
+  "split": "train",
+  "title": "A long but small history is cut by the history limit and never by the token trim",
+  "budget": {
+    "contextWindowTokens": 8192,
+    "padTokensPerTurn": 300,
+    "maxHistory": 4,
+    "_math": "6 turns x 300 = 1800 < 8192, so no token trim; 6 turns > maxHistory 4, so only the tail-slice branch runs"
+  },
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Short note 1 about Beacon.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Short note 2 about Beacon.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Short note 3 about Beacon.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Short note 4 about Beacon.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Short note 5 about Beacon.",
+          "expect": {
+            "pad": true
+          }
+        },
+        {
+          "user": "Short note 6 about Beacon.",
+          "expect": {
+            "pad": true,
+            "contextTrimmed": false
+          }
+        }
+      ]
+    }
+  ]
+}

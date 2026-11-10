@@ -105,4 +105,4 @@ reason v2 exists, so every one of them is already a trap row or a test case.
 |---|---|---|
 | Q1 | Does a small model actually do better **with** self-memory? | A test at the return gate. Until then self-memory is `parked`. |
 | Q2 | What is the real KV size per token for a hybrid-SSM model? | Measure `llama-server` buffers at S2.5 (L-M09). |
-| Q3 | Can v2 auto-recall beat the v1 baseline on both test models? | **T2.6**. If not, we learn why before going on. |
+| Q3 | Can v2 auto-recall hold or beat the first v2-live baseline on both test models? (v1 run dropped 2026-11-10) | **T2.6**. If not, we learn why before going on. |

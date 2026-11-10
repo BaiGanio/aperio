@@ -1,0 +1,36 @@
+{
+  "id": "uwh-cross-session-standup",
+  "kind": "used-without-hint",
+  "split": "train",
+  "title": "A schedule change said in one session is used in the next session without a hint",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Heads-up: from next week the Nimbus team standup moves to Thursdays at 11:30 Lisbon time.",
+          "expect": {}
+        },
+        {
+          "user": "Thanks. That is all for today.",
+          "expect": {}
+        }
+      ]
+    },
+    {
+      "id": "b",
+      "turns": [
+        {
+          "user": "When is the Nimbus standup now?",
+          "expect": {
+            "metric": "usedWithoutHint",
+            "requiredAnswerTerms": [
+              "Thursday",
+              "11:30"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -441,9 +441,8 @@ scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm
 
 **S2.1 Eval harness first.** A fixed set of memories, multi-turn scenarios ("last week I said X"
 → a later turn uses X without being asked) and tool-call cases. It runs against both models.
-Fold in the carried content in **Appendix A1** (#321, #355–#359). **Measure v1 on the same set first** (from the archive tag) —
-that is the baseline.
-*Works when:* the harness runs v1 and records baseline numbers for both models. → **T2.1**
+Fold in the carried content in **Appendix A1** (#321, #355–#359). The first v2-live run on this set is the baseline (v1 live run dropped 2026-11-10, spec S2.1 decision 6).
+*Works when:* the harness, fixtures and metrics are green in `npm run check`. → **T2.1**
 
 **S2.2 Config registry.** A small port of `lib/config.js` + resolver (DB overlay → env → defaults).
 About 20 keys. Generate `.env.example`.
@@ -465,7 +464,7 @@ sizing from the GGUF header. Both test models start and answer.
 
 **S2.6 Auto-recall.** Before each turn, code searches memory and injects the top hits with
 "preview, not everything" framing (lesson from the recall-not-invoked notes), within the token budget.
-*Works when:* the eval recall score is ≥ the v1 baseline on both models. → **T2.6**
+*Works when:* the eval recall score is ≥ the baseline (first v2-live run) on both models. → **T2.6**
 
 **S2.7 Auto-capture.** After a turn, code proposes candidate memories into an inbox. The user
 approves or rejects them in the UI. Rules can auto-approve.
@@ -648,7 +647,7 @@ Changed or new:
 | "Later" quietly becomes "everything again" | The return gate needs an eval delta. The ledger status changes only through a mini-plan. |
 | Swapping branches breaks other sessions | v2 lives in its own worktree (`../aperio-v2`). Nobody checks out `v2` in the main folder. |
 | Closing issues loses context | The triage table is approved first. "Carry" items are copied into the ledger or eval before closing. Closed issues stay readable. |
-| v2 is not better than v1 for small models | The baseline is measured on v1 first (S2.1). If v2 cannot beat it, we learn why before going on. |
+| v2 is not better than v1 for small models | The baseline is the first v2-live run (S2.1 decision 6). Later steps must not drop below it. |
 | Users on `release` get surprised | `release` stays v1 until v1.0.0. The release notes explain the restart and link the archive tag. |
 | Merge pain: master gets security fixes during v2 | Merge `master` into `v2` after each fix. Keep the fix count low. |
 

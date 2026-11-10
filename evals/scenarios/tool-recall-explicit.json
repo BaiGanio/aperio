@@ -1,0 +1,29 @@
+{
+  "id": "tool-recall-explicit",
+  "kind": "tool-call",
+  "split": "holdout",
+  "title": "The assistant searches its memory with the recall tool when asked to",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Hi, I need a quick lookup.",
+          "expect": {}
+        },
+        {
+          "user": "Search your memory for what we decided about the Nimbus event bus.",
+          "expect": {
+            "metric": "toolSuccess",
+            "expectedToolSequence": [
+              "recall"
+            ],
+            "requiredAnswerTerms": [
+              "NATS"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

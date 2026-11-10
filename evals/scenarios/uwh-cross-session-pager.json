@@ -1,0 +1,36 @@
+{
+  "id": "uwh-cross-session-pager",
+  "kind": "used-without-hint",
+  "split": "holdout",
+  "title": "An escalation rule said in one session is used in the next session without a hint",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "For the record: if Maya does not acknowledge a Nimbus page within 15 minutes, it escalates to Priya.",
+          "expect": {}
+        },
+        {
+          "user": "Good. Talk later.",
+          "expect": {}
+        }
+      ]
+    },
+    {
+      "id": "b",
+      "turns": [
+        {
+          "user": "If Maya misses a Nimbus page, who gets it next, and after how long?",
+          "expect": {
+            "metric": "usedWithoutHint",
+            "requiredAnswerTerms": [
+              "Priya",
+              "15"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

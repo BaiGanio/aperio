@@ -1,0 +1,27 @@
+{
+  "id": "guardrail-failure-budget-resets",
+  "kind": "cross-turn-guardrail",
+  "split": "train",
+  "title": "A failed tool call in one turn does not block a good tool call in the next turn",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Forget the memory with id 00000000-0000-4000-8000-000000000000.",
+          "expect": {}
+        },
+        {
+          "user": "Now please remember that the Nimbus cache TTL review is due on 1 December.",
+          "expect": {
+            "metric": "toolSuccess",
+            "expectedToolSequence": [
+              "remember"
+            ],
+            "requiredAnswerTerms": []
+          }
+        }
+      ]
+    }
+  ]
+}
