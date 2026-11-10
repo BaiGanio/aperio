@@ -1,10 +1,11 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-01** — **Phase 0 complete. S1.1 complete.** Next: **S1.2**.
+Status: **active, 2026-11-10** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** Next: **S2.1** — spec is a draft, waiting for approval.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
-> here. Supersedes `trash/plans/aperio-reset/` once approved
+> here. Supersedes `trash/plans/aperio-reset/` (removed from `v2` on 2026-11-10; read it at the tag:
+> `git show archive/v1-final:trash/plans/aperio-reset/aperio-reset.md`) once approved
 (see S0.6). Tests: `trash/plans/aperio-v2/aperio-v2-tests.md`.
 
 ## Objective
@@ -323,6 +324,9 @@ and **ask first**, because another session edits that file.
 > **DONE 2026-11-01.** A four-line `> **SUPERSEDED 2026-11-01 by …aperio-v2.md**` note sits under
 > the title of `trash/plans/aperio-reset/aperio-reset.md`. Its own work was already committed and
 > the worktree was clean, so nothing of another session's was touched.
+>
+> **2026-11-10:** the other nine `trash/plans/` entries, the reset plan included, were removed from
+> `v2`. They stay at `archive/v1-final` and on `master`; the superseded note itself is on `master` only.
 
 #### Issue triage table (22 open, 2026-10-30)
 
@@ -376,12 +380,14 @@ site keeps working), `trash/`, `.gitignore`, `.github/` (cut down in S1.3) and a
 change). It goes only into `v2`. `master` keeps the v1 AGENTS.md until the swap.
 *Works when:* the approved file is committed on `v2`. → **T1.2**
 
+> **DONE 2026-11-01**, commit `34c1cc4d`. `AGENTS.md` is on `v2` only; `.claude/CLAUDE.md` imports it.
+
 **S1.3 Tooling + CI.** A minimal `package.json` (Node ESM, Express 5), `node --test`, eslint with
 all anti-pattern guards AP1–AP7 and AP9 (AP8 comes in S2.11), the file-size and duplicate-name
 scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm audit.
 *Works when:* CI is green on an empty project, and one planted violation per guard fails CI. → **T1.3**
 
-> **DONE 2026-11-01**, commit `<pending>`. `npm run check` (lint + guards + tests) is green on the
+> **DONE 2026-11-01**, commit `947bfffe`. `npm run check` (lint + guards + tests) is green on the
 > otherwise-empty project: **19/19 guard tests pass**, lint reports 0 problems, both guard scripts
 > exit 0.
 >

@@ -6,8 +6,9 @@ Every hard-won trap from v1 lives here as **one line plus its source**.
 Created 2026-11-01 (step **S0.4**). Test group: **T0.4**.
 
 **Sources swept:** `id/reference/tech-debt.md` (every open `##` item + the Intentional-deferrals
-and Investigated-and-rejected tables, at `archive/v1-final`) · all 9 `feedback_*` Claude memory
-notes · the project memory notes with technical findings · `CHANGELOG.md` · `trash/plans/aperio-reset/`.
+and Investigated-and-rejected tables, at `archive/v1-final`) · all 10 `feedback_*` Claude memory
+notes · the project memory notes with technical findings · `CHANGELOG.md` · `trash/plans/aperio-reset/`
+(removed from `v2` on 2026-11-10; it stays at `archive/v1-final`).
 
 **How to use it:** before any Phase 2 / Phase 3 step, read the rows whose *Area* matches.
 Port protocol rule 5 ("bring the lesson") points here.
@@ -66,6 +67,7 @@ inherits the problem, and where it is answered.
 | L-C22 | Import order is a security boundary: an MCP shell-toggle check placed after an import was bypassable. | AP1 + a lint rule; config is read through a function. | AP1 · TR15 | `project_embedding_signature` review round 4 |
 | L-C23 | A docgraph → memory bridge raced on delete / sweep / reindex and left orphans. | Doc intelligence is `later`; issue **#532** stays open with the label. | — | issue #532; tech-debt |
 | L-C24 | `scripts/release-bump.js` cannot cut a major version — "major bumps are not automated". | TR5: v1.0.0 is cut by hand at S4.3, as the one written exception to "never bump `package.json`". | TR5 | `scripts/release-bump.js` at the tag |
+| L-C25 | In an ESLint flat config, two blocks that set the same rule for the same file do **not** merge — the last block replaces the rule outright. This silently switched off the AP2 guard while it still looked present. | One block per rule, grouped by which folder is exempt, never by guard. Each guard has its own planted-violation test (**T1.3**). | AP2 · AP4 | `feedback_eslint_flat_config_rule_collision` (v2 S1.3, 2026-11-01) |
 
 ## M — Model lessons (small local models)
 
