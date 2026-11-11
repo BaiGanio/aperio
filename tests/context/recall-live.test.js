@@ -9,9 +9,10 @@
 //
 // Bars (spec §3), N = 5:
 //   usedWithoutHint on the 3 seeded scenarios: recall on >= 4/5 per scenario, and on > off;
-//   KV on turns 2-3 with recall on: the whole previous prompt is reused
-//   (cache_n >= the previous turn's prompt tokens). The % is reported only
-//   (decision 2026-11-11: a recall block is new text, so the % drops by design);
+//   KV on turns 2-3 with recall on (decision 9): (a) exact, client side - the
+//   rendered prompt of turn N+1 starts with every token of turn N's; (b) loose,
+//   server side - cache_n >= the previous prompt tokens - KV_SLACK (the server
+//   drops 0-5 tail tokens on its own). The % is reported only (decision 6);
 //   ceil(chars / 3) >= the real /tokenize count for every block.
 // Reported: recall step latency mean / sd / max.
 
@@ -32,6 +33,7 @@ import { createV2LiveAdapter } from '../../src/eval/v2-live-adapter.js';
 const PORT = 18432;
 const CTX = 16384;
 const N = 5;
+const KV_SLACK = 8;
 const EVALS = fileURLToPath(new URL('../../evals/', import.meta.url));
 const MODELS = ['unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL', 'protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M'];
 const SEEDED = ['uwh-seeded-slo', 'uwh-seeded-coffee', 'uwh-seeded-beacon'];
@@ -65,7 +67,8 @@ const stat = (xs) => {
 async function withAdapter(model, opts, fn) {
   const root = await mkdtemp(join(tmpdir(), 'aperio-live-recall-'));
   const config = { ...BASE, LLAMACPP_PORT: PORT, LLAMACPP_SERVE_CTX: CTX };
-  const adapter = createV2LiveAdapter({ config, ...opts, deps: { log: { error: console.error, warn: console.warn, info() {} } } });
+  const { fetch: fetchImpl, ...rest } = opts;
+  const adapter = createV2LiveAdapter({ config, ...rest, deps: { fetch: fetchImpl, log: { error: console.error, warn: console.warn, info() {} } } });
   try {
     const session = await adapter.start({ sandbox: { root, dbPath: join(root, 'eval.sqlite'), port: PORT, releasePort: async () => {} }, settings: {}, model: { id: model } });
     return await fn(session);
@@ -74,6 +77,17 @@ async function withAdapter(model, opts, fn) {
     await rm(root, { recursive: true, force: true });
     await assert.rejects(fetch(`http://127.0.0.1:${PORT}/health`), 'the port is free after stop: no stray server');
   }
+}
+
+const llamaPost = async (path, body) => (await fetch(`http://127.0.0.1:${PORT}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+
+/** The tokens the server renders for one chat request body (no BOS). */
+async function renderedTokens(body) {
+  const rest = { ...body };
+  delete rest.stream;
+  delete rest.stream_options;
+  const { prompt } = await llamaPost('/apply-template', rest);
+  return (await llamaPost('/tokenize', { content: prompt, parse_special: true })).tokens;
 }
 
 async function tokenizeCount(text) {
@@ -122,25 +136,37 @@ for (const model of MODELS) {
       // KV reuse with recall on, the S2.5 setup.
       const kv = [[], []];
       const whole = [];
-      await withAdapter(model, { recall: true, system: KV_SYSTEM, tools: TOOLS }, async (session) => {
+      const bodies = [];
+      const spy = async (url, init) => {
+        if (String(url).includes('/chat/completions')) bodies.push(JSON.parse(init.body));
+        return fetch(url, init);
+      };
+      await withAdapter(model, { recall: true, system: KV_SYSTEM, tools: TOOLS, fetch: spy }, async (session) => {
         await session.seedMemories(rows);
         for (let run = 0; run < N; run++) {
           await session.reset();
           let prevPrompt = 0;
+          let prevTokens = [];
           for (const [i, text] of KV_TURNS.entries()) {
+            bodies.length = 0;
             const r = await session.turn(text);
+            const tokens = await renderedTokens(bodies.at(-1));
             const tm = r.timings;
             if (r.recall.block) blocks.push({ block: r.recall.block, count: await tokenizeCount(r.recall.block) });
             if (i > 0) {
               kv[i - 1].push((100 * tm.cache_n) / (tm.cache_n + tm.prompt_n));
-              whole.push({ run, turn: i + 1, cache_n: tm.cache_n, prevPrompt, injected: Boolean(r.recall.block) });
+              let same = 0;
+              while (same < prevTokens.length && prevTokens[same] === tokens[same]) same++;
+              whole.push({ run, turn: i + 1, cache_n: tm.cache_n, prevPrompt, injected: Boolean(r.recall.block), same, prevLen: prevTokens.length });
             }
             prevPrompt = tm.cache_n + tm.prompt_n;
+            prevTokens = tokens;
           }
         }
       });
       const reuse = { turn2: stat(kv[0]), turn3: stat(kv[1]) };
       t.diagnostic(JSON.stringify({ model, kvReusePct: reuse, injectedOnTurn2: whole.filter((w) => w.turn === 2 && w.injected).length }));
+      t.diagnostic(JSON.stringify({ model, serverShortfall: whole.map((w) => w.prevPrompt - w.cache_n) }));
 
       const over = blocks.filter((b) => estimateTokens(b.block) < b.count);
       const ratio = blocks.map((b) => estimateTokens(b.block) / b.count);
@@ -150,10 +176,13 @@ for (const model of MODELS) {
       for (const id of SEEDED) assert.ok(on[id] >= 4, `${id}: recall on ${on[id]}/${N} >= 4`);
       const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
       assert.ok(sum(on) > sum(off), `on ${sum(on)} > off ${sum(off)}`);
-      // Bar (developer decision 2026-11-11, option A): the whole previous prompt is
-      // reused. The % is reported, not gated: a recall block is new text, so the
-      // % drops on an injected turn even with a perfect cache.
-      for (const w of whole) assert.ok(w.cache_n >= w.prevPrompt, `run ${w.run} turn ${w.turn}: the whole previous prompt is reused (${w.cache_n} >= ${w.prevPrompt})`);
+      // Bar (decision 9, 2026-11-11): (a) exact, our side - every token of the
+      // previous rendered prompt is a prefix of the next; (b) loose, server side.
+      // The % is reported, not gated (decision 6).
+      for (const w of whole) {
+        assert.equal(w.same, w.prevLen, `run ${w.run} turn ${w.turn}: the previous prompt is an exact token prefix (${w.same} of ${w.prevLen})`);
+        assert.ok(w.cache_n >= w.prevPrompt - KV_SLACK, `run ${w.run} turn ${w.turn}: the server reuses the previous prompt (${w.cache_n} >= ${w.prevPrompt} - ${KV_SLACK})`);
+      }
       assert.ok(blocks.length > 0, 'at least one block was checked');
       assert.equal(over.length, 0, `ceil(chars/3) >= /tokenize on every block: ${JSON.stringify(over.map((b) => b.count))}`);
     });
