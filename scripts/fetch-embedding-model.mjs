@@ -22,6 +22,6 @@ const extractor = await pipeline('feature-extraction', model, { dtype: 'q8' });
 await extractor.dispose();
 
 // Prove it loads offline, the way the app loads it.
-const embedder = await createEmbedder({ model, cacheDir, log: { warn() {}, info() {} } });
+const embedder = await createEmbedder({ model, cacheDir, threads: values.EMBEDDING_THREADS, log: { warn() {}, info() {} } });
 console.log(`Done. ${embedder.sig}`);
 await embedder.close();

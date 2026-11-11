@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1",
+    "test": "node --test",
     "test:coverage": "c8 --reporter=text --reporter=lcov node --test",
     "lint": "eslint .",
     "guard:size": "node scripts/guard-file-size.mjs",

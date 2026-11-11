@@ -25,7 +25,7 @@ const { values } = await loadConfig({ envPath: fileURLToPath(new URL('../.env', 
 let embedder = null;
 let note = '';
 try {
-  embedder = await createEmbedder({ model: values.EMBEDDING_MODEL, cacheDir: values.TRANSFORMERS_CACHE, log: quiet });
+  embedder = await createEmbedder({ model: values.EMBEDDING_MODEL, cacheDir: values.TRANSFORMERS_CACHE, threads: values.EMBEDDING_THREADS, log: quiet });
 } catch (err) {
   if (!(err instanceof EmbeddingUnavailable)) throw err;
   note = `No embedding model (${values.EMBEDDING_MODEL}), so word search only. Run: npm run model:fetch`;

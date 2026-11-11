@@ -26,7 +26,7 @@ const EVALS = fileURLToPath(new URL('../../evals/', import.meta.url));
 const quiet = { warn() {}, info() {} };
 
 // Registry defaults only: a test never reads the developer's .env (TR15).
-const { EMBEDDING_MODEL: MODEL, TRANSFORMERS_CACHE } = readConfig({}).values;
+const { EMBEDDING_MODEL: MODEL, TRANSFORMERS_CACHE, EMBEDDING_THREADS: THREADS } = readConfig({}).values;
 const CACHE = TRANSFORMERS_CACHE.replace(/^~(?=\/|$)/, homedir());
 const cached = existsSync(join(CACHE, MODEL, 'onnx'));
 const live = cached ? {} : { skip: `SKIPPED: ${MODEL} is not in ${CACHE}. Run: npm run model:fetch` };
@@ -41,7 +41,7 @@ test('missing model: EmbeddingUnavailable naming npm run model:fetch, no downloa
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => { fetches++; throw new Error('network is off in this test'); };
   try {
-    await assert.rejects(createEmbedder({ model: MODEL, cacheDir: empty, log: quiet }), (err) => {
+    await assert.rejects(createEmbedder({ model: MODEL, cacheDir: empty, threads: THREADS, log: quiet }), (err) => {
       assert.ok(err instanceof EmbeddingUnavailable, `got ${err?.name}: ${err?.message}`);
       assert.match(err.message, /npm run model:fetch/);
       return true;
@@ -58,7 +58,7 @@ test('no network: the real model loads and embeds with fetch stubbed to throw', 
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => { fetches++; throw new Error('network is off in this test'); };
   try {
-    const embedder = await createEmbedder({ model: MODEL, cacheDir: TRANSFORMERS_CACHE, log: quiet });
+    const embedder = await createEmbedder({ model: MODEL, cacheDir: TRANSFORMERS_CACHE, threads: THREADS, log: quiet });
     const v = await embedder.embed('hello');
     assert.equal(v.length, embedder.dims);
     await embedder.close();
@@ -69,7 +69,7 @@ test('no network: the real model loads and embeds with fetch stubbed to throw', 
 });
 
 test('round-trip: embed -> store -> semantic search finds itself at rank 1; sig stored per row', live, async () => {
-  const embedder = await createEmbedder({ model: MODEL, cacheDir: CACHE, log: quiet });
+  const embedder = await createEmbedder({ model: MODEL, cacheDir: CACHE, threads: THREADS, log: quiet });
   assert.equal(embedder.dims, 1024);
   assert.equal(embedder.sig, `${MODEL}|1024|q8-cls`);
   const store = await openStore({ path: ':memory:', dims: embedder.dims, log: quiet });
@@ -92,7 +92,7 @@ test('round-trip: embed -> store -> semantic search finds itself at rank 1; sig 
 });
 
 test('eval: hybrid hitRateAt5 on evals/corpus.json >= 22/24, train and holdout apart; coffee at rank 1', live, async (t) => {
-  const embedder = await createEmbedder({ model: MODEL, cacheDir: CACHE, log: quiet });
+  const embedder = await createEmbedder({ model: MODEL, cacheDir: CACHE, threads: THREADS, log: quiet });
   const store = await openStore({ path: ':memory:', dims: embedder.dims, log: quiet });
   try {
     const { memories, corpus } = await loadEvalFixtures(EVALS);
@@ -124,7 +124,7 @@ test('eval: hybrid hitRateAt5 on evals/corpus.json >= 22/24, train and holdout a
 test('close() frees the model: a child process that embeds and closes exits by itself', live, async () => {
   const script = `
     import { createEmbedder } from ${JSON.stringify(join(REPO, 'src/embeddings/local-embedder.js'))};
-    const e = await createEmbedder({ model: ${JSON.stringify(MODEL)}, cacheDir: ${JSON.stringify(CACHE)}, log: { warn() {}, info() {} } });
+    const e = await createEmbedder({ model: ${JSON.stringify(MODEL)}, cacheDir: ${JSON.stringify(CACHE)}, threads: ${THREADS}, log: { warn() {}, info() {} } });
     await e.embed('x');
     await e.close();
     console.log('closed');`;

@@ -32,14 +32,14 @@ function fakeTransformers({ width = 8, failLoad = false, failEmbed = false } = {
 }
 
 const make = (fake, over = {}) => createEmbedder({
-  model: 'acme/tiny-embed', cacheDir: '/tmp/aperio-test-cache', log: quiet, transformers: fake.module, ...over,
+  model: 'acme/tiny-embed', cacheDir: '/tmp/aperio-test-cache', threads: 2, log: quiet, transformers: fake.module, ...over,
 });
 
-test('loads one feature-extraction pipeline, q8, with remote models off and the given cache dir', async () => {
+test('loads one feature-extraction pipeline, q8, capped to the configured threads, remote models off, given cache dir', async () => {
   const fake = fakeTransformers();
   const embedder = await make(fake);
   assert.equal(fake.calls.pipeline.length, 1);
-  assert.deepEqual(fake.calls.pipeline[0], { task: 'feature-extraction', model: 'acme/tiny-embed', opts: { dtype: 'q8' } });
+  assert.deepEqual(fake.calls.pipeline[0], { task: 'feature-extraction', model: 'acme/tiny-embed', opts: { dtype: 'q8', session_options: { intraOpNumThreads: 2, interOpNumThreads: 1 } } });
   assert.equal(fake.calls.envAtLoad.allowRemoteModels, false, 'no network at run time');
   assert.equal(fake.calls.envAtLoad.cacheDir, '/tmp/aperio-test-cache');
   await embedder.close();
@@ -117,4 +117,14 @@ test('model and cacheDir are required', async () => {
   const fake = fakeTransformers();
   await assert.rejects(make(fake, { model: '' }), /model/);
   await assert.rejects(make(fake, { cacheDir: '' }), /cacheDir/);
+});
+
+// Uncapped, the model took 5 of 10 cores and starved the other test files and,
+// in the app, llama.cpp (spec S2.4 §5). The cap comes from EMBEDDING_THREADS.
+test('threads is required: a whole number >= 1, never a hidden default', async () => {
+  const fake = fakeTransformers();
+  for (const threads of [undefined, 0, -1, 1.5, '2']) {
+    await assert.rejects(make(fake, { threads }), /threads/, `threads = ${threads}`);
+  }
+  assert.equal(fake.calls.pipeline.length, 0, 'a bad value never loads the model');
 });

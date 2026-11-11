@@ -46,6 +46,8 @@ export const REGISTRY = Object.freeze([
     help: 'Model download cache. Empty = the llama.cpp default.' },
   { key: 'EMBEDDING_MODEL', tier: 1, type: 'text', default: 'mixedbread-ai/mxbai-embed-large-v1',
     help: 'Local transformers embedding model. A change flags every memory for re-embedding.' },
+  { key: 'EMBEDDING_THREADS', tier: 1, type: 'int', default: '2',
+    help: 'CPU threads the embedding model may use. Uncapped it took half the cores and slowed llama.cpp.' },
   { key: 'TRANSFORMERS_CACHE', tier: 1, type: 'path', default: '~/.cache/aperio/transformers',
     help: 'Local cache folder for the embedding model.' },
   { key: 'RECALL_TOP_K', tier: 1, type: 'int', default: '5',

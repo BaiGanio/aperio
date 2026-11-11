@@ -13,6 +13,8 @@ import { homedir } from 'node:os';
 const DTYPE = 'q8';
 const POOLING = 'cls';
 const RECIPE = `${DTYPE}-${POOLING}`;
+/** One model graph, run in order: a second thread pool between ops has no work. */
+const INTER_OP_THREADS = 1;
 
 export class EmbeddingUnavailable extends Error {
   /** @param {string} message @param {unknown} [cause] */
@@ -26,13 +28,15 @@ export class EmbeddingUnavailable extends Error {
 const expandHome = (dir) => dir.replace(/^~(?=\/|$)/, homedir());
 
 /**
- * @param {{ model: string, cacheDir: string, log?: { warn: Function, info: Function },
+ * @param {{ model: string, cacheDir: string, threads: number, log?: { warn: Function, info: Function },
  *           transformers?: { pipeline: Function, env: Record<string, unknown> } }} opts
  *   `transformers` is the module itself; tests pass a fake.
  */
-export async function createEmbedder({ model, cacheDir, log = console, transformers } = /** @type {any} */ ({})) {
+export async function createEmbedder({ model, cacheDir, threads, log = console, transformers } = /** @type {any} */ ({})) {
   if (typeof model !== 'string' || !model.trim()) throw new TypeError('model: is required');
   if (typeof cacheDir !== 'string' || !cacheDir.trim()) throw new TypeError('cacheDir: is required');
+  // Config EMBEDDING_THREADS. Uncapped, the model took 5 of 10 cores (spec S2.4 §5).
+  if (!Number.isInteger(threads) || threads < 1) throw new TypeError(`threads: must be a whole number >= 1, got ${threads}`);
 
   const tf = transformers ?? (await import('@huggingface/transformers'));
   tf.env.allowRemoteModels = false; // no network at run time (spec S2.4 #2)
@@ -40,7 +44,10 @@ export async function createEmbedder({ model, cacheDir, log = console, transform
 
   let extractor;
   try {
-    extractor = await tf.pipeline('feature-extraction', model, { dtype: DTYPE });
+    extractor = await tf.pipeline('feature-extraction', model, {
+      dtype: DTYPE,
+      session_options: { intraOpNumThreads: threads, interOpNumThreads: INTER_OP_THREADS },
+    });
   } catch (err) {
     throw new EmbeddingUnavailable(
       `embedding model ${model} is not in ${tf.env.cacheDir} (${err.message}). Run: npm run model:fetch`, err);
