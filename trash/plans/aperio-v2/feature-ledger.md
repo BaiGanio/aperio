@@ -93,7 +93,7 @@ its feature returns. Every row is covered by the Phase 3 table in `aperio-v2.md`
 | `settings-panel.js` | **core** (cut hard) | Config registry | — (S3.6) |
 | `settings.js` | **core** (cut hard) | Config registry | — (S3.6) |
 | `http-guard.js` | **core** | Security & Hardening | — (S3.0) |
-| Memory inbox (approve captures) | **core** — **new in v2, no v1 file** | Memory | — (S3.5) |
+| Memory inbox (approve captures) | **later** — **new in v2, no v1 file** (S2.7 cut to explicit "remember" only, 2026-11-11) | Memory | — |
 | `settings-overlay.js` | **later** | Config registry | — |
 | `sessions.js` | **later** | Interfaces — web UI | — |
 | `system.js` | **later** | Ops | — |
@@ -175,8 +175,8 @@ Checked by `scripts/check-ledgers.mjs`, so these numbers cannot drift from the t
 
 | Status | A. Features | B. Tools | C. Panels | D. Skills |
 |---|---|---|---|---|
-| `core` | 9 | 3 | 15 | 4 |
-| `later` | 11 | 11 | 24 | 22 |
+| `core` | 9 | 3 | 14 | 4 |
+| `later` | 11 | 11 | 25 | 22 |
 | `parked` | 1 | 2 | 1 | 0 |
 | `never` | 3 | 0 | 5 | 8 |
 | **rows** | **24** | **16** | **45** | **34** |

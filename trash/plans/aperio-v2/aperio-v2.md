@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma usedWithoutHint on 15/15 vs off 0/15; Ornith live run pending (developer). Next: **S2.7 auto-capture** — spec drafted, awaiting approval.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma usedWithoutHint on 15/15 vs off 0/15; Ornith live run pending (developer). **S2.7 auto-capture spec approved 2026-11-11** (explicit "remember" only, no inbox). Next: **S2.7 red tests** (T2.7).
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -480,9 +480,12 @@ sizing from the GGUF header. Both test models start and answer.
 > the user turn; the prefix stays byte-identical. **Pending:** the Ornith live run (developer runs
 > it). Spec §5 has the numbers.
 
-**S2.7 Auto-capture.** After a turn, code proposes candidate memories into an inbox. The user
-approves or rejects them in the UI. Rules can auto-approve.
-*Works when:* the capture eval passes, and nothing is written without approval or a rule. → **T2.7**
+**S2.7 Auto-capture (explicit only).** After a turn, code saves a memory only when the user
+explicitly asks ("Remember that …"). Every other message is chat. No inbox (developer scope cut
+2026-11-11, spec S2.7 decision 1). A pointer-only ask ("Remember that.") is left to the model's
+`remember` tool (S2.8); the duplicate check stops a second row.
+*Works when:* the offline capture eval is exact (train 20/20, holdout 10/10, 0 false saves, 0
+secrets) and the live cross-session scenarios reach ≥ 4/5 each on gemma. → **T2.7**
 
 **S2.8 In-process tools (no MCP).** 5 tools: `remember`, `recall`, `update`, `forget`, `list`.
 They are plain functions behind one tool interface: name, JSON schema, `run(args, ctx)`. The agent
@@ -541,7 +544,6 @@ empty component, and `tsc --noEmit` in CI. Do this before S3.1.
 | Layout shell | `public/styles/layout.css`, `index.html` (shell only) | side panels |
 | Chat + streaming | `chat.js`, `input-bar.js`, `markdown.js`, `rendering.js`, `streaming/*` | badges/deliverables you don't need |
 | Memory table | `memory-table.js`, `memories.js` | self-memory table |
-| Memory inbox (approve captures) | new | — |
 | Settings (minimal) | `settings-panel.js` | most of the overlay |
 | Theme + font scale | `theme-and-timestamp.js`, `font-scale.js` | — |
 
@@ -549,7 +551,7 @@ Left in the archive until their feature returns: codegraph-*, docgraph-panel, wi
 agents-panel, skills-panel, github-triage, dataset-lab, db-panels, paths-panel, tts/voice,
 lang-map/world-paths, lite.js, setup wizard. All of them are in the Feature Ledger.
 
-**S3.1–S3.7** — one step per row above.
+**S3.1–S3.6** — one step per row above.
 *Works when:* the preview is approved, the part is integrated, and the Playwright test for it is green (#338). → **T3.x**
 
 ### Phase 4 — Done gate and swap
@@ -699,7 +701,7 @@ Most of these come from things that really happened in v1. Each one says what to
 |---|---|---|
 | TR15 | **Config frozen at import** (the scratch-env incident hit the real DB). | Config is read through a function, never a module-level const. Tests set config before import, and a guard test proves a scratch DB path is really used. |
 | TR16 | **Building for later too early** (a Postgres factory and provider registry before they are needed). | Keep the store interface small, but build **no** adapter layer until a second backend really returns. YAGNI (you aren't gonna need it). |
-| TR17 | **Secrets in memory.** Auto-capture can save an API key the user pasted. | A secret-pattern filter before the inbox (T2.7). Redact in logs too. |
+| TR17 | **Secrets in memory.** Auto-capture can save an API key the user pasted. | A secret-pattern filter before the save (T2.7). Redact in logs too. |
 | TR18 | **Hidden state between turns** (v1 had per-session maps in many places). | Session state lives in one session object with a clear lifecycle. It is freed on disconnect, and a test checks it. |
 | TR19 | **Embedding model change** makes old vectors useless with no warning. | Store an embedding signature per row (S2.4). On mismatch, reindex. Never mix vectors from two models. |
 

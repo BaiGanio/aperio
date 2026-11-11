@@ -27,7 +27,7 @@ weakened to pass. Any scope change is written down in the commit.
 | S2.4 | T2.4 embeddings | round-trip, signature mismatch |
 | S2.5 | T2.5 provider | streaming + tool calls, both models |
 | S2.6 | T2.6 auto-recall | eval ≥ baseline |
-| S2.7 | T2.7 auto-capture | inbox, nothing written without approval |
+| S2.7 | T2.7 auto-capture | explicit "remember" only; nothing else saved |
 | S2.8 | T2.8 in-process tools | 5 tools called directly, ctx contract, no MCP dep |
 | every S2.x / S3.x | T-SPEC spec gate | study + approved spec exist before first test/code commit |
 | S2.9 | T2.9 file gate | traversal, symlink, TOCTOU |
@@ -138,7 +138,7 @@ weakened to pass. Any scope change is written down in the commit.
 - **Edge cases:** zero relevant memories → nothing injected; 1000 memories → still budget-bound.
 
 ### T2.7 — auto-capture
-- **Assertions:** candidate facts land in inbox, not in `memories`; approve moves it; reject drops it; auto-approve rule works; duplicates merged.
+- **Assertions:** an explicit cue ("Remember that …") saves 1 memory with its vector; a question, a mid-sentence "remember" and a no-cue statement save nothing; "Remember that." saves nothing and emits `capture_unresolved`; the same ask twice → 1 row; `CAPTURE_MODE=off` saves nothing; the stable prefix stays byte-identical on the turn after a save. Full list: spec S2.7 §3.
 - **Edge cases:** secrets in text (API key pattern) → never proposed.
 
 ### T2.8 — in-process tools
@@ -166,7 +166,7 @@ weakened to pass. Any scope change is written down in the commit.
 ### T3.x — UI parts (one per part)
 - **Structure checks (each part):** it is one Web Component file ≤ 500 lines; it does not import the socket directly (only services); it changes state only through the store.
 - **Setup:** standalone preview HTML in scratch.
-- **Assertions:** developer approved the preview; integrated part matches it; Playwright test covers it (chat: send + stream + stop; memory table: view/edit/delete; inbox: approve/reject; settings: change a key and see it applied; theme + font scale persist).
+- **Assertions:** developer approved the preview; integrated part matches it; Playwright test covers it (chat: send + stream + stop; memory table: view/edit/delete; settings: change a key and see it applied; theme + font scale persist).
 - **Edge cases:** phone width; dark mode; no localStorage.
 
 ## Phase 4
