@@ -229,7 +229,14 @@ describe('startLlama', () => {
     const server = fakeServer({ never: true });
     const child = new FakeChild();
     const { d } = deps(server, root, { child });
-    setTimeout(() => child.emit('error', Object.assign(new Error('spawn llama-server ENOENT'), { code: 'ENOENT' })), 5);
+    // Fire the error after spawn() is called, as a real failed spawn does. A fixed
+    // 5 ms timer fired before spawn() under CPU load: an error from no process yet.
+    const spawn = d.spawn;
+    d.spawn = (...args) => {
+      const c = spawn(...args);
+      setImmediate(() => c.emit('error', Object.assign(new Error('spawn llama-server ENOENT'), { code: 'ENOENT' })));
+      return c;
+    };
     await assert.rejects(startLlama({ config: CONFIG, deps: d }),
       (e) => e instanceof LlamaStartError && e.code === 'binary_missing' && /LLAMACPP_VENDOR_DIR/.test(e.message) && /PATH/.test(e.message));
   }));

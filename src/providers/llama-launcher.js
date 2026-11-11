@@ -146,12 +146,17 @@ export async function startLlama({ config, deps = {} }) {
   let child;
   try {
     child = spawn(bin, args, { stdio: ['ignore', logFile.fd, logFile.fd] });
-  } finally {
-    await logFile.close(); // the child holds its own copy of the descriptor
+  } catch (err) {
+    await logFile.close(); // cleanup: spawn threw, the error below is the one that matters
+    throw err;
   }
+  // The listeners below are attached in the SAME tick as spawn(). An await before
+  // them let a fast 'error' (ENOENT) fire with no listener and crash the process.
 
   let exited = false;
   let ready = false;
+  /** @type {Promise<void> | null} */
+  let stopping = null;
   /** @type {LlamaStartError | null} */
   let failure = null;
   let wake = () => {};
@@ -170,7 +175,8 @@ export async function startLlama({ config, deps = {} }) {
     wake();
   });
 
-  let stopping = null;
+  await logFile.close(); // the child holds its own copy of the descriptor
+
   const onAppExit = () => { if (!exited) child.kill('SIGKILL'); };
   process.once('exit', onAppExit);
 

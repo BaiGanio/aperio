@@ -151,7 +151,7 @@ test('eval: full-text hitRateAt5 on evals/corpus.json is >= 20/24, train and hol
 
 // --- 10 000 rows: measured, not assumed (L-C16: report the max) -------------------
 
-test('10 000 rows: hybrid top-5 search max <= 25 ms over 120 runs; never more rows than limit', async (t) => {
+test('10 000 rows: hybrid top-5 search max <= 50 ms over 120 runs; never more rows than limit', async (t) => {
   const DIMS = 1024;
   const store = await open(DIMS);
   let seed = 42;
@@ -177,6 +177,8 @@ test('10 000 rows: hybrid top-5 search max <= 25 ms over 120 runs; never more ro
   const mean = times.reduce((a, b) => a + b, 0) / times.length;
   const max = Math.max(...times);
   t.diagnostic(`10k rows x ${DIMS} dims: insert ${Math.round(insertMs)} ms · hybrid mean ${mean.toFixed(2)} ms · max ${max.toFixed(2)} ms (v1: mean 8.28, max 9.19)`);
-  assert.ok(max <= 25, `max ${max.toFixed(2)} ms`);
+  // 50 ms, not 25 (developer, 2026-11-11): under the parallel `npm test` the max
+  // reached 31-36 ms with no code change (2 of 5 runs failed). Mean stays ~11 ms.
+  assert.ok(max <= 50, `max ${max.toFixed(2)} ms`);
   await store.close();
 });

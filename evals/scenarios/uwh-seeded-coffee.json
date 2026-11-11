@@ -1,0 +1,27 @@
+{
+  "id": "uwh-seeded-coffee",
+  "kind": "used-without-hint",
+  "split": "train",
+  "title": "A seeded coffee order is used to place an order without a hint",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Hi! I am going out to get coffee for the team.",
+          "expect": {}
+        },
+        {
+          "user": "What coffee should I get for Maya?",
+          "expect": {
+            "metric": "usedWithoutHint",
+            "requiredAnswerTerms": [
+              "oat",
+              "flat white"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

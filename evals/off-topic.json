@@ -1,0 +1,17 @@
+{
+  "_comment": "S2.6 off-topic prompts: chat that matches no memory in memories.json. Auto-recall must inject nothing for these. 8 train (used to set RECALL_MIN_SCORE) / 4 holdout (never used for tuning, L-M10). Mixed on purpose: greetings, sign-offs, general knowledge, small tasks.",
+  "prompts": [
+    { "id": "off-1", "split": "train", "text": "Tell me a joke." },
+    { "id": "off-2", "split": "train", "text": "Hello!" },
+    { "id": "off-3", "split": "train", "text": "Good. Talk later." },
+    { "id": "off-4", "split": "train", "text": "What is the capital of France?" },
+    { "id": "off-5", "split": "train", "text": "Write a haiku about autumn rain." },
+    { "id": "off-6", "split": "train", "text": "How many minutes are in a day?" },
+    { "id": "off-7", "split": "train", "text": "Thanks, that helps." },
+    { "id": "off-8", "split": "train", "text": "Can you explain what a prime number is?" },
+    { "id": "hold-off-1", "split": "holdout", "text": "Hi there, how are you today?" },
+    { "id": "hold-off-2", "split": "holdout", "text": "Translate 'good morning' into Spanish." },
+    { "id": "hold-off-3", "split": "holdout", "text": "What is 17 times 23?" },
+    { "id": "hold-off-4", "split": "holdout", "text": "Give me a fun fact about octopuses." }
+  ]
+}

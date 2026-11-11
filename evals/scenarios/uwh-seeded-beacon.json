@@ -1,0 +1,26 @@
+{
+  "id": "uwh-seeded-beacon",
+  "kind": "used-without-hint",
+  "split": "holdout",
+  "title": "A seeded minimum iOS version is used to judge a library without a hint",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Quick question about the mobile side today.",
+          "expect": {}
+        },
+        {
+          "user": "A chart library supports iOS 15 and later. Can Beacon use it without raising its minimum iOS version?",
+          "expect": {
+            "metric": "usedWithoutHint",
+            "requiredAnswerTerms": [
+              "16"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

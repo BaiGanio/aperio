@@ -70,6 +70,7 @@ inherits the problem, and where it is answered.
 | L-C25 | In an ESLint flat config, two blocks that set the same rule for the same file do **not** merge — the last block replaces the rule outright. This silently switched off the AP2 guard while it still looked present. | One block per rule, grouped by which folder is exempt, never by guard. Each guard has its own planted-violation test (**T1.3**). | AP2 · AP4 | `feedback_eslint_flat_config_rule_collision` (v2 S1.3, 2026-11-01) |
 | L-C26 | FTS5 with tokens joined by an implicit AND almost never matches a normal sentence: v1 found 0 of 12 sentence queries and 10 of 24 in all. Joined with OR and ranked by bm25 (title weight 4), the same store finds 22 of 24. | S2.3 joins with OR; the hit rate is a test, and switching back to AND turns it red. | — | `specs/s2.3-store.md` §1 and §5 (measured 2026-11-11) |
 | L-C27 | `sqlite-vec` with `distance_metric=cosine` measured 4× slower than the default L2 (11.7 ms vs 2.8 ms, 10 000 rows × 1024 dims). | The store saves unit-length vectors and searches with L2: same order, L2 speed. | — | `specs/s2.3-store.md` §5 (measured 2026-11-11) |
+| L-C28 | An `await` between `spawn()` and `child.on('error')` lets a fast spawn error fire with no listener and crash the process. It only shows under CPU load. Attach child listeners in the same tick as `spawn()`. | S2.5 launcher fixed at S2.6. | — | spec S2.6 §5 |
 
 ## M — Model lessons (small local models)
 
@@ -100,6 +101,7 @@ reason v2 exists, so every one of them is already a trap row or a test case.
 | L-M20 | A small model fails differently on a **cold start** (no example to copy) than on a warm one, and its save/insert mechanics drift from its own plan. Test the cold path on purpose. | Doc intelligence is `later`. Auto-capture (S2.7) tests the cold path. | — | tech-debt "Document Intelligence — cold-start template proposals (#250)" and "Document Intelligence — save/insert mechanics on gemma4 (#250)" |
 | L-M21 | GGUF-header KV math is ~10× too high for a sliding-window + shared-KV model: gemma-4-E4B header math 168 KiB/token, real llama-server buffers **16 KiB/token + 40 MiB fixed**. Never size context from header KV math. | S2.5: ctx = min(cap, header context); the budget uses the served `n_ctx` from `/props`. | — | spec S2.5 §1 (measured 2026-11-11) |
 | L-M22 | A hybrid (recurrent + attention) model loses **all** KV reuse on any prefix change: Ornith-1.0-9B one added tool → 0.4 % reuse, turn 8.2 s instead of 0.35 s. gemma keeps the part before the change (92 %). The stable prefix is not an optimisation, it is the 24× difference. | S2.5: tools serialized once, system never edited, nudges trail history; `prefixHash` per request. | rule 7 | spec S2.5 §1, §5 |
+| L-M23 | A recall threshold tuned on clean corpus questions is too strict for real chat. Corpus questions scored ≥ 0.69; vague turns ("Is that inside our target?") scored 0.53–0.59, so a 0.62 cut dropped them and the model said "I don't know". Check a threshold on chat-shaped turns, not only on search queries. | S2.6: `RECALL_MIN_SCORE` 50; seeded scenarios in the live eval. | — | spec S2.6 §4 decision 7, §5 |
 
 ---
 
