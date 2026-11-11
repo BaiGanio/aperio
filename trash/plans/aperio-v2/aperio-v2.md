@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-10** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** Next: **S2.1** — spec approved 2026-11-10; red tests, then build.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** Next: **S2.3 store** — spec `specs/s2.3-store.md` drafted 2026-11-11, waits for approval.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -434,7 +434,7 @@ scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm
 > **One deferral:** browser globals for `public/**` are not in the lint config yet. They arrive with
 > the first UI file in Phase 3 (TR16: build no layer before it is needed).
 >
-> **Next step: S2.1 — the eval harness.** S2.1 is a Phase 2 step, so it needs the full loop:
+> **Next step: S2.3 — the store** (S2.1 and S2.2 are done). Every Phase 2 step needs the full loop:
 > study v1 → spec in `trash/plans/aperio-v2/specs/` → your approval → red tests → build.
 
 ### Phase 2 — Core (each step is test-first)
