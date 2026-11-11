@@ -17,13 +17,13 @@ test('CAPTURE_MODE: tier 1 select on|off, default on', () => {
   assert.throws(() => validateSetting('CAPTURE_MODE', 'inbox'));
 });
 
-test('CAPTURE_DUP_SCORE: tier 1 int percent, default 85; a fraction is rejected', () => {
+test('CAPTURE_DUP_SCORE: tier 1 int percent, default 80 (measured, spec §5); a fraction is rejected', () => {
   const e = entry('CAPTURE_DUP_SCORE');
   assert.ok(e, 'the key exists');
   assert.equal(e.tier, 1);
   assert.equal(e.type, 'int');
   assert.match(e.help, /percent/i);
-  assert.equal(readConfig({}).values.CAPTURE_DUP_SCORE, 85);
+  assert.equal(readConfig({}).values.CAPTURE_DUP_SCORE, 80);
   assert.throws(() => validateSetting('CAPTURE_DUP_SCORE', '0.85'), /integer/);
 });
 

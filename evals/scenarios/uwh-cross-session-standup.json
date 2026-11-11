@@ -8,7 +8,7 @@
       "id": "a",
       "turns": [
         {
-          "user": "Heads-up: from next week the Nimbus team standup moves to Thursdays at 11:30 Lisbon time.",
+          "user": "Remember that from next week the Nimbus team standup moves to Thursdays at 11:30 Lisbon time.",
           "expect": {}
         },
         {

@@ -3,7 +3,8 @@
 // auto-recall, and records what each turn sent: { toolsJson, system, userTurn }.
 //
 // `recall: false` is the baseline run (spec §4 decision 1): same wiring, the
-// user turn is the text exactly. Every resource opened in start() is closed in
+// user turn is the text exactly. `capture: true` runs the S2.7 explicit
+// capture on the user text after turn_complete (default off). Every resource opened in start() is closed in
 // stop(), also after a failed start. No module state.
 // Not here: the history trim and the full budget function (decision 3), tools
 // that run (S2.8). History grows for the life of an eval session only.
@@ -16,6 +17,7 @@ import { startLlama } from '../providers/llama-launcher.js';
 import { createChatProvider } from '../providers/chat-provider.js';
 import { buildRecallBlock, createRecallSession } from '../context/recall-block.js';
 import { assembleUserTurn } from '../context/assemble-turn.js';
+import { captureTurn, createCaptureSession } from '../capture/capture-turn.js';
 
 /** The fixed 3-line test system of S2.6 (the real system prompt is a later step). */
 export const TEST_SYSTEM = [
@@ -29,12 +31,12 @@ const DROPPED_EVENTS = new Set(['token', 'reasoning_token']);
 const FALLBACK_DIMS = 1024;
 
 /**
- * @param {{ config: Record<string, any>, recall?: boolean, system?: string,
+ * @param {{ config: Record<string, any>, recall?: boolean, capture?: boolean, system?: string,
  *   tools?: { name: string, description?: string, parameters?: object }[],
  *   deps?: { openStore?: Function, createEmbedder?: Function, startLlama?: Function,
  *            fetch?: typeof fetch, dims?: number, log?: { error: Function, warn: Function, info: Function } } }} opts
  */
-export function createV2LiveAdapter({ config, recall = true, system = TEST_SYSTEM, tools = [], deps = {} }) {
+export function createV2LiveAdapter({ config, recall = true, capture = false, system = TEST_SYSTEM, tools = [], deps = {} }) {
   const log = deps.log ?? console;
   const open = deps.openStore ?? openStore;
   const makeEmbedder = deps.createEmbedder ?? createEmbedder;
@@ -58,6 +60,7 @@ export function createV2LiveAdapter({ config, recall = true, system = TEST_SYSTE
     const provider = createChatProvider({ baseURL: res.llama.baseURL, tools, capabilities: res.llama.capabilities, fetch: deps.fetch, log });
     const { store } = res;
     const recallSession = createRecallSession();
+    const captureSession = createCaptureSession();
     let history = [];
 
     return {
@@ -85,6 +88,8 @@ export function createV2LiveAdapter({ config, recall = true, system = TEST_SYSTE
         const r = await provider.streamChat({ system, messages: [...history], emit });
         history.push({ role: 'assistant', content: r.text });
         emit({ type: 'turn_complete', status: r.error ? 'error' : r.aborted ? 'aborted' : 'completed' });
+        // The user's own text only: never the recall block, never the reply.
+        if (capture) await captureTurn({ text, store, embedder, session: captureSession, config, emit, log });
         return {
           events, text: r.text, assembled: { toolsJson: provider.toolsJson, system, userTurn },
           prefixHash: r.prefixHash, recall: rec, timings: r.timings, usage: r.usage,
@@ -94,6 +99,7 @@ export function createV2LiveAdapter({ config, recall = true, system = TEST_SYSTE
       async reset() {
         history = [];
         recallSession.reset();
+        captureSession.reset();
       },
     };
   }

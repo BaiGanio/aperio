@@ -8,7 +8,7 @@
       "id": "a",
       "turns": [
         {
-          "user": "For the record: if Maya does not acknowledge a Nimbus page within 15 minutes, it escalates to Priya.",
+          "user": "Remember that if Maya does not acknowledge a Nimbus page within 15 minutes, it escalates to Priya.",
           "expect": {}
         },
         {
