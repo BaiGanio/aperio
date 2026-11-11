@@ -1,0 +1,519 @@
+{
+  "_comment": "S2.7 capture eval (spec S2.7 §3). One user turn per case. label: save (code must save exactly one memory holding every required term) | skip (code must save nothing; unresolved: true also expects capture_unresolved) | secret (nothing saved, capture_secret_refused) | duplicate (a paraphrase of a seeded evals/memories.json row; real-embedder test only). Holdout is never used to tune the cue list (L-M10).",
+  "cases": [
+    {
+      "id": "save-01",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that my dentist is Dr. Ivanova.",
+      "requiredTerms": [
+        "dentist",
+        "Ivanova"
+      ]
+    },
+    {
+      "id": "save-02",
+      "split": "train",
+      "label": "save",
+      "text": "Remember: the Nimbus staging port is 8443.",
+      "requiredTerms": [
+        "staging",
+        "8443"
+      ]
+    },
+    {
+      "id": "save-03",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that Maya's flight lands at 14:20 on Friday.",
+      "requiredTerms": [
+        "14:20",
+        "Friday"
+      ]
+    },
+    {
+      "id": "save-04",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that the office is closed on 3 March.",
+      "requiredTerms": [
+        "closed",
+        "3 March"
+      ]
+    },
+    {
+      "id": "save-05",
+      "split": "train",
+      "label": "save",
+      "text": "Remember the quarterly review is on the 28th.",
+      "requiredTerms": [
+        "quarterly review",
+        "28th"
+      ]
+    },
+    {
+      "id": "save-06",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that Priya is on leave until Monday.",
+      "requiredTerms": [
+        "Priya",
+        "Monday"
+      ]
+    },
+    {
+      "id": "save-07",
+      "split": "train",
+      "label": "save",
+      "text": "Remember the Beacon release needs Apple review first.",
+      "requiredTerms": [
+        "Beacon",
+        "Apple review"
+      ]
+    },
+    {
+      "id": "save-08",
+      "split": "train",
+      "label": "save",
+      "text": "Remember: the VPN gateway is vpn2.example.net.",
+      "requiredTerms": [
+        "VPN gateway",
+        "vpn2.example.net"
+      ]
+    },
+    {
+      "id": "save-09",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that the build agent has 16 GB of RAM.",
+      "requiredTerms": [
+        "build agent",
+        "16 GB"
+      ]
+    },
+    {
+      "id": "save-10",
+      "split": "train",
+      "label": "save",
+      "text": "REMEMBER THAT the wifi on floor 3 is called Orchard.",
+      "requiredTerms": [
+        "floor 3",
+        "Orchard"
+      ]
+    },
+    {
+      "id": "save-11",
+      "split": "train",
+      "label": "save",
+      "text": "remember that I take my tea without sugar.",
+      "requiredTerms": [
+        "tea",
+        "without sugar"
+      ]
+    },
+    {
+      "id": "save-12",
+      "split": "train",
+      "label": "save",
+      "text": "Hi! Remember that the team lunch is every second Wednesday. Thanks.",
+      "requiredTerms": [
+        "team lunch",
+        "second Wednesday"
+      ]
+    },
+    {
+      "id": "save-13",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that the Nimbus on-call phone number lives in the runbook.",
+      "requiredTerms": [
+        "on-call",
+        "runbook"
+      ]
+    },
+    {
+      "id": "save-14",
+      "split": "train",
+      "label": "save",
+      "text": "Remember: Lisbon office badge pickup is at reception desk B.",
+      "requiredTerms": [
+        "badge",
+        "desk B"
+      ]
+    },
+    {
+      "id": "save-15",
+      "split": "train",
+      "label": "save",
+      "text": "Remember my car is a blue Skoda Octavia.",
+      "requiredTerms": [
+        "car",
+        "Skoda Octavia"
+      ]
+    },
+    {
+      "id": "save-16",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that the Go version on CI is 1.23.",
+      "requiredTerms": [
+        "Go version",
+        "1.23"
+      ]
+    },
+    {
+      "id": "save-17",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that Beacon crash reports go to the #beacon-alerts channel.",
+      "requiredTerms": [
+        "crash reports",
+        "#beacon-alerts"
+      ]
+    },
+    {
+      "id": "save-18",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that our sprint ends on Tuesdays.\nThat is all.",
+      "requiredTerms": [
+        "sprint",
+        "Tuesdays"
+      ]
+    },
+    {
+      "id": "save-19",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that Maya prefers written updates over calls.",
+      "requiredTerms": [
+        "Maya",
+        "written updates"
+      ]
+    },
+    {
+      "id": "save-20",
+      "split": "train",
+      "label": "save",
+      "text": "Remember that the invoice number starts with INV-2026.",
+      "requiredTerms": [
+        "invoice",
+        "INV-2026"
+      ]
+    },
+    {
+      "id": "hold-save-01",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that the cat's vet is Dr. Petrova on Vitosha Street.",
+      "requiredTerms": [
+        "Petrova",
+        "Vitosha"
+      ]
+    },
+    {
+      "id": "hold-save-02",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember: the deploy freeze starts on 18 December.",
+      "requiredTerms": [
+        "deploy freeze",
+        "18 December"
+      ]
+    },
+    {
+      "id": "hold-save-03",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that Beacon's TestFlight group is called Field Reps.",
+      "requiredTerms": [
+        "TestFlight",
+        "Field Reps"
+      ]
+    },
+    {
+      "id": "hold-save-04",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that the Redis cluster has 6 shards.",
+      "requiredTerms": [
+        "Redis",
+        "6 shards"
+      ]
+    },
+    {
+      "id": "hold-save-05",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that the design review moved to room 4.12.",
+      "requiredTerms": [
+        "design review",
+        "4.12"
+      ]
+    },
+    {
+      "id": "hold-save-06",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember: the backup NAS sits in rack R7.",
+      "requiredTerms": [
+        "backup NAS",
+        "rack R7"
+      ]
+    },
+    {
+      "id": "hold-save-07",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that Priya's GitHub handle is priya-dev.",
+      "requiredTerms": [
+        "GitHub",
+        "priya-dev"
+      ]
+    },
+    {
+      "id": "hold-save-08",
+      "split": "holdout",
+      "label": "save",
+      "text": "Okay. Remember that the client demo is at 10:00 on Thursday.",
+      "requiredTerms": [
+        "client demo",
+        "10:00",
+        "Thursday"
+      ]
+    },
+    {
+      "id": "hold-save-09",
+      "split": "holdout",
+      "label": "save",
+      "text": "remember: my gym is open until 22:00 on weekdays.",
+      "requiredTerms": [
+        "gym",
+        "22:00"
+      ]
+    },
+    {
+      "id": "hold-save-10",
+      "split": "holdout",
+      "label": "save",
+      "text": "Remember that the Nimbus price cache TTL is 90 seconds.",
+      "requiredTerms": [
+        "TTL",
+        "90 seconds"
+      ]
+    },
+    {
+      "id": "skip-01",
+      "split": "train",
+      "label": "skip",
+      "text": "Do you remember my dentist?"
+    },
+    {
+      "id": "skip-02",
+      "split": "train",
+      "label": "skip",
+      "text": "Remember when we fixed the Redis storm?"
+    },
+    {
+      "id": "skip-03",
+      "split": "train",
+      "label": "skip",
+      "text": "I can't remember the staging port."
+    },
+    {
+      "id": "skip-04",
+      "split": "train",
+      "label": "skip",
+      "text": "Heads-up: from next week the Nimbus team standup moves to Thursdays at 11:30 Lisbon time."
+    },
+    {
+      "id": "skip-05",
+      "split": "train",
+      "label": "skip",
+      "text": "For the record: if Maya does not acknowledge a Nimbus page within 15 minutes, it escalates to Priya."
+    },
+    {
+      "id": "skip-06",
+      "split": "train",
+      "label": "skip",
+      "text": "Good. Talk later."
+    },
+    {
+      "id": "skip-07",
+      "split": "train",
+      "label": "skip",
+      "text": "Our deploy window is Tuesday evening."
+    },
+    {
+      "id": "skip-08",
+      "split": "train",
+      "label": "skip",
+      "text": "What should I remember about Nimbus?"
+    },
+    {
+      "id": "skip-09",
+      "split": "train",
+      "label": "skip",
+      "unresolved": true,
+      "text": "Remember that."
+    },
+    {
+      "id": "skip-10",
+      "split": "train",
+      "label": "skip",
+      "unresolved": true,
+      "text": "Remember this!"
+    },
+    {
+      "id": "skip-11",
+      "split": "train",
+      "label": "skip",
+      "unresolved": true,
+      "text": "Remember it."
+    },
+    {
+      "id": "skip-12",
+      "split": "train",
+      "label": "skip",
+      "unresolved": true,
+      "text": "Remember what I said."
+    },
+    {
+      "id": "skip-13",
+      "split": "train",
+      "label": "skip",
+      "text": "Can you note that down?"
+    },
+    {
+      "id": "skip-14",
+      "split": "train",
+      "label": "skip",
+      "text": "I always forget to remember birthdays."
+    },
+    {
+      "id": "skip-15",
+      "split": "train",
+      "label": "skip",
+      "text": "Remember that the staging port is 8443?"
+    },
+    {
+      "id": "skip-16",
+      "split": "train",
+      "label": "skip",
+      "text": "We should remember to buy milk."
+    },
+    {
+      "id": "hold-skip-01",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Do you remember the Beacon minimum iOS version?"
+    },
+    {
+      "id": "hold-skip-02",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Help me remember the rollout steps for Nimbus."
+    },
+    {
+      "id": "hold-skip-03",
+      "split": "holdout",
+      "label": "skip",
+      "text": "I prefer tabs over spaces."
+    },
+    {
+      "id": "hold-skip-04",
+      "split": "holdout",
+      "label": "skip",
+      "unresolved": true,
+      "text": "Remember that one."
+    },
+    {
+      "id": "hold-skip-05",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Don't forget the rollout is on Friday."
+    },
+    {
+      "id": "hold-skip-06",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Thanks. That is all for today."
+    },
+    {
+      "id": "hold-skip-07",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Noted that Priya is back."
+    },
+    {
+      "id": "hold-skip-08",
+      "split": "holdout",
+      "label": "skip",
+      "text": "Remembering the old days is fun."
+    },
+    {
+      "id": "secret-01",
+      "split": "train",
+      "label": "secret",
+      "text": "Remember that my key is sk-proj-4f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c."
+    },
+    {
+      "id": "secret-02",
+      "split": "train",
+      "label": "secret",
+      "text": "Remember that the GitHub token is ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8."
+    },
+    {
+      "id": "secret-03",
+      "split": "train",
+      "label": "secret",
+      "text": "Remember that the staging DB password: Hunter2-staging!"
+    },
+    {
+      "id": "secret-04",
+      "split": "train",
+      "label": "secret",
+      "text": "Remember: AWS key AKIAIOSFODNN7EXAMPLE is for the backup bucket."
+    },
+    {
+      "id": "hold-secret-01",
+      "split": "holdout",
+      "label": "secret",
+      "text": "Remember: token: 7f3e9a1c2b4d6e8f0a1b2c3d4e5f6a7b"
+    },
+    {
+      "id": "hold-secret-02",
+      "split": "holdout",
+      "label": "secret",
+      "text": "Remember that the deploy key is -----BEGIN OPENSSH PRIVATE KEY----- b3BlbnNzaC1rZXktdjEAAAAA."
+    },
+    {
+      "id": "dup-01",
+      "split": "train",
+      "label": "duplicate",
+      "text": "Remember that Maya's coffee order is an oat-milk flat white with no sugar.",
+      "duplicateOf": "Oat-milk flat white, no sugar"
+    },
+    {
+      "id": "dup-02",
+      "split": "train",
+      "label": "duplicate",
+      "text": "Remember that Nimbus uses NATS JetStream for events instead of Kafka.",
+      "duplicateOf": "Nimbus uses NATS for events, not Kafka"
+    },
+    {
+      "id": "dup-03",
+      "split": "train",
+      "label": "duplicate",
+      "text": "Remember that Beacon is built in SwiftUI and needs iOS 16 or later.",
+      "duplicateOf": "Beacon is SwiftUI, minimum iOS 16"
+    },
+    {
+      "id": "hold-dup-01",
+      "split": "holdout",
+      "label": "duplicate",
+      "text": "Remember that the Nimbus SLO is 50ms p99 and 99.95% availability.",
+      "duplicateOf": "Nimbus SLO: 50ms p99, 99.95% availability"
+    }
+  ]
+}
