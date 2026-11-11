@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings built 2026-11-11 (pending commit)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher built 2026-11-11 (pending commit)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall built 2026-11-11 (pending commit)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma usedWithoutHint on 12/15 vs off 0/15; Ornith live run pending. Next: **S2.7 auto-capture** — needs a spec.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma usedWithoutHint on 15/15 vs off 0/15; Ornith live run pending (developer). Next: **S2.7 auto-capture** — spec drafted, awaiting approval.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -472,12 +472,13 @@ sizing from the GGUF header. Both test models start and answer.
 "preview, not everything" framing (lesson from the recall-not-invoked notes), within the token budget.
 *Works when:* the eval recall score is ≥ the baseline (first v2-live run) on both models. → **T2.6**
 
-> **BUILT 2026-11-11 (pending commit).** `src/context/` (recall block + turn assembly) and the
-> `v2-live` eval adapter. `RECALL_MIN_SCORE` 50, `RECALL_TOKEN_BUDGET` 800. Recall eval: inject hit
-> 16/16 train, 8/8 holdout; off-topic 1/12; step max 32 ms at 1000 rows. Live gemma, N = 5: recall
-> on 12/15 vs off 0/15 (coffee 2/5 → fixture question made clear). Recall sits in the user turn;
-> the prefix stays byte-identical. **Pending:** the Ornith live run and the gemma coffee recheck.
-> Spec §5 has the numbers.
+> **DONE 2026-11-11** (`0810db84`; KV bar split `da4170d7`, decision 9). `src/context/` (recall
+> block + turn assembly) and the `v2-live` eval adapter. `RECALL_MIN_SCORE` 50, `RECALL_TOKEN_BUDGET`
+> 800. Recall eval: inject hit 16/16 train, 8/8 holdout; off-topic 1/12; step max 32 ms at 1000 rows.
+> Live gemma, N = 5, rerun after decisions 8 + 9: recall on **15/15** vs off 0/15 (coffee recheck
+> 5/5). Exact client prefix 10/10 turn pairs; server `cache_n` shortfall ≤ 8 tokens. Recall sits in
+> the user turn; the prefix stays byte-identical. **Pending:** the Ornith live run (developer runs
+> it). Spec §5 has the numbers.
 
 **S2.7 Auto-capture.** After a turn, code proposes candidate memories into an inbox. The user
 approves or rejects them in the UI. Rules can auto-approve.
