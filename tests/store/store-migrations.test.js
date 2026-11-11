@@ -101,7 +101,10 @@ test('try:search prints ranked rows for a sentence and creates no file', () => w
   assert.deepEqual(await readdir(root), []);
 
   const none = await run(process.execPath, [join(REPO, 'scripts/try-search.mjs'), 'zzzqqqxxx'], { cwd: root });
-  assert.match(none.stdout, /no match/i);
+  // S2.4: with the model, meaning search always returns the nearest rows, so a
+  // nonsense sentence is no longer "no match". It still has no word match.
+  // A minimum score for "no match" is S2.6 work (spec S2.3 decision 6).
+  assert.doesNotMatch(none.stdout, /\bfts\b/);
 
   await assert.rejects(run(process.execPath, [join(REPO, 'scripts/try-search.mjs')], { cwd: root }), /Usage/);
 }));
