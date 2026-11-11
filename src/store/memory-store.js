@@ -189,7 +189,7 @@ export function createMemoryStore({ db, dims, vectorSupported, vectorsReset }) {
       .map(toMemory);
   }
 
-  async function search({ query, queryEmbedding, mode = 'auto', limit, type, tags } = {}) {
+  async function search({ query, queryEmbedding, mode = 'auto', limit, type, tags, sig } = {}) {
     if (!SEARCH_MODES.includes(mode)) throw new StoreError(`mode: must be one of ${SEARCH_MODES.join(', ')}`);
     const cap = clamp(limit, 10, LIMITS.search);
     const match = ftsMatchQuery(query);
@@ -199,7 +199,7 @@ export function createMemoryStore({ db, dims, vectorSupported, vectorsReset }) {
     if (!match && !vector) {
       return (await list({ type, tags, limit: cap })).map((memory) => ({ ...memory, score: 0, matched: [] }));
     }
-    return rankCandidates(db, { match, vector, mode: effectiveMode, filter: filterSql({ type, tags }) })
+    return rankCandidates(db, { match, vector, mode: effectiveMode, filter: filterSql({ type, tags }), sig })
       .slice(0, cap)
       .map(({ seq, score, matched }) => ({ ...toMemory(bySeq.get(seq)), score, matched }));
   }

@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 store built 2026-11-11 (pending commit).** Next: **S2.4 embeddings** — needs a spec.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings built 2026-11-11 (pending commit)**: hybrid 24/24, coffee rank 1. Next: **S2.5 provider adapter + llama.cpp launcher** — needs a spec.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -434,7 +434,7 @@ scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm
 > **One deferral:** browser globals for `public/**` are not in the lint config yet. They arrive with
 > the first UI file in Phase 3 (TR16: build no layer before it is needed).
 >
-> **Next step: S2.4 — embeddings** (S2.1–S2.3 are done). Every Phase 2 step needs the full loop:
+> **Next step: S2.5 — provider adapter + llama.cpp launcher** (S2.1–S2.4 are done). Every Phase 2 step needs the full loop:
 > study v1 → spec in `trash/plans/aperio-v2/specs/` → your approval → red tests → build.
 
 ### Phase 2 — Core (each step is test-first)

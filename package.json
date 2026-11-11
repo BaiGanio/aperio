@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "test:coverage": "c8 --reporter=text --reporter=lcov node --test",
     "lint": "eslint .",
     "guard:size": "node scripts/guard-file-size.mjs",
@@ -19,9 +19,11 @@
     "gen:env:check": "node scripts/gen-env-example.mjs --check",
     "try:search": "node scripts/try-search.mjs",
     "check": "npm run lint && npm run guards && npm run gen:env:check && npm test",
-    "ledgers": "node trash/plans/aperio-v2/scripts/check-ledgers.mjs"
+    "ledgers": "node trash/plans/aperio-v2/scripts/check-ledgers.mjs",
+    "model:fetch": "node scripts/fetch-embedding-model.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.1",
     "better-sqlite3": "^13.0.3",
     "express": "^5.3.0",
     "sqlite-vec": "^0.1.9"

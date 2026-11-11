@@ -52,14 +52,16 @@ function ftsCandidates(db, match, filter) {
   `).all({ ...filter.params, match });
 }
 
-function vecCandidates(db, vector, filter) {
+// With a sig, only vectors from that model count: two models never mix (L-C17, spec S2.4 #7).
+function vecCandidates(db, vector, filter, sig) {
+  const sigWhere = sig ? ' AND m.embedding_sig = @sig' : '';
   return db.prepare(`
     SELECT m.seq AS seq, v.distance AS distance
       FROM vec_memories v
       JOIN memories m ON m.seq = v.rowid
-     WHERE v.embedding MATCH @vec AND k = ${CANDIDATES}${filter.where}
+     WHERE v.embedding MATCH @vec AND k = ${CANDIDATES}${filter.where}${sigWhere}
      ORDER BY v.distance
-  `).all({ ...filter.params, vec: vector });
+  `).all({ ...filter.params, vec: vector, ...(sig ? { sig } : {}) });
 }
 
 /**
@@ -67,9 +69,9 @@ function vecCandidates(db, vector, filter) {
  * Full-text only: bm25 relative to the best row. Semantic only: cosine
  * similarity (absolute). Both: fused rank, relative to the best row.
  */
-export function rankCandidates(db, { match, vector, mode, filter }) {
+export function rankCandidates(db, { match, vector, mode, filter, sig }) {
   const fts = match && mode !== 'semantic' ? ftsCandidates(db, match, filter) : [];
-  const vec = vector && mode !== 'fulltext' ? vecCandidates(db, vector, filter) : [];
+  const vec = vector && mode !== 'fulltext' ? vecCandidates(db, vector, filter, sig) : [];
 
   // One list only: keep its own strength, which says more than a rank.
   if (vec.length === 0) {
