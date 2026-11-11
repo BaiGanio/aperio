@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings built 2026-11-11 (pending commit)**: hybrid 24/24, coffee rank 1. Next: **S2.5 provider adapter + llama.cpp launcher** — needs a spec.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings built 2026-11-11 (pending commit)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher built 2026-11-11 (pending commit)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. Next: **S2.6 auto-recall** — needs a spec.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result

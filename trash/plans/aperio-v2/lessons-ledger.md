@@ -98,6 +98,8 @@ reason v2 exists, so every one of them is already a trap row or a test case.
 | L-M18 | Per-turn tool-schema re-send is **not** duplication and is not worth "fixing"; the greeting memory preload was the real waste and was dropped. | Auto-recall is budgeted per turn (S2.6), not preloaded. | TR14 | `project_token_audit` |
 | L-M19 | A model-graded harness is only as good as its grader: the doc-intelligence grader never reached a level anyone trusted, and the gate was accepted on **mechanism conformance**, not realistic usage. Say out loud which rung a pass means. | Doc intelligence is `later`. The S2.1 eval grades deterministically, never by model judgement. | TR10 | tech-debt "Document-intelligence harness — grader (#250)" and "Document-intelligence gate — gemma4-E4B model behaviour (#250)"; `project_doc_intelligence_epic` |
 | L-M20 | A small model fails differently on a **cold start** (no example to copy) than on a warm one, and its save/insert mechanics drift from its own plan. Test the cold path on purpose. | Doc intelligence is `later`. Auto-capture (S2.7) tests the cold path. | — | tech-debt "Document Intelligence — cold-start template proposals (#250)" and "Document Intelligence — save/insert mechanics on gemma4 (#250)" |
+| L-M21 | GGUF-header KV math is ~10× too high for a sliding-window + shared-KV model: gemma-4-E4B header math 168 KiB/token, real llama-server buffers **16 KiB/token + 40 MiB fixed**. Never size context from header KV math. | S2.5: ctx = min(cap, header context); the budget uses the served `n_ctx` from `/props`. | — | spec S2.5 §1 (measured 2026-11-11) |
+| L-M22 | A hybrid (recurrent + attention) model loses **all** KV reuse on any prefix change: Ornith-1.0-9B one added tool → 0.4 % reuse, turn 8.2 s instead of 0.35 s. gemma keeps the part before the change (92 %). The stable prefix is not an optimisation, it is the 24× difference. | S2.5: tools serialized once, system never edited, nudges trail history; `prefixHash` per request. | rule 7 | spec S2.5 §1, §5 |
 
 ---
 
@@ -106,5 +108,5 @@ reason v2 exists, so every one of them is already a trap row or a test case.
 | # | Question | Where it is answered |
 |---|---|---|
 | Q1 | Does a small model actually do better **with** self-memory? | A test at the return gate. Until then self-memory is `parked`. |
-| Q2 | What is the real KV size per token for a hybrid-SSM model? | Measure `llama-server` buffers at S2.5 (L-M09). |
+| Q2 | What is the real KV size per token for a hybrid-SSM model? | **Answered at S2.5 (2026-11-11):** Ornith real 32 KiB/token + 50 MiB recurrent; header said 36 KiB (close). gemma is the far-off one (L-M21). |
 | Q3 | Can v2 auto-recall hold or beat the first v2-live baseline on both test models? (v1 run dropped 2026-11-10) | **T2.6**. If not, we learn why before going on. |

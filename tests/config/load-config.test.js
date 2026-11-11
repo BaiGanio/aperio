@@ -58,16 +58,16 @@ test('a missing .env is fine: defaults apply', async (t) => {
 });
 
 test('logs warnings and shadow notices; a secret value is never logged', async (t) => {
-  withEnv(t, { LLAMACPP_CTX: undefined, APERIO_CONFIG_PRECEDENCE: undefined });
-  const file = await envFile(t, 'LLAMACPP_CTX=768\n');
+  withEnv(t, { LLAMACPP_SERVE_CTX: undefined, APERIO_CONFIG_PRECEDENCE: undefined });
+  const file = await envFile(t, 'LLAMACPP_SERVE_CTX=768\n');
   const lines = [];
   await loadConfig({
     envPath: file,
-    settings: { LLAMACPP_CTX: '1024', GONE_KEY: 'x' },
+    settings: { LLAMACPP_SERVE_CTX: '1024', GONE_KEY: 'x' },
     log: (m) => lines.push(m),
   });
   assert.ok(lines.some((l) => l.includes('GONE_KEY')), 'unknown key not logged');
-  const s = lines.find((l) => l.includes('LLAMACPP_CTX') && l.includes('shadow'));
+  const s = lines.find((l) => l.includes('LLAMACPP_SERVE_CTX') && l.includes('shadow'));
   assert.ok(s, `no shadow line in ${JSON.stringify(lines)}`);
   assert.match(s, /768/);
   assert.match(s, /1024/);
