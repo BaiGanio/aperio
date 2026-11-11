@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** Next: **S2.3 store** — spec `specs/s2.3-store.md` drafted 2026-11-11, waits for approval.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 store built 2026-11-11 (pending commit).** Next: **S2.4 embeddings** — needs a spec.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -434,7 +434,7 @@ scripts, and c8 coverage. CI on `v2` runs only: tests, lint, guards, CodeQL, npm
 > **One deferral:** browser globals for `public/**` are not in the lint config yet. They arrive with
 > the first UI file in Phase 3 (TR16: build no layer before it is needed).
 >
-> **Next step: S2.3 — the store** (S2.1 and S2.2 are done). Every Phase 2 step needs the full loop:
+> **Next step: S2.4 — embeddings** (S2.1–S2.3 are done). Every Phase 2 step needs the full loop:
 > study v1 → spec in `trash/plans/aperio-v2/specs/` → your approval → red tests → build.
 
 ### Phase 2 — Core (each step is test-first)
@@ -452,6 +452,12 @@ About 20 keys. Generate `.env.example`.
 `db/sqlite/store.js` at the tag (only the memory parts). One migration folder, with a store
 interface kept small enough that Postgres can come back later.
 *Works when:* CRUD + hybrid-search tests pass, including the vec-orphan-on-forget case (v1 bug). → **T2.3**
+
+> **DONE 2026-11-11.** `src/store/` (450 lines; v1: 1 458), 49 tests. Full-text `hitRateAt5` **22/24**
+> (v1: 10/24) after joining tokens with OR. Hybrid search at 10 000 rows: max 10.8 ms (v1: 9.2).
+> Update is in place, with the old version kept in `memory_history`. Spec §5 has the numbers and
+> one open finding (common words can lift a wrong memory to rank 1). **Carried to S2.6:** semantic
+> search always returns the nearest rows, so auto-recall needs a measured minimum score.
 
 **S2.4 Embeddings.** Local transformers only, one model, with an embedding signature stored per
 row (lesson from #287).

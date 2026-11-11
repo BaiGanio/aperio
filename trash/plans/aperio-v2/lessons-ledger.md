@@ -68,6 +68,8 @@ inherits the problem, and where it is answered.
 | L-C23 | A docgraph → memory bridge raced on delete / sweep / reindex and left orphans. | Doc intelligence is `later`; issue **#532** stays open with the label. | — | issue #532; tech-debt |
 | L-C24 | `scripts/release-bump.js` cannot cut a major version — "major bumps are not automated". | TR5: v1.0.0 is cut by hand at S4.3, as the one written exception to "never bump `package.json`". | TR5 | `scripts/release-bump.js` at the tag |
 | L-C25 | In an ESLint flat config, two blocks that set the same rule for the same file do **not** merge — the last block replaces the rule outright. This silently switched off the AP2 guard while it still looked present. | One block per rule, grouped by which folder is exempt, never by guard. Each guard has its own planted-violation test (**T1.3**). | AP2 · AP4 | `feedback_eslint_flat_config_rule_collision` (v2 S1.3, 2026-11-01) |
+| L-C26 | FTS5 with tokens joined by an implicit AND almost never matches a normal sentence: v1 found 0 of 12 sentence queries and 10 of 24 in all. Joined with OR and ranked by bm25 (title weight 4), the same store finds 22 of 24. | S2.3 joins with OR; the hit rate is a test, and switching back to AND turns it red. | — | `specs/s2.3-store.md` §1 and §5 (measured 2026-11-11) |
+| L-C27 | `sqlite-vec` with `distance_metric=cosine` measured 4× slower than the default L2 (11.7 ms vs 2.8 ms, 10 000 rows × 1024 dims). | The store saves unit-length vectors and searches with L2: same order, L2 speed. | — | `specs/s2.3-store.md` §5 (measured 2026-11-11) |
 
 ## M — Model lessons (small local models)
 
