@@ -38,29 +38,41 @@ function toMemory(row) {
   };
 }
 
+function textProblem(field, value, max) {
+  if (typeof value !== 'string' || !value.trim()) return { field, why: 'must be a non-empty text' };
+  if (value.length > max) return { field, why: `is ${value.length} characters; the limit is ${max}` };
+  return null;
+}
+
+function tagsProblem(tags) {
+  if (!Array.isArray(tags) || tags.some((t) => typeof t !== 'string' || !t || t.length > LIMITS.tagLength)) {
+    return { field: 'tags', why: 'must be a list of short texts' };
+  }
+  return tags.length > LIMITS.tags ? { field: 'tags', why: `has ${tags.length} entries; the limit is ${LIMITS.tags}` } : null;
+}
+
+const badDate = (value) => !Number.isFinite(Date.parse(value));
+
+/** Check the fields that are present. Returns the first problem as { field, why }, or null. */
+function problemIn(fields) {
+  let p;
+  if ('title' in fields && (p = textProblem('title', fields.title, LIMITS.title))) return p;
+  if ('content' in fields && (p = textProblem('content', fields.content, LIMITS.content))) return p;
+  if ('type' in fields && !MEMORY_TYPES.includes(fields.type)) return { field: 'type', why: `must be one of ${MEMORY_TYPES.join(', ')}` };
+  if ('importance' in fields && !(Number.isInteger(fields.importance) && fields.importance >= 1 && fields.importance <= 5)) {
+    return { field: 'importance', why: 'must be an integer from 1 to 5' };
+  }
+  if ('tags' in fields && (p = tagsProblem(fields.tags))) return p;
+  if ('source' in fields && (typeof fields.source !== 'string' || !fields.source)) return { field: 'source', why: 'must be a non-empty text' };
+  if ('createdAt' in fields && badDate(fields.createdAt)) return { field: 'createdAt', why: 'must be an absolute date' };
+  if ('updatedAt' in fields && badDate(fields.updatedAt)) return { field: 'updatedAt', why: 'must be an absolute date' };
+  return null;
+}
+
 /** Check the fields that are present. Throws a StoreError that names the field. */
 function validate(fields) {
-  const bad = (field, why) => { throw new StoreError(`${field}: ${why}`); };
-  const text = (field, max) => {
-    const value = fields[field];
-    if (typeof value !== 'string' || !value.trim()) bad(field, 'must be a non-empty text');
-    if (value.length > max) bad(field, `is ${value.length} characters; the limit is ${max}`);
-  };
-  if ('title' in fields) text('title', LIMITS.title);
-  if ('content' in fields) text('content', LIMITS.content);
-  if ('type' in fields && !MEMORY_TYPES.includes(fields.type)) bad('type', `must be one of ${MEMORY_TYPES.join(', ')}`);
-  if ('importance' in fields && !(Number.isInteger(fields.importance) && fields.importance >= 1 && fields.importance <= 5)) {
-    bad('importance', 'must be an integer from 1 to 5');
-  }
-  if ('tags' in fields) {
-    const { tags } = fields;
-    if (!Array.isArray(tags) || tags.some((t) => typeof t !== 'string' || !t || t.length > LIMITS.tagLength)) {
-      bad('tags', 'must be a list of short texts');
-    }
-    if (tags.length > LIMITS.tags) bad('tags', `has ${tags.length} entries; the limit is ${LIMITS.tags}`);
-  }
-  if ('source' in fields && (typeof fields.source !== 'string' || !fields.source)) bad('source', 'must be a non-empty text');
-  if ('createdAt' in fields && !Number.isFinite(Date.parse(fields.createdAt))) bad('createdAt', 'must be an absolute date');
+  const problem = problemIn(fields);
+  if (problem) throw new StoreError(`${problem.field}: ${problem.why}`);
 }
 
 const PATCHABLE = ['type', 'title', 'content', 'tags', 'importance'];
@@ -133,6 +145,47 @@ export function createMemoryStore({ db, dims, vectorSupported, vectorsReset }) {
       if (vector) writeVector(Number(info.lastInsertRowid), vector, sig);
     })();
     return toMemory(byId.get(id));
+  }
+
+  /**
+   * Import rows that already have an id and both dates (spec S2.12). One
+   * transaction. A known id is skipped; a row that fails a check is listed in
+   * `rejected` with its field, never written. Rows may be any iterable, so a
+   * big source streams through. `beforeCommit(result)` may throw to roll back;
+   * `dryRun` always rolls back. Vectors are left to reindex().
+   */
+  function importRows(rows, { dryRun = false, beforeCommit, onImported } = {}) {
+    const result = { imported: 0, skipped: 0, rejected: [] };
+    const rollback = Symbol('rollback');
+    try {
+      db.transaction(() => {
+        for (const input of rows) {
+          const id = input?.id;
+          if (typeof id !== 'string' || !id) {
+            result.rejected.push({ id: String(id), field: 'id', why: 'must be a non-empty text' });
+            continue;
+          }
+          if (byId.get(id)) { result.skipped++; continue; }
+          const row = {
+            type: input.type, title: input.title, content: input.content, tags: input.tags,
+            importance: input.importance, source: input.source, createdAt: input.createdAt, updatedAt: input.updatedAt,
+          };
+          const problem = problemIn(row);
+          if (problem) { result.rejected.push({ id, ...problem }); continue; }
+          insertRow.run({
+            ...row, id, tags: JSON.stringify(row.tags),
+            createdAt: new Date(row.createdAt).toISOString(), updatedAt: new Date(row.updatedAt).toISOString(),
+          });
+          result.imported++;
+          onImported?.(input);
+        }
+        beforeCommit?.(result);
+        if (dryRun) throw rollback;
+      })();
+    } catch (err) {
+      if (err !== rollback) throw err;
+    }
+    return result;
   }
 
   async function getById(id) {
@@ -242,6 +295,6 @@ export function createMemoryStore({ db, dims, vectorSupported, vectorsReset }) {
 
   return Object.freeze({
     db, vectorSupported, vectorsReset,
-    insert, getById, update, delete: remove, list, search, setEmbedding, listNeedingEmbedding, counts, history, close,
+    insert, importRows, getById, update, delete: remove, list, search, setEmbedding, listNeedingEmbedding, counts, history, close,
   });
 }

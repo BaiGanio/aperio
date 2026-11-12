@@ -35,6 +35,7 @@ Lesson IDs point at `lessons-ledger.md`.
 | Agent & Reasoning — middleware stack (`Testing lifecycle middleware`) + large-result artifact offload (`Testing large-result artifacts`) | **never** | `lib/agent/middleware*`, `lib/context/artifactStore.js`, `lib/context/toolResultOffload.js` | `tests/unit/agent/middleware.test.js`, `tests/integration/context/artifactStore.test.js`, `tests/integration/context/toolResultOffload.test.js`, `tests/integration/context/artifactRetrieval.test.js` | — | L-M18 | — |
 | Storage — SQLite + sqlite-vec + FTS5 | **core** | `db/sqlite/`, `db/migrations-sqlite/`, `lib/embeddings/` | `tests/integration/db/sqlite.test.js`, `tests/unit/db/vec-fallback.test.js`, `tests/unit/db/tables.test.js`, `tests/integration/embeddings/reindex.test.js`, `tests/unit/helpers/embeddings.test.js`, `tests/unit/helpers/embedding-queue.test.js` | #528 | L-C13, L-C17, L-C20 | S2.3 `953ab831` · S2.4 `319bf512` |
 | Storage — Postgres + pgvector, DB encryption, import/export | **later** | `db/postgres/`, `db/migrations/`, `lib/helpers/sessionCrypto.js` | `tests/unit/db/postgres*.test.js`, `tests/integration/db/postgres*.test.js`, `tests/integration/db/encrypt.test.js`, `tests/integration/db/reconcile-decrypt.test.js`, `tests/unit/db/migration-lockstep.test.js`, `tests/unit/db/store-surface-parity.test.js`, `tests/integration/db/contract/import-export.test.js` | — | L-C18, TR16 | — |
+| v1 → v2 memory importer (TR3) — one-way, SQLite, `npm run import:v1` | **core** (added 2026-11-12, S2.12 §4 Q4; not the `later` import/export row above) | `db/sqlite/portability.js` (`importAll`), `db/encrypt.js` (`isPlaintextSqlite` header check only), `db/migrations-sqlite/001_core.sql` | `tests/integration/db/contract/import-export.test.js` (idempotent re-import + id carried over, ported) | — | L-P03, L-C18, TR3, AP3, AP5 | S2.12 — hash pending (T2.12 19/19; live: 13 imported, re-run 0/13, v1 sha256 unchanged) |
 | Deterministic assistant-behavior harness | **core** (becomes the v2 eval) | `tests/harness/` | `tests/harness/harness.test.js`, `tests/harness/no-tool-use-diagnostic.test.js`, `tests/harness/run-scenario.js`, `tests/harness/scenarios/*` (14) | #355, #356, #357, #358, #359, #321 | L-M10, L-M11, L-M14, L-M16 | S2.1 `41cbe329` |
 | Interfaces — web UI (chat, streaming, themes) | **core** (rebuilt) | `public/index.html`, `public/styles/`, `public/scripts/` (see table C) | `tests/e2e/ui/*`, `tests/browser/smoke/app-shell.spec.js`, `tests/integration/public/*` | #338 | L-P01, L-C11 | — (Phase 3) |
 | Interfaces — terminal CLI, voice, TTS, i18n, autocomplete | **later** | `lib/terminal/`, `lib/terminal.js`, `lib/emitters/cliEmitter.js`, `public/scripts/tts.js`, `voice.js`, `i18n.js`, `autocomplete.js` | `tests/integration/terminal/*` (7), `tests/unit/terminal/*` (2), `tests/unit/lib/terminal.js`, `tests/integration/terminalStrings.test.js`, `tests/integration/locale-drift-sync.test.js`, `tests/unit/public/voice-transcript.test.js` | #539, #421, #422 | L-C06 | — |
@@ -175,11 +176,11 @@ Checked by `scripts/check-ledgers.mjs`, so these numbers cannot drift from the t
 
 | Status | A. Features | B. Tools | C. Panels | D. Skills |
 |---|---|---|---|---|
-| `core` | 9 | 3 | 14 | 4 |
+| `core` | 10 | 3 | 14 | 4 |
 | `later` | 11 | 11 | 25 | 22 |
 | `parked` | 1 | 2 | 1 | 0 |
 | `never` | 3 | 0 | 5 | 8 |
-| **rows** | **24** | **16** | **45** | **34** |
+| **rows** | **25** | **16** | **45** | **34** |
 
 Section A has 24 rows for 20 `FEATURES.md` headings: four headings split into a `core` part and a
 `later`/`never` part, and `Config registry` is added as a `core` step that has no heading.

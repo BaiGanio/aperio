@@ -18,6 +18,7 @@
     "gen:env": "node scripts/gen-env-example.mjs",
     "gen:env:check": "node scripts/gen-env-example.mjs --check",
     "try:search": "node scripts/try-search.mjs",
+    "import:v1": "node scripts/import-v1.mjs",
     "check": "npm run lint && npm run guards && npm run gen:env:check && npm test",
     "ledgers": "node trash/plans/aperio-v2/scripts/check-ledgers.mjs",
     "model:fetch": "node scripts/fetch-embedding-model.mjs"
