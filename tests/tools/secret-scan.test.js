@@ -1,11 +1,11 @@
-// T2.7 - the secret check (spec S2.7 §2 behaviour 7; plan TR17).
+// T2.7 - the secret check the remember tool runs (spec S2.7 rev 3 §2.3; plan TR17).
 //
 // Pure. A text that looks like it holds a secret is never saved. The test
 // keys below are fakes in the public shapes of each provider.
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasSecret } from '../../src/capture/secret-scan.js';
+import { hasSecret } from '../../src/tools/secret-scan.js';
 
 describe('hasSecret: true', () => {
   const YES = [

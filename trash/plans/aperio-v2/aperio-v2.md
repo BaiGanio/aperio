@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma usedWithoutHint on 15/15 vs off 0/15; Ornith live run pending (developer). **S2.7 auto-capture spec approved 2026-11-11** (explicit "remember" only, no inbox). Next: **S2.7 red tests** (T2.7).
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma and Ornith usedWithoutHint on 15/15 vs off 0/15 (Ornith run 2026-11-12). **S2.7 rev 3 (model decides) built 2026-11-11**: code capture and code auto-recall removed; the model calls `remember` / `recall`, run in-process. Next: **S2.8** (`update`, `forget`, `list`).
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -191,7 +191,7 @@ risk instead.
 | S2.4 embeddings | `tests/integration/embeddings/reindex.test.js`, `tests/unit/helpers/embeddings.test.js` | signature mismatch |
 | S2.5 provider | `tests/unit/providers/llamacpp.test.js`, `llamacpp-thinking-timeout.test.js`, `tests/unit/streaming/llamacppHandler*.test.js`, `tests/integration/helpers/startLlamaCpp.test.js` | bad tool JSON is reported, not `{}` |
 | S2.6 auto-recall | `tests/unit/memory/tokenCount.test.js` | budget + stable-prefix tests (new) |
-| S2.7 auto-capture | — | all new |
+| S2.7 memory tools (rev 3) | `tests/unit/tools/memory.test.js` (remember / recall cases) | all new: tool loop, prefix, live |
 | S2.8 tools | `tests/unit/tools/memory.test.js` (tool behaviour; drop the MCP transport parts) | ctx snapshot, in-process call path |
 | S2.9 file gate | `tests/integration/routes/paths.test.js` (+ #528 cases) | TOCTOU symlink swap |
 | S3.x UI | `tests/e2e/ui/*` (pick per part) | Playwright per part (#338) |
@@ -479,15 +479,19 @@ sizing from the GGUF header. Both test models start and answer.
 > 5/5). Exact client prefix 10/10 turn pairs; server `cache_n` shortfall ≤ 8 tokens. Recall sits in
 > the user turn; the prefix stays byte-identical. **Pending:** the Ornith live run (developer runs
 > it). Spec §5 has the numbers.
+> **REMOVED from the turn path 2026-11-11** by S2.7 rev 3 (developer decision: the model decides).
+> `recall-block.js` and its tests are deleted; the numbers above stay as the bar to compare with.
 
-**S2.7 Auto-capture (explicit only).** After a turn, code saves a memory only when the user
-explicitly asks ("Remember that …"). Every other message is chat. No inbox (developer scope cut
-2026-11-11, spec S2.7 decision 1). A pointer-only ask ("Remember that.") is left to the model's
-`remember` tool (S2.8); the duplicate check stops a second row.
-*Works when:* the offline capture eval is exact (train 20/20, holdout 10/10, 0 false saves, 0
-secrets) and the live cross-session scenarios reach ≥ 4/5 each on gemma. → **T2.7**
+**S2.7 Memory through model tools (rev 3).** The model decides when to save and when to search
+(developer decision 2026-11-11). It gets `remember` and `recall`, run in-process by
+`src/tools/tool-loop.js`. Code guards each call: secret check, duplicate check
+(`REMEMBER_DUP_SCORE` 80), vector stored with the row. No code capture, no code injection, no inbox.
+*Works when:* the tool tests pass, the tool + system bytes stay identical on every request, and the
+live gemma eval number is reported against S2.6 code recall (15/15). → **T2.7** · spec
+`specs/s2.7-model-memory.md` §5 has the numbers.
 
 **S2.8 In-process tools (no MCP).** 5 tools: `remember`, `recall`, `update`, `forget`, `list`.
+`remember` and `recall` and the tool loop already landed in S2.7 rev 3; S2.8 adds the other 3.
 They are plain functions behind one tool interface: name, JSON schema, `run(args, ctx)`. The agent
 loop calls them directly, with no child process (v1 used an MCP child via `lib/agent/mcp-connect.js`).
 The `ctx` shape is frozen with a contract test. The interface stays MCP-shaped (name + JSON schema),

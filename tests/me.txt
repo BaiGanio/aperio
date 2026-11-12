@@ -1,0 +1,54 @@
+APERIO_LIVE=1 node --test --test-name-pattern=Ornith tests/context/recall-live.test.js
+▶ live recall protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M
+  ✖ usedWithoutHint on vs off, KV reuse, chars/3 vs /tokenize, recall latency (2382401.823416ms)
+  ℹ off miss uwh-seeded-slo/0: "I don't have a record of your specific latency targets. To answer accurately, I'd need to know what your p99 target is for the /quote endpoint. Do you remember what the target was, or would you like t"
+  ℹ off miss uwh-seeded-slo/1: "I don't know what your target is for /quote latency. I don't have that context stored, and you haven't shared it yet.\n\nWhat's the target you're aiming for? Once I know that, I can help you decide if 7"
+  ℹ off miss uwh-seeded-slo/2: "I don't have context about your team's performance targets. I'd need to know your SLA or target for /quote to say if 70ms p99 is within bounds. Do you have a target documented somewhere I should refer"
+  ℹ off miss uwh-seeded-slo/3: "I don't know your target for /quote — I don't have that information saved. Could you share what p99 target you're working to? Once I know the number, I can tell you whether 70ms is on or off."
+  ℹ off miss uwh-seeded-slo/4: "I don't have your team's SLA targets, so I can't tell you if 70ms is acceptable. Could you share the target? I'd also like to note that I don't have prior context on your platform team, so if this is "
+  ℹ off miss uwh-seeded-coffee/0: "I don't know Maya's coffee preferences. You might want to ask her directly or check if you have notes somewhere."
+  ℹ off miss uwh-seeded-coffee/1: "I don't have any memory of Maya or her preferences. I'll need to keep a note of team members and what they like.\n\nFor now, would you like me to remember that Maya is part of your team?"
+  ℹ off miss uwh-seeded-coffee/2: "I don't know what Maya likes. Do you remember?"
+  ℹ off miss uwh-seeded-coffee/3: "I don't know Maya's coffee preferences. Would you like me to ask her directly, or do you have a guess based on her usual choices?"
+  ℹ off miss uwh-seeded-coffee/4: "I don't have any information about Maya or her coffee preferences. Do you want me to remember something about her?"
+  ℹ off miss uwh-seeded-beacon/0: "Generally, if a library requires iOS 15 APIs, you must raise your minimum version to iOS 15. iOS doesn't allow using newer APIs on older systems. Unless Beacon has a way to work with older APIs, you'r"
+  ℹ off miss uwh-seeded-beacon/1: "Beacon cannot use a chart library that requires iOS 15+ without raising its own minimum iOS version. If Beacon's current minimum is lower than iOS 15 (e.g., iOS 13 or 14), it won't work because the ch"
+  ℹ off miss uwh-seeded-beacon/2: "That depends on what \"Beacon\" is and how it's structured. Could you clarify:\n\n1. **What is Beacon?** — Is it a Swift framework, Objective-C, a product, a company?\n2. **What does the chart library look"
+  ℹ off miss uwh-seeded-beacon/3: "No — if the chart library requires iOS 15+, Beacon would need to raise its minimum iOS version to iOS 15 as well. You can't use a library with higher requirements while keeping your own minimum lower."
+  ℹ off miss uwh-seeded-beacon/4: "I don't have enough context about what \"Beacon\" refers to or which chart library you're asking about. Can you clarify?"
+  ℹ {"model":"protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M","usedWithoutHint":{"on":{"uwh-seeded-slo":5,"uwh-seeded-coffee":5,"uwh-seeded-beacon":5},"off":{"uwh-seeded-slo":0,"uwh-seeded-coffee":0,"uwh-seeded-beacon":0}}}
+  ℹ {"model":"protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M","kvReusePct":{"turn2":{"n":5,"mean":81.8,"sd":1.96,"max":83.15},"turn3":{"n":5,"mean":89.78,"sd":1.66,"max":91.75}},"injectedOnTurn2":5}
+  ℹ {"model":"protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M","serverShortfall":[4,4,4,4,4,4,4,4,4,4]}
+  ℹ {"model":"protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M","blocks":40,"chars3OverTokenize":{"n":40,"mean":1.27,"sd":0.11,"max":1.39},"under":0}
+  ℹ {"model":"protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M","recallMs":{"n":30,"mean":32.66,"sd":15.9,"max":91.75}}
+✖ live recall protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M (2382403.010417ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2382566.75125
+
+✖ failing tests:
+
+test at tests/context/recall-live.test.js:100:5
+✖ usedWithoutHint on vs off, KV reuse, chars/3 vs /tokenize, recall latency (2382401.823416ms)
+  AssertionError [ERR_ASSERTION]: run 0 turn 2: the previous prompt is an exact token prefix (1730 of 1731)
+  
+  1730 !== 1731
+  
+      at TestContext.<anonymous> (file:///Users/lk/Projects/BaiGanio/aperio-v2/tests/context/recall-live.test.js:183:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1730,
+    expected: 1731,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

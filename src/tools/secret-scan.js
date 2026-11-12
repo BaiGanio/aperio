@@ -1,5 +1,5 @@
-// src/capture/secret-scan.js - does a text look like it holds a secret?
-// (spec S2.7 §2 behaviour 7; plan TR17). Pure. A match is never saved.
+// src/tools/secret-scan.js - does a text look like it holds a secret?
+// (spec S2.7 rev 3 §2.3; plan TR17). Pure. The remember tool never saves a match.
 //
 // Accepted cost: a full 40-char git SHA is a hex run and is refused too.
 

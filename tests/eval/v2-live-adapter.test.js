@@ -1,15 +1,15 @@
-// T2.6 - turn assembly and the stable prefix (spec S2.6 §2 behaviour 7, §3;
-// plan Appendix A1 item 4, A2; L-M03, L-M04, L-M22).
+// T2.7 rev 3 - the v2-live adapter: the model calls remember / recall, code
+// runs them in-process and feeds the result back (spec S2.7 rev 3 §2.3-2.5, §3;
+// plan Appendix A1 item 4, A2; L-M04, L-M22).
 //
-// The v2-live adapter runs with the REAL chat provider and a scripted fetch,
-// so the test reads the exact bytes that would go on the wire. No server.
+// The REAL chat provider and a scripted fetch, so the test reads the exact
+// bytes that would go on the wire. No server.
 
 import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { openStore } from '../../src/store/open-store.js';
-import { RECALL_HEADER } from '../../src/context/recall-block.js';
-import { assembleUserTurn, stablePrefix } from '../../src/context/assemble-turn.js';
-import { createV2LiveAdapter } from '../../src/eval/v2-live-adapter.js';
+import { stablePrefix } from '../../src/context/assemble-turn.js';
+import { createV2LiveAdapter, TEST_SYSTEM } from '../../src/eval/v2-live-adapter.js';
 import { assertSession, assertTargetAdapter } from '../../src/eval/adapter-contract.js';
 import { sliceTurnEvents } from '../../src/eval/runner.js';
 
@@ -26,32 +26,38 @@ function vectorFor(text) {
 const embed = async (text) => vectorFor(text);
 const fakeEmbedder = () => ({ sig: SIG, dims: 4, embed, embedQuery: embed, close: async () => {} });
 
-const TOOLS = [{ name: 'recall', description: 'Search memories.', parameters: { type: 'object', properties: { query: { type: 'string' } } } }];
-const CONFIG = Object.freeze({ RECALL_TOP_K: 5, RECALL_TOKEN_BUDGET: 1200, RECALL_MIN_SCORE: 50 });
+const CONFIG = Object.freeze({ RECALL_TOP_K: 5, REMEMBER_DUP_SCORE: 80 });
 const ROWS = [
   { type: 'preference', title: 'Oat-milk flat white', content: 'Maya drinks an oat-milk flat white coffee.', createdAt: '2026-10-01T09:00:00.000Z' },
   { type: 'decision', title: 'Nimbus SLO', content: 'Nimbus answers under 50ms p99.', createdAt: '2026-10-02T09:00:00.000Z' },
 ];
 
-/** A fetch that answers every call with one short streamed reply and records the raw body. */
-function wire() {
+const sse = (...chunks) => new Response(`${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('')}data: [DONE]\n\n`,
+  { status: 200, headers: { 'content-type': 'text/event-stream' } });
+const say = (text) => sse({ choices: [{ delta: { content: text } }] });
+const call = (name, args, id = 'call_1') => sse({ choices: [{ delta: { tool_calls: [{ index: 0, id, type: 'function', function: { name, arguments: JSON.stringify(args) } }] } }] });
+
+/** A fetch that plays a script: each reply is a function of the request number and body. */
+function wire(script = (n) => say(`answer ${n}`)) {
   const calls = [];
-  const fetch = async (url, init) => {
-    calls.push({ body: JSON.parse(init.body), raw: init.body });
-    const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: `answer ${calls.length}` } }] })}\n\ndata: [DONE]\n\n`;
-    return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  const fetch = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ body, raw: init.body });
+    return script(calls.length, body);
   };
   return { fetch, calls };
 }
 
-function makeAdapter({ recall = true, embedder = fakeEmbedder, log = quiet() } = {}) {
-  const w = wire();
+function makeAdapter({ script, memoryTools = true, embedder = fakeEmbedder, log = quiet(), onStore } = {}) {
+  const w = wire(script);
   const adapter = createV2LiveAdapter({
     config: CONFIG,
-    recall,
-    tools: TOOLS,
+    memoryTools,
     deps: {
-      openStore: (opts) => openStore({ ...opts, path: ':memory:', log: quiet() }),
+      openStore: async (opts) => {
+        const store = await openStore({ ...opts, path: ':memory:', log: quiet() });
+        return onStore?.(store) ?? store; // a hook may wrap the (frozen) store
+      },
       createEmbedder: async () => embedder(),
       startLlama: async () => ({ baseURL: 'http://127.0.0.1:1', capabilities: { tools: true, thinking: false }, stop: async () => {} }),
       fetch: w.fetch,
@@ -63,18 +69,6 @@ function makeAdapter({ recall = true, embedder = fakeEmbedder, log = quiet() } =
 }
 const SANDBOX = { dbPath: ':memory:', port: 1, releasePort: async () => {} };
 const start = (adapter) => adapter.start({ sandbox: SANDBOX, settings: {}, model: { id: 'fake-model' } });
-
-describe('assembleUserTurn', () => {
-  test('the block goes BEFORE the user text, in the same message', () => {
-    assert.equal(assembleUserTurn({ recallBlock: 'B', text: 'hi' }), 'B\n\nhi');
-  });
-  test('no block: the user text exactly', () => {
-    assert.equal(assembleUserTurn({ recallBlock: null, text: 'hi' }), 'hi');
-  });
-  test('stablePrefix is toolsJson + system', () => {
-    assert.equal(stablePrefix({ toolsJson: '[x]', system: 'S', userTurn: 'u' }), '[x]S');
-  });
-});
 
 describe('v2-live adapter: contract', () => {
   test('satisfies the TargetAdapter and Session shapes', async () => {
@@ -92,110 +86,157 @@ describe('v2-live adapter: contract', () => {
     assert.equal(titles[0], 'Oat-milk flat white');
     await adapter.stop();
   });
+
+  test('the system prompt tells the model when to call remember and recall; it stays small', () => {
+    assert.match(TEST_SYSTEM, /remember/);
+    assert.match(TEST_SYSTEM, /recall/);
+    assert.ok(TEST_SYSTEM.length / 3 < 1500, 'system prompt <= ~1.5k tokens');
+  });
 });
 
-describe('v2-live adapter: the stable prefix over 3 turns (A1 item 4)', () => {
-  async function threeTurns() {
-    const { adapter, wire: w } = makeAdapter();
+describe('v2-live adapter: the model calls a tool, code runs it', () => {
+  test('remember: the row is saved, the result goes back as a tool message, then the model answers', async () => {
+    let store;
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : say('Saved.'));
+    const { adapter, wire: w } = makeAdapter({ script, onStore: (s) => { store = s; } });
+    const s = await start(adapter);
+    const r = await s.turn('Remember that Maya drinks an oat-milk flat white coffee.');
+    assert.equal(r.text, 'Saved.');
+    const rows = await store.list({ limit: 10 });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].source, 'tool');
+    assert.equal(w.calls.length, 2);
+    const msgs = w.calls[1].body.messages;
+    const asst = msgs.at(-2);
+    assert.equal(asst.role, 'assistant');
+    assert.equal(asst.tool_calls[0].function.name, 'remember');
+    const tool = msgs.at(-1);
+    assert.equal(tool.role, 'tool');
+    assert.equal(tool.tool_call_id, asst.tool_calls[0].id);
+    assert.equal(JSON.parse(tool.content).ok, true);
+    await adapter.stop();
+  });
+
+  test('recall: the model gets the stored memory back and can answer with it', async () => {
+    const script = (n) => (n === 1 ? call('recall', { query: 'Maya coffee' }) : say('An oat-milk flat white.'));
+    const { adapter, wire: w } = makeAdapter({ script });
     const s = await start(adapter);
     await s.seedMemories(ROWS);
+    const r = await s.turn('What coffee should I get Maya?');
+    const result = JSON.parse(w.calls[1].body.messages.at(-1).content);
+    assert.equal(result.memories[0].title, 'Oat-milk flat white');
+    assert.equal(r.text, 'An oat-milk flat white.');
+    await adapter.stop();
+  });
+
+  test('events: tool_start (name, arguments) and tool_result (ok) before turn_complete; the runner slice keeps them', async () => {
+    const script = (n) => (n === 1 ? call('recall', { query: 'Nimbus' }) : say('50ms p99.'));
+    const { adapter } = makeAdapter({ script });
+    const s = await start(adapter);
+    const r = await s.turn('What is the Nimbus target?');
+    const types = r.events.map((e) => e.type);
+    const ts = types.indexOf('tool_start');
+    const tr = types.indexOf('tool_result');
+    assert.ok(ts >= 0 && tr > ts && types.indexOf('turn_complete') > tr, types.join(','));
+    assert.deepEqual(r.events[ts].arguments, { query: 'Nimbus' });
+    assert.equal(r.events[tr].ok, true);
+    const { events } = sliceTurnEvents(r.events, 100);
+    assert.ok(events.some((e) => e.type === 'tool_start' && e.name === 'recall'));
+    await adapter.stop();
+  });
+
+  test('a tool that fails (bad args) -> tool_result ok: false, the model still answers', async () => {
+    const script = (n) => (n === 1 ? call('remember', {}) : say('Sorry, I could not save that.'));
+    const { adapter } = makeAdapter({ script });
+    const s = await start(adapter);
+    const r = await s.turn('Remember that.');
+    assert.equal(r.events.find((e) => e.type === 'tool_result').ok, false);
+    assert.equal(r.text, 'Sorry, I could not save that.');
+    assert.ok(r.events.some((e) => e.type === 'turn_complete' && e.status === 'completed'));
+    await adapter.stop();
+  });
+
+  test('a store error inside a tool -> one log.error, tool_result ok: false, no throw (AP5)', async () => {
+    let store;
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : say('Not saved.'));
+    const { adapter, log } = makeAdapter({ script, onStore: (s) => { store = s; return { ...s, insert: async () => { throw new Error('disk full'); } }; } });
+    const s = await start(adapter);
+    const r = await s.turn('Remember that Maya drinks an oat-milk flat white coffee.');
+    assert.ok(store);
+    assert.equal(r.events.find((e) => e.type === 'tool_result').ok, false);
+    assert.equal(log.error.mock.callCount(), 1);
+    await adapter.stop();
+  });
+
+  test('a model that never stops calling tools is cut after 4 rounds; the turn still completes', async () => {
+    const { adapter, wire: w } = makeAdapter({ script: (n) => call('recall', { query: `q${n}` }, `call_${n}`) });
+    const s = await start(adapter);
+    const r = await s.turn('Loop forever.');
+    assert.equal(w.calls.length, 5, '4 tool rounds + 1 request whose calls are not run');
+    assert.ok(r.events.some((e) => e.type === 'turn_complete'));
+    await adapter.stop();
+  });
+
+  test('no tool call -> one request, the plain answer', async () => {
+    const { adapter, wire: w } = makeAdapter();
+    const s = await start(adapter);
+    const r = await s.turn('Hello there.');
+    assert.equal(w.calls.length, 1);
+    assert.equal(r.text, 'answer 1');
+    await adapter.stop();
+  });
+});
+
+describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
+  async function threeTurns() {
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : n === 3 ? call('recall', { query: 'Maya coffee' }, 'call_2') : say(`answer ${n}`));
+    const { adapter, wire: w } = makeAdapter({ script });
+    const s = await start(adapter);
     const results = [];
-    for (const text of ['Hello there.', 'What coffee should I get Maya?', 'And is Nimbus inside its target at 70ms?']) {
-      results.push(await s.turn(text));
-    }
+    for (const text of ['Remember that Maya drinks an oat-milk flat white coffee.', 'What coffee should I get Maya?', 'Thanks, that is all.']) results.push(await s.turn(text));
     await adapter.stop();
     return { results, calls: w.calls };
   }
 
-  test('toolsJson + system byte-identical on every turn, one prefixHash; recall really ran', async () => {
+  test('tools + system byte-identical on every request, one prefixHash; the user turn is the text exactly', async () => {
     const { results, calls } = await threeTurns();
-    const prefixes = new Set(results.map((r) => stablePrefix(r.assembled)));
-    assert.equal(prefixes.size, 1, 'one stable prefix');
-    assert.equal(new Set(results.map((r) => r.prefixHash)).size, 1, 'one prefixHash');
-    assert.ok(results[1].assembled.userTurn.startsWith(RECALL_HEADER), 'turn 2 carries a block');
-    assert.ok(results[2].assembled.userTurn.includes('Nimbus SLO'), 'turn 3 carries a block');
-    // On the wire: the system message and the tools bytes never change.
-    const systems = new Set(calls.map((c) => c.body.messages[0].content));
-    assert.equal(systems.size, 1);
-    assert.ok(![...systems][0].includes(RECALL_HEADER), 'recall is never in the system message');
-    const tools = new Set(calls.map((c) => JSON.stringify(c.body.tools)));
-    assert.equal(tools.size, 1);
+    assert.equal(new Set(results.map((r) => stablePrefix(r.assembled))).size, 1);
+    assert.equal(new Set(results.map((r) => r.prefixHash)).size, 1);
+    assert.equal(new Set(calls.map((c) => c.body.messages[0].content)).size, 1, 'the system message never changes');
+    assert.equal(new Set(calls.map((c) => JSON.stringify(c.body.tools))).size, 1, 'the tool bytes never change');
+    assert.deepEqual(calls[0].body.tools.map((t) => t.function.name), ['remember', 'recall']);
+    assert.equal(results[1].assembled.userTurn, 'What coffee should I get Maya?', 'no code-injected block');
   });
 
-  test('teeth: the block moved into system (the v1 way) changes the prefix', async () => {
-    const { results } = await threeTurns();
-    const broken = results.map((r) => {
-      const block = r.recall.block ?? '';
-      return { ...r.assembled, system: `${r.assembled.system}${block}` };
-    });
-    assert.notEqual(new Set(broken.map(stablePrefix)).size, 1, 'the check must see the v1 break');
+  test('client prefix: every request starts with the previous request\'s messages, exactly', async () => {
+    const { calls } = await threeTurns();
+    for (let i = 1; i < calls.length; i++) {
+      const prev = calls[i - 1].body.messages;
+      assert.deepEqual(calls[i].body.messages.slice(0, prev.length), prev, `request ${i + 1} extends request ${i}`);
+    }
   });
 
-  test('history keeps the injected user message byte for byte', async () => {
-    const { results, calls } = await threeTurns();
-    // Turn 3 wire: [system, user1, assistant1, user2, assistant2, user3]
-    const m = calls[2].body.messages;
-    assert.equal(m.length, 6);
-    assert.equal(m[1].content, results[0].assembled.userTurn);
-    assert.equal(m[3].content, results[1].assembled.userTurn);
-    assert.equal(m[5].content, results[2].assembled.userTurn);
-    assert.equal(m[2].content, 'answer 1');
-    // Turn 2's wire is an exact prefix of turn 3's wire (KV reuse).
-    const turn2 = JSON.stringify(calls[1].body.messages);
-    assert.ok(JSON.stringify(m).startsWith(turn2.slice(0, -1)), 'turn 2 messages are a prefix of turn 3');
-  });
-
-  test('a turn returns the event slice the runner scores', async () => {
-    const { results } = await threeTurns();
-    const types = results[1].events.map((e) => e.type);
-    // Recall runs before the model call, so its event comes before stream_start;
-    // the runner's slice starts at stream_start (S2.1).
-    assert.ok(types.indexOf('recall_injected') >= 0 && types.indexOf('recall_injected') < types.indexOf('stream_start'));
-    assert.equal(sliceTurnEvents(results[1].events, 100).events[0].type, 'stream_start');
-    assert.ok(!types.includes('token'), 'streamed tokens are not kept');
-    assert.equal(types.at(-1), 'turn_complete');
-    assert.equal(results[1].events.at(-1).status, 'completed');
-    assert.equal(results[1].text, 'answer 2');
-  });
-
-  test('reset() starts a new session: history gone, injected rows can come back, store kept', async () => {
-    const { adapter, wire: w } = makeAdapter();
+  test('reset() starts a new session: history gone, store kept', async () => {
+    let store;
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : say(`answer ${n}`));
+    const { adapter, wire: w } = makeAdapter({ script, onStore: (s) => { store = s; } });
     const s = await start(adapter);
-    await s.seedMemories(ROWS);
-    await s.turn('coffee for Maya?');
+    await s.turn('Remember that Maya drinks an oat-milk flat white coffee.');
     await s.reset();
-    const r = await s.turn('coffee for Maya?');
-    assert.ok(r.assembled.userTurn.startsWith(RECALL_HEADER), 'injected again after reset');
-    assert.equal(w.calls[1].body.messages.length, 2, 'system + this user turn only');
+    await s.turn('Hello again.');
+    assert.equal(w.calls.at(-1).body.messages.length, 2, 'system + the new user turn only');
+    assert.equal((await store.list({ limit: 10 })).length, 1);
     await adapter.stop();
   });
 });
 
 describe('v2-live adapter: switches and failures', () => {
-  test('recall off (the baseline run): the user turn is the text exactly', async () => {
-    const { adapter } = makeAdapter({ recall: false });
+  test('memoryTools: false (the baseline run): no tools on the wire, its own name', async () => {
+    const { adapter, wire: w } = makeAdapter({ memoryTools: false });
+    assert.equal(adapter.name, 'v2-live-tools-off');
     const s = await start(adapter);
-    await s.seedMemories(ROWS);
-    const r = await s.turn('What coffee should I get Maya?');
-    assert.equal(r.assembled.userTurn, 'What coffee should I get Maya?');
-    assert.notEqual(adapter.name, makeAdapter().adapter.name, 'the two runs report apart');
-    await adapter.stop();
-  });
-
-  test('embedder missing: recall_skipped + one warn, and the turn still answers', async () => {
-    const log = quiet();
-    const missing = () => { throw Object.assign(new Error('model not in cache. Run: npm run model:fetch'), { name: 'EmbeddingUnavailable' }); };
-    const { adapter } = makeAdapter({ embedder: missing, log });
-    const s = await start(adapter);
-    await s.seedMemories(ROWS);
-    const r1 = await s.turn('coffee for Maya?');
-    const r2 = await s.turn('and Nimbus?');
-    assert.equal(r1.text, 'answer 1');
-    assert.equal(r2.text, 'answer 2');
-    assert.ok(r1.events.some((e) => e.type === 'recall_skipped'));
-    assert.ok(r2.events.some((e) => e.type === 'recall_skipped'));
-    assert.equal(r1.assembled.userTurn, 'coffee for Maya?');
-    assert.equal(log.warn.mock.callCount(), 1, 'one warn for the whole session');
+    await s.turn('Hello there.');
+    assert.equal(w.calls[0].body.tools, undefined);
     await adapter.stop();
   });
 
@@ -204,7 +245,6 @@ describe('v2-live adapter: switches and failures', () => {
     const w = wire();
     const adapter = createV2LiveAdapter({
       config: CONFIG,
-      tools: TOOLS,
       deps: {
         openStore: (opts) => openStore({ ...opts, path: ':memory:', log: quiet() }),
         createEmbedder: async () => ({ ...fakeEmbedder(), close: async () => { closed.embedder++; } }),
