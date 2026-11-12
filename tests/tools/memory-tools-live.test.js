@@ -3,6 +3,8 @@
 // S2.8: the 7 S2.7 scenarios re-run with 5 tools (compare with the 2-tool
 // numbers in spec S2.7 §5), plus update / forget / list. A store check after
 // each run proves the right id was used. Surprise forget calls are counted.
+// S2.7 rev 4 (both): code auto-recall is on. Per scenario it also reports the
+// turns with an injected block, and how often the model still called recall on them.
 //
 //   APERIO_LIVE=1 node --test --test-name-pattern=gemma tests/tools/memory-tools-live.test.js
 // Port 18433, temp dir per run, every server stopped (the port is checked free).
@@ -59,6 +61,8 @@ async function runOnce(model, scenario, memories) {
   const root = await mkdtemp(join(tmpdir(), 'aperio-live-tools-'));
   const adapter = createV2LiveAdapter({ config: { ...BASE, LLAMACPP_PORT: PORT, LLAMACPP_SERVE_CTX: 16384 }, deps: { log: { error: console.error, warn: console.warn, info() {} } } });
   const called = [];
+  let injected = 0;
+  let recallAfterInject = 0;
   try {
     const s = await adapter.start({ sandbox: { root, dbPath: join(root, 'eval.sqlite'), port: PORT, releasePort: async () => {} }, settings: {}, model: { id: model } });
     // Like the runner: every scenario starts from the seeded rows (cross-session facts are seed: false).
@@ -69,14 +73,19 @@ async function runOnce(model, scenario, memories) {
       if (i > 0) await s.reset();
       for (const t of session.turns) {
         const r = await s.turn(t.user);
-        called.push(...r.events.filter((e) => e.type === 'tool_start').map((e) => e.name));
+        const names = r.events.filter((e) => e.type === 'tool_start').map((e) => e.name);
+        called.push(...names);
+        if (r.events.some((e) => e.type === 'recall_injected')) {
+          injected++;
+          if (names.includes('recall')) recallAfterInject++;
+        }
         if (t.expect.metric === 'usedWithoutHint') pass &&= usedWithoutHint([{ user: t.user, answer: r.text, requiredAnswerTerms: t.expect.requiredAnswerTerms }]) === 1;
         if (t.expect.metric === 'toolSuccess') pass &&= scoreToolTurn({ kind: scenario.kind, ...t.expect }, r.events).status === 'pass';
       }
     }
     const check = STORE_CHECKS[scenario.id];
     if (check) pass &&= check(await s.memories(), seeded.length);
-    return { pass, called };
+    return { pass, called, injected, recallAfterInject };
   } finally {
     await adapter.stop();
     await rm(root, { recursive: true, force: true });
@@ -92,10 +101,12 @@ for (const model of MODELS) {
       for (const id of SCENARIOS) {
         const sc = fx.scenarios.find((x) => x.id === id);
         assert.ok(sc, id);
-        result[id] = { pass: 0, n: N, calls: {} };
+        result[id] = { pass: 0, n: N, calls: {}, injected: 0, recallAfterInject: 0 };
         for (let i = 0; i < N; i++) {
-          const { pass, called } = await runOnce(model, sc, fx.memories);
+          const { pass, called, injected, recallAfterInject } = await runOnce(model, sc, fx.memories);
           if (pass) result[id].pass++;
+          result[id].injected += injected;
+          result[id].recallAfterInject += recallAfterInject;
           for (const name of called) result[id].calls[name] = (result[id].calls[name] ?? 0) + 1;
         }
         t.diagnostic(JSON.stringify({ model, id, ...result[id] }));

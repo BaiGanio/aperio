@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { openStore } from '../../src/store/open-store.js';
 import { stablePrefix } from '../../src/context/assemble-turn.js';
 import { createV2LiveAdapter, TEST_SYSTEM } from '../../src/eval/v2-live-adapter.js';
+import { RECALL_HEADER } from '../../src/context/recall-block.js';
 import { assertSession, assertTargetAdapter } from '../../src/eval/adapter-contract.js';
 import { sliceTurnEvents } from '../../src/eval/runner.js';
 
@@ -26,7 +27,7 @@ function vectorFor(text) {
 const embed = async (text) => vectorFor(text);
 const fakeEmbedder = () => ({ sig: SIG, dims: 4, embed, embedQuery: embed, close: async () => {} });
 
-const CONFIG = Object.freeze({ RECALL_TOP_K: 5, REMEMBER_DUP_SCORE: 80 });
+const CONFIG = Object.freeze({ RECALL_TOP_K: 5, REMEMBER_DUP_SCORE: 80, RECALL_TOKEN_BUDGET: 800, RECALL_MIN_SCORE: 50 });
 const ROWS = [
   { type: 'preference', title: 'Oat-milk flat white', content: 'Maya drinks an oat-milk flat white coffee.', createdAt: '2026-10-01T09:00:00.000Z' },
   { type: 'decision', title: 'Nimbus SLO', content: 'Nimbus answers under 50ms p99.', createdAt: '2026-10-02T09:00:00.000Z' },
@@ -48,11 +49,12 @@ function wire(script = (n) => say(`answer ${n}`)) {
   return { fetch, calls };
 }
 
-function makeAdapter({ script, memoryTools = true, embedder = fakeEmbedder, log = quiet(), onStore } = {}) {
+function makeAdapter({ script, memoryTools = true, autoRecall = true, embedder = fakeEmbedder, log = quiet(), onStore } = {}) {
   const w = wire(script);
   const adapter = createV2LiveAdapter({
     config: CONFIG,
     memoryTools,
+    autoRecall,
     deps: {
       openStore: async (opts) => {
         const store = await openStore({ ...opts, path: ':memory:', log: quiet() });
@@ -198,14 +200,31 @@ describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
     return { results, calls: w.calls };
   }
 
-  test('tools + system byte-identical on every request, one prefixHash; the user turn is the text exactly', async () => {
+  test('tools + system byte-identical on every request, one prefixHash; recall goes into the user turn (S2.7 rev 4)', async () => {
     const { results, calls } = await threeTurns();
     assert.equal(new Set(results.map((r) => stablePrefix(r.assembled))).size, 1);
     assert.equal(new Set(results.map((r) => r.prefixHash)).size, 1);
     assert.equal(new Set(calls.map((c) => c.body.messages[0].content)).size, 1, 'the system message never changes');
     assert.equal(new Set(calls.map((c) => JSON.stringify(c.body.tools))).size, 1, 'the tool bytes never change');
     assert.deepEqual(calls[0].body.tools.map((t) => t.function.name), ['remember', 'recall', 'update', 'forget', 'list']);
-    assert.equal(results[1].assembled.userTurn, 'What coffee should I get Maya?', 'no code-injected block');
+    assert.equal(results[0].assembled.userTurn, 'Remember that Maya drinks an oat-milk flat white coffee.', 'empty store: nothing injected');
+    const turn2 = results[1].assembled.userTurn;
+    assert.ok(turn2.startsWith(`${RECALL_HEADER}\n`), 'the block comes first, after the stable prefix');
+    assert.ok(turn2.endsWith('\n\nWhat coffee should I get Maya?'), 'then the user text, unchanged');
+    assert.match(turn2, /\(id [0-9a-f-]{36}\) /, 'each row carries its id (rev 4)');
+    assert.equal(results[2].assembled.userTurn, 'Thanks, that is all.', 'a row is injected once per session');
+    assert.ok(calls.some((c) => c.body.messages.some((m) => m.role === 'user' && m.content === turn2)), 'the wire carries exactly the assembled turn');
+  });
+
+  test('recall_injected event: rows (id, title, score), tokens, ms; none on a turn with no block', async () => {
+    const { results } = await threeTurns();
+    assert.equal(results[0].events.filter((e) => e.type === 'recall_injected').length, 0);
+    const [inj] = results[1].events.filter((e) => e.type === 'recall_injected');
+    assert.ok(inj, 'turn 2 injected');
+    assert.equal(inj.rows[0].title, 'Maya drinks an oat-milk flat white coffee.');
+    assert.match(inj.rows[0].id, /^[0-9a-f-]{36}$/);
+    assert.ok(inj.rows[0].score >= 0.5);
+    assert.ok(inj.tokens > 0 && inj.ms >= 0);
   });
 
   test('client prefix: every request starts with the previous request\'s messages, exactly', async () => {
@@ -252,6 +271,18 @@ describe('v2-live adapter: switches and failures', () => {
     const s = await start(adapter);
     await s.turn('Hello there.');
     assert.equal(w.calls[0].body.tools, undefined);
+    await adapter.stop();
+  });
+
+  test('autoRecall: false (the S2.7 rev 3 baseline): the user turn is the text exactly, its own name', async () => {
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : say(`answer ${n}`));
+    const { adapter } = makeAdapter({ script, autoRecall: false });
+    assert.equal(adapter.name, 'v2-live-recall-off');
+    const s = await start(adapter);
+    await s.turn('Remember that Maya drinks an oat-milk flat white coffee.');
+    const r = await s.turn('What coffee should I get Maya?');
+    assert.equal(r.assembled.userTurn, 'What coffee should I get Maya?');
+    assert.equal(r.events.filter((e) => e.type === 'recall_injected').length, 0);
     await adapter.stop();
   });
 

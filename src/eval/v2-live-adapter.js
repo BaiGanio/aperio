@@ -2,10 +2,11 @@
 // S2.1 "Shape"). It wires store + embedder + the S2.5 provider + the memory
 // tools, and records what each turn sent: { toolsJson, system, userTurn }.
 //
-// The model decides when to call remember / recall (developer decision
-// 2026-11-11); code runs the calls in-process (src/tools/tool-loop.js). The
-// user turn is the user's text exactly: code injects nothing.
-// `memoryTools: false` is the baseline run: no tools on the wire. Every
+// S2.7 rev 4 (both, developer 2026-11-12): before each turn code adds the best
+// memories after the stable prefix, in the user turn (src/context/recall-block.js);
+// the model keeps its 5 tools, run in-process (src/tools/tool-loop.js).
+// `memoryTools: false`: no tools on the wire. `autoRecall: false`: the rev 3
+// baseline, the user turn is the user's text exactly. Every
 // resource opened in start() is closed in stop(), also after a failed start.
 // No module state. Not here: the history trim and the full budget function.
 // History grows for the life of an eval session only.
@@ -18,6 +19,8 @@ import { startLlama } from '../providers/llama-launcher.js';
 import { createChatProvider } from '../providers/chat-provider.js';
 import { MEMORY_TOOLS } from '../tools/memory-tools.js';
 import { makeToolCtx, runToolLoop } from '../tools/tool-loop.js';
+import { buildRecallBlock, createRecallSession } from '../context/recall-block.js';
+import { assembleUserTurn } from '../context/assemble-turn.js';
 
 /** The fixed test system (the real system prompt is a later step). */
 export const TEST_SYSTEM = [
@@ -33,11 +36,11 @@ const DROPPED_EVENTS = new Set(['token', 'reasoning_token']);
 const FALLBACK_DIMS = 1024;
 
 /**
- * @param {{ config: Record<string, any>, memoryTools?: boolean, system?: string,
+ * @param {{ config: Record<string, any>, memoryTools?: boolean, autoRecall?: boolean, system?: string,
  *   deps?: { openStore?: Function, createEmbedder?: Function, startLlama?: Function,
  *            fetch?: typeof fetch, dims?: number, log?: { error: Function, warn: Function, info: Function } } }} opts
  */
-export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_SYSTEM, deps = {} }) {
+export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = true, system = TEST_SYSTEM, deps = {} }) {
   const tools = memoryTools ? MEMORY_TOOLS : [];
   const log = deps.log ?? console;
   const open = deps.openStore ?? openStore;
@@ -62,6 +65,7 @@ export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_
     const provider = createChatProvider({ baseURL: res.llama.baseURL, tools, capabilities: res.llama.capabilities, fetch: deps.fetch, log });
     const { store } = res;
     let history = [];
+    const recallSession = createRecallSession();
 
     return {
       async seedMemories(rows) {
@@ -78,12 +82,18 @@ export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_
       async turn(text) {
         const events = [];
         const emit = (e) => { if (!DROPPED_EVENTS.has(e.type)) events.push(e); };
-        history.push({ role: 'user', content: text });
+        let rec = { block: null };
+        if (autoRecall) {
+          rec = await buildRecallBlock({ store, embedder, text, session: recallSession, config, emit, log });
+          if (rec.block) emit({ type: 'recall_injected', rows: rec.rows, tokens: rec.tokens, ms: rec.ms });
+        }
+        const userTurn = assembleUserTurn({ recallBlock: rec.block, text });
+        history.push({ role: 'user', content: userTurn });
         const ctx = makeToolCtx({ store, embedder, config, log });
         const r = await runToolLoop({ provider, system, history, tools, ctx, emit, log });
         emit({ type: 'turn_complete', status: r.error ? 'error' : r.aborted ? 'aborted' : 'completed' });
         return {
-          events, text: r.text, assembled: { toolsJson: provider.toolsJson, system, userTurn: text },
+          events, text: r.text, assembled: { toolsJson: provider.toolsJson, system, userTurn },
           prefixHash: r.prefixHash, timings: r.timings, usage: r.usage,
         };
       },
@@ -95,6 +105,7 @@ export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_
 
       async reset() {
         history = [];
+        recallSession.reset();
       },
     };
   }
@@ -113,5 +124,5 @@ export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_
     if (errors.length) throw new AggregateError(errors, `v2-live stop: ${errors.map((e) => e.message).join('; ')}`);
   }
 
-  return { name: memoryTools ? 'v2-live' : 'v2-live-tools-off', start, stop };
+  return { name: !memoryTools ? 'v2-live-tools-off' : autoRecall ? 'v2-live' : 'v2-live-recall-off', start, stop };
 }

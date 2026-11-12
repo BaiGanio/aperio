@@ -187,7 +187,7 @@ export const updateTool = freeze({
 
 export const forgetTool = freeze({
   name: 'forget',
-  description: 'Delete a saved memory for good. Call it only when the user asks you to forget or delete something. Get the id from recall or list first.',
+  description: 'Delete a saved memory for good. Call it only when the user asks you to forget, delete or remove a memory, and then always call it: saying "done" without the call deletes nothing. Get the id from recall or list first.',
   parameters: {
     type: 'object',
     properties: {

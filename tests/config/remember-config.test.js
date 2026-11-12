@@ -21,8 +21,10 @@ test('RECALL_TOP_K stays: the recall tool default limit', () => {
   assert.equal(readConfig({}).values.RECALL_TOP_K, 5);
 });
 
-test('code capture and code auto-recall keys are gone (the model decides)', () => {
-  for (const key of ['CAPTURE_MODE', 'CAPTURE_DUP_SCORE', 'CAPTURE_MAX_PER_TURN', 'RECALL_TOKEN_BUDGET', 'RECALL_MIN_SCORE']) {
+// S2.7 rev 4 (both): code auto-recall is back, so RECALL_TOKEN_BUDGET and
+// RECALL_MIN_SCORE return (tests/config/recall-config.test.js). Code capture stays gone.
+test('code capture keys are gone (the model saves)', () => {
+  for (const key of ['CAPTURE_MODE', 'CAPTURE_DUP_SCORE', 'CAPTURE_MAX_PER_TURN']) {
     assert.equal(entry(key), undefined, key);
   }
 });

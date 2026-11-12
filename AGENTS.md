@@ -13,14 +13,16 @@ Node.js ESM, MIT license. Repo: [BaiGanio/aperio](https://github.com/BaiGanio/ap
 
 ## The one rule
 
-**The model decides. Code makes its memory tools safe and cheap.**
+**Code recalls. The model decides what to save, change and forget.**
 
-The model has autonomy: it calls `remember` to save and `recall` to search, when it judges it
-needs to (developer decision 2026-11-11, spec S2.7 rev 3). Code does not inject or capture behind
+Before each turn, code finds the best memories for the message and adds them to the user turn,
+after the stable prefix — a small model often will not call `recall` itself (lesson L-M02:
+gemma used a seeded memory 8/15 with tools only, 15/15 with code recall). The model keeps all
+5 tools (`remember`, `recall`, `update`, `forget`, `list`) and calls them when it judges it needs
+to (developer decision 2026-11-12, spec S2.7 rev 4). Code never saves, changes or deletes behind
 its back. Code runs every tool call in-process and guards it: secret check, duplicate check,
 vector stored with the row, bounded results, a fixed tool prefix (KV reuse).
-The known risk is lesson L-M02: a weak model may not call `recall` when it should. The live eval
-measures that on every change; a drop is reported, never hidden.
+The live eval measures both halves on every change; a drop is reported, never hidden.
 **Every v2 choice answers to this rule.** When a change is locally clever but drifts from it,
 say so before building it.
 
