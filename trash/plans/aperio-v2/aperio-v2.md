@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma and Ornith usedWithoutHint on 15/15 vs off 0/15 (Ornith run 2026-11-12). **S2.7 rev 3 (model decides) built 2026-11-11**: code capture and code auto-recall removed; the model calls `remember` / `recall`, run in-process. **S2.8 built 2026-11-12** (`update`, `forget`, `list`; gemma: update 5/5, forget 3/5, list 5/5, surprise forget 0, seeded 8/15; Ornith pending). **S2.7 rev 4 (both) 2026-11-12:** code recall back next to the 5 tools; gemma 50/50, surprise forget 0; Ornith pending. Next: **S2.9** gated files.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma and Ornith usedWithoutHint on 15/15 vs off 0/15 (Ornith run 2026-11-12). **S2.7 rev 3 (model decides) built 2026-11-11**: code capture and code auto-recall removed; the model calls `remember` / `recall`, run in-process. **S2.8 built 2026-11-12** (`update`, `forget`, `list`; gemma: update 5/5, forget 3/5, list 5/5, surprise forget 0, seeded 8/15; Ornith pending). **S2.7 rev 4 (both) 2026-11-12:** code recall back next to the 5 tools; gemma 50/50, surprise forget 0; Ornith pending. **S2.9 gated files built 2026-11-12**: gate only, no model tool (5 tools stay); T2.9 52/52. Next: **S2.10** skills.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -500,7 +500,7 @@ so a thin MCP wrapper can be added later through the return gate. Read **Appendi
 passes, and no MCP dependency is in `package.json`. → **T2.8**
 
 **S2.9 Gated files.** Port `lib/routes/paths.js` plus new `gatedRead` / `gatedWrite` (realpath inside,
-one step). Bring the `working-with-files` skill, cut down.
+one step). Gate only, no model tool (decision 2026-11-12); the `working-with-files` skill moved to S2.10.
 *Works when:* the `..`, symlink, absolute-path and swap-between-check-and-use tests all deny. → **T2.9**
 
 **S2.10 Skills.** Port the 4 core skills, each cut to the minimum. Measure each one on the eval
