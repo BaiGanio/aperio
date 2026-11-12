@@ -56,6 +56,8 @@ export const REGISTRY = Object.freeze([
     help: 'How many memories the recall tool returns when the model does not say (at most 10).' },
   { key: 'REMEMBER_DUP_SCORE', tier: 1, type: 'int', default: '80',
     help: 'The remember tool does not save a fact when a stored one matches it at least this much, in percent (80 = cosine 0.80). Measured: duplicates 81-90, new facts <= 76. Spec S2.7.' },
+  { key: 'LIST_LIMIT', tier: 1, type: 'int', default: '20',
+    help: 'How many memories the list tool returns when the model does not say (at most 50). Spec S2.8.' },
   { key: 'SESSION_RETENTION_DAYS', tier: 1, type: 'int', default: '14',
     help: 'Days of chat history to keep.' },
   { key: 'LOG_LEVEL', tier: 1, type: 'select', default: 'info', options: ['error', 'warn', 'info', 'debug'],

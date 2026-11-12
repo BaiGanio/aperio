@@ -1,0 +1,18 @@
+{
+  "id": "tool-update-explicit",
+  "kind": "tool-call",
+  "split": "train",
+  "title": "The assistant changes a saved memory with the update tool when asked to",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        { "user": "Hi, one small change to your notes.", "expect": {} },
+        {
+          "user": "Maya switched her coffee: it is now a cortado with oat milk, not a flat white. Update the memory you have about her coffee.",
+          "expect": { "metric": "toolSuccess", "expectedToolSequence": ["update"] }
+        }
+      ]
+    }
+  ]
+}

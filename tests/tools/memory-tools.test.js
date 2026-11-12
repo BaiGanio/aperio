@@ -35,8 +35,8 @@ async function setup({ embedder = fakeEmbedder() } = {}) {
 const all = (store) => store.list({ limit: 100, order: 'recent' });
 
 describe('the tool set', () => {
-  test('exactly remember and recall, each with name, description, JSON schema and run()', () => {
-    assert.deepEqual(MEMORY_TOOLS.map((t) => t.name), ['remember', 'recall']);
+  test('remember and recall come first, each with name, description, JSON schema and run() (all 5: tools-contract.test.js)', () => {
+    assert.deepEqual(MEMORY_TOOLS.map((t) => t.name).slice(0, 2), ['remember', 'recall']);
     for (const t of MEMORY_TOOLS) {
       assert.equal(typeof t.description, 'string');
       assert.equal(t.parameters.type, 'object');
@@ -155,7 +155,7 @@ describe('recall', () => {
     assert.equal(r.ok, true);
     assert.equal(r.memories[0].content, 'My dentist is Dr. Ivanova.');
     assert.match(r.memories[0].date, /^\d{4}-\d{2}-\d{2}$/);
-    assert.deepEqual(Object.keys(r.memories[0]).sort(), ['content', 'date', 'title']);
+    assert.deepEqual(Object.keys(r.memories[0]).sort(), ['content', 'date', 'id', 'title'], 'S2.8: id added');
     await store.close();
   });
 

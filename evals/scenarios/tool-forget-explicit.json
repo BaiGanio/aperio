@@ -1,0 +1,18 @@
+{
+  "id": "tool-forget-explicit",
+  "kind": "tool-call",
+  "split": "train",
+  "title": "The assistant deletes a saved memory with the forget tool when asked to",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        { "user": "Hi, I want to clean up your notes.", "expect": {} },
+        {
+          "user": "Please forget the memory about Maya's coffee order.",
+          "expect": { "metric": "toolSuccess", "expectedToolSequence": ["forget"] }
+        }
+      ]
+    }
+  ]
+}

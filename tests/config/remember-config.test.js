@@ -26,3 +26,11 @@ test('code capture and code auto-recall keys are gone (the model decides)', () =
     assert.equal(entry(key), undefined, key);
   }
 });
+
+test('LIST_LIMIT: tier 1 int, default 20 (the list tool default; hard max 50 in the tool) — spec S2.8', () => {
+  const e = entry('LIST_LIMIT');
+  assert.ok(e, 'the key exists');
+  assert.equal(e.tier, 1);
+  assert.equal(e.type, 'int');
+  assert.equal(readConfig({}).values.LIST_LIMIT, 20);
+});

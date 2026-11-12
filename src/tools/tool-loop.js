@@ -5,6 +5,14 @@
 // the previous one (KV reuse, L-M22). A tool error is a result the model sees
 // (ok: false), never a thrown turn (AP5).
 
+/**
+ * The one ctx every tool gets. Fragile zone: its 4 keys are frozen by
+ * tests/tools/tools-contract.test.js; extra fields are dropped, not passed on.
+ */
+export function makeToolCtx({ store, embedder, config, log }) {
+  return Object.freeze({ store, embedder, config, log });
+}
+
 /** A model that keeps calling tools is cut here; its last calls are not run. */
 export const MAX_TOOL_ROUNDS = 4;
 

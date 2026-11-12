@@ -1,5 +1,8 @@
-// T2.7 rev 3 - live: the model decides when to call remember / recall, real
-// llama-server (spec S2.7 rev 3 §3, the eval number).
+// T2.7 rev 3 + T2.8 - live: the model decides when to call its 5 memory tools,
+// real llama-server (spec S2.7 rev 3 §3; spec S2.8 §3, the eval number).
+// S2.8: the 7 S2.7 scenarios re-run with 5 tools (compare with the 2-tool
+// numbers in spec S2.7 §5), plus update / forget / list. A store check after
+// each run proves the right id was used. Surprise forget calls are counted.
 //
 //   APERIO_LIVE=1 node --test --test-name-pattern=gemma tests/tools/memory-tools-live.test.js
 // Port 18433, temp dir per run, every server stopped (the port is checked free).
@@ -28,7 +31,15 @@ const SCENARIOS = [
   'uwh-cross-session-standup', 'uwh-cross-session-pager',
   'uwh-seeded-slo', 'uwh-seeded-coffee', 'uwh-seeded-beacon',
   'tool-remember-explicit', 'tool-recall-explicit',
+  'tool-update-explicit', 'tool-forget-explicit', 'tool-list-explicit',
 ];
+
+/** S2.8: after the run, the store must show the change (proves the right id). */
+const hasText = (rows, re) => rows.some((r) => re.test(`${r.title} ${r.content}`));
+const STORE_CHECKS = {
+  'tool-update-explicit': (rows, seeded) => rows.length === seeded && rows.some((r) => /cortado/i.test(r.content)) && !rows.some((r) => /flat white/i.test(r.content)),
+  'tool-forget-explicit': (rows, seeded) => rows.length === seeded - 1 && !hasText(rows, /flat white/i),
+};
 const BASE = readConfig({}).values;
 const LLAMA_ROOT = resolveCacheRoot('', homedir());
 const EMBED_CACHE = BASE.TRANSFORMERS_CACHE.replace(/^~(?=\/|$)/, homedir());
@@ -51,7 +62,8 @@ async function runOnce(model, scenario, memories) {
   try {
     const s = await adapter.start({ sandbox: { root, dbPath: join(root, 'eval.sqlite'), port: PORT, releasePort: async () => {} }, settings: {}, model: { id: model } });
     // Like the runner: every scenario starts from the seeded rows (cross-session facts are seed: false).
-    await s.seedMemories(seedRows(memories));
+    const seeded = seedRows(memories);
+    await s.seedMemories(seeded);
     let pass = true;
     for (const [i, session] of scenario.sessions.entries()) {
       if (i > 0) await s.reset();
@@ -62,6 +74,8 @@ async function runOnce(model, scenario, memories) {
         if (t.expect.metric === 'toolSuccess') pass &&= scoreToolTurn({ kind: scenario.kind, ...t.expect }, r.events).status === 'pass';
       }
     }
+    const check = STORE_CHECKS[scenario.id];
+    if (check) pass &&= check(await s.memories(), seeded.length);
     return { pass, called };
   } finally {
     await adapter.stop();
@@ -87,6 +101,9 @@ for (const model of MODELS) {
         t.diagnostic(JSON.stringify({ model, id, ...result[id] }));
       }
       t.diagnostic(JSON.stringify({ model, result }));
+      // S2.8 bar: forget is never called when the user did not ask (reported here, judged by the developer).
+      const surpriseForget = SCENARIOS.filter((id) => id !== 'tool-forget-explicit').reduce((n, id) => n + (result[id].calls.forget ?? 0), 0);
+      t.diagnostic(JSON.stringify({ model, surpriseForget }));
     });
   });
 }

@@ -204,7 +204,7 @@ describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
     assert.equal(new Set(results.map((r) => r.prefixHash)).size, 1);
     assert.equal(new Set(calls.map((c) => c.body.messages[0].content)).size, 1, 'the system message never changes');
     assert.equal(new Set(calls.map((c) => JSON.stringify(c.body.tools))).size, 1, 'the tool bytes never change');
-    assert.deepEqual(calls[0].body.tools.map((t) => t.function.name), ['remember', 'recall']);
+    assert.deepEqual(calls[0].body.tools.map((t) => t.function.name), ['remember', 'recall', 'update', 'forget', 'list']);
     assert.equal(results[1].assembled.userTurn, 'What coffee should I get Maya?', 'no code-injected block');
   });
 
@@ -214,6 +214,21 @@ describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
       const prev = calls[i - 1].body.messages;
       assert.deepEqual(calls[i].body.messages.slice(0, prev.length), prev, `request ${i + 1} extends request ${i}`);
     }
+  });
+
+  test('TEST_SYSTEM tells the model to find an id before update / forget (S2.8 §2.6)', () => {
+    assert.match(TEST_SYSTEM, /To change or forget a memory, find its id with recall or list first\./);
+  });
+
+  test('memories() returns every row, newest first (the live test checks the store with it)', async () => {
+    const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : say(`answer ${n}`));
+    const { adapter } = makeAdapter({ script });
+    const s = await start(adapter);
+    await s.turn('Remember that Maya drinks an oat-milk flat white coffee.');
+    const rows = await s.memories();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].content, 'Maya drinks an oat-milk flat white coffee.');
+    await adapter.stop();
   });
 
   test('reset() starts a new session: history gone, store kept', async () => {

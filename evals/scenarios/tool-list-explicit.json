@@ -1,0 +1,18 @@
+{
+  "id": "tool-list-explicit",
+  "kind": "tool-call",
+  "split": "holdout",
+  "title": "The assistant lists its saved memories with the list tool when asked to",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        { "user": "Hi there.", "expect": {} },
+        {
+          "user": "List the memories you have saved. Titles are enough.",
+          "expect": { "metric": "toolSuccess", "expectedToolSequence": ["list"], "requiredAnswerTerms": ["Maya"] }
+        }
+      ]
+    }
+  ]
+}

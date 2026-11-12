@@ -17,7 +17,7 @@ import { reindex } from '../embeddings/embed-reindex.js';
 import { startLlama } from '../providers/llama-launcher.js';
 import { createChatProvider } from '../providers/chat-provider.js';
 import { MEMORY_TOOLS } from '../tools/memory-tools.js';
-import { runToolLoop } from '../tools/tool-loop.js';
+import { makeToolCtx, runToolLoop } from '../tools/tool-loop.js';
 
 /** The fixed test system (the real system prompt is a later step). */
 export const TEST_SYSTEM = [
@@ -25,6 +25,7 @@ export const TEST_SYSTEM = [
   'Answer briefly and honestly, in plain words.',
   'When the user asks you to remember something, or tells you a fact worth keeping, call remember.',
   'When a question may depend on something the user told you before, call recall first; when you do not know, say so.',
+  'To change or forget a memory, find its id with recall or list first.',
 ].join('\n');
 
 /** Streamed tokens are not kept: a turn returns only the events the runner scores. */
@@ -78,13 +79,18 @@ export function createV2LiveAdapter({ config, memoryTools = true, system = TEST_
         const events = [];
         const emit = (e) => { if (!DROPPED_EVENTS.has(e.type)) events.push(e); };
         history.push({ role: 'user', content: text });
-        const ctx = { store, embedder, config, log };
+        const ctx = makeToolCtx({ store, embedder, config, log });
         const r = await runToolLoop({ provider, system, history, tools, ctx, emit, log });
         emit({ type: 'turn_complete', status: r.error ? 'error' : r.aborted ? 'aborted' : 'completed' });
         return {
           events, text: r.text, assembled: { toolsJson: provider.toolsJson, system, userTurn: text },
           prefixHash: r.prefixHash, timings: r.timings, usage: r.usage,
         };
+      },
+
+      /** Every row, newest first: the live test checks the store after a turn (spec S2.8 §5). */
+      async memories() {
+        return store.list({ order: 'recent', limit: 200 });
       },
 
       async reset() {
