@@ -28,7 +28,11 @@ function vectorFor(text) {
 const embed = async (text) => vectorFor(text);
 const fakeEmbedder = () => ({ sig: SIG, dims: 4, embed, embedQuery: embed, close: async () => {} });
 
-const CONFIG = Object.freeze({ RECALL_TOP_K: 5, REMEMBER_DUP_SCORE: 80, RECALL_TOKEN_BUDGET: 800, RECALL_MIN_SCORE: 50 });
+const CONFIG = Object.freeze({
+  RECALL_TOP_K: 5, REMEMBER_DUP_SCORE: 80, RECALL_TOKEN_BUDGET: 800, RECALL_MIN_SCORE: 50,
+  // S2.13: the turn budget keys (registry defaults); the fake server reports no n_ctx, so LLAMACPP_SERVE_CTX is used.
+  LLAMACPP_SERVE_CTX: 65536, CONTEXT_OUTPUT_RESERVE: 2048, CONTEXT_TRIM_AT_PCT: 85, CONTEXT_TRIM_TO_PCT: 60, CONTEXT_TOOL_RESULT_PCT: 25,
+});
 const ROWS = [
   { type: 'preference', title: 'Oat-milk flat white', content: 'Maya drinks an oat-milk flat white coffee.', createdAt: '2026-10-01T09:00:00.000Z' },
   { type: 'decision', title: 'Nimbus SLO', content: 'Nimbus answers under 50ms p99.', createdAt: '2026-10-02T09:00:00.000Z' },

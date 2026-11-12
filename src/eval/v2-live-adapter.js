@@ -8,8 +8,9 @@
 // `memoryTools: false`: no tools on the wire. `autoRecall: false`: the rev 3
 // baseline, the user turn is the user's text exactly. Every
 // resource opened in start() is closed in stop(), also after a failed start.
-// No module state. Not here: the history trim and the full budget function.
-// History grows for the life of an eval session only.
+// No module state. S2.13: the turn budget (src/context/turn-budget.js) is planned
+// once per start from the n_ctx the server reports; the tool loop caps tool
+// results and cuts the oldest whole turns; recall gets min(budget, 10 % of usable).
 
 import { join } from 'node:path';
 import { openStore } from '../store/open-store.js';
@@ -22,6 +23,8 @@ import { makeToolCtx, runToolLoop } from '../tools/tool-loop.js';
 import { buildRecallBlock, createRecallSession } from '../context/recall-block.js';
 import { assembleUserTurn } from '../context/assemble-turn.js';
 import { buildSystem } from '../context/system-prompt.js';
+import { estimateTokens } from '../context/recall-block.js';
+import { planBudget } from '../context/turn-budget.js';
 
 /** The old fixed test system: the eval `baseline` config. It equals buildSystem([]). The default is buildSystem() (S2.10, developer 2026-11-12). */
 export const TEST_SYSTEM = [
@@ -65,7 +68,14 @@ export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = t
     res.llama = await launch({ config: { ...config, LLAMACPP_MODEL: model.id, LLAMACPP_PORT: sandbox.port }, deps: { logPath, log } });
     const provider = createChatProvider({ baseURL: res.llama.baseURL, tools, capabilities: res.llama.capabilities, fetch: deps.fetch, log });
     const { store } = res;
-    let history = [];
+    // L-M08: the server's n_ctx. A window that cannot hold the prefix fails here, once (window_too_small).
+    const plan = planBudget({
+      nCtx: res.llama.servedCtx ?? config.LLAMACPP_SERVE_CTX, prefixTokens: estimateTokens(provider.toolsJson + system),
+      outputReserve: config.CONTEXT_OUTPUT_RESERVE, toolResultPct: config.CONTEXT_TOOL_RESULT_PCT, recallBudget: config.RECALL_TOKEN_BUDGET,
+    });
+    const budget = Object.freeze({ usable: plan.usable, toolResultMax: plan.toolResultMax, trimAtPct: config.CONTEXT_TRIM_AT_PCT, trimToPct: config.CONTEXT_TRIM_TO_PCT });
+    const recallConfig = { ...config, RECALL_TOKEN_BUDGET: plan.recallMax };
+    const history = [];
     const recallSession = createRecallSession();
 
     return {
@@ -85,13 +95,13 @@ export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = t
         const emit = (e) => { if (!DROPPED_EVENTS.has(e.type)) events.push(e); };
         let rec = { block: null };
         if (autoRecall) {
-          rec = await buildRecallBlock({ store, embedder, text, session: recallSession, config, emit, log });
+          rec = await buildRecallBlock({ store, embedder, text, session: recallSession, config: recallConfig, emit, log });
           if (rec.block) emit({ type: 'recall_injected', rows: rec.rows, tokens: rec.tokens, ms: rec.ms });
         }
         const userTurn = assembleUserTurn({ recallBlock: rec.block, text });
         history.push({ role: 'user', content: userTurn });
         const ctx = makeToolCtx({ store, embedder, config, log });
-        const r = await runToolLoop({ provider, system, history, tools, ctx, emit, log });
+        const r = await runToolLoop({ provider, system, history, tools, ctx, emit, log, budget });
         emit({ type: 'turn_complete', status: r.error ? 'error' : r.aborted ? 'aborted' : 'completed' });
         return {
           events, text: r.text, assembled: { toolsJson: provider.toolsJson, system, userTurn },
@@ -105,7 +115,7 @@ export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = t
       },
 
       async reset() {
-        history = [];
+        history.length = 0;
         recallSession.reset();
       },
     };

@@ -39,6 +39,7 @@ export const SERVER_TYPES = freezeAll({
   stream_end: { ...T, text: opt('string', TEXT_MAX), toolCalls: opt('array', 64), aborted: opt('bool') },
   recall_injected: { ...T, rows: req('array', 64), tokens: req('int'), ms: req('number') },
   recall_skipped: { ...T, reason: req('string', 256) },
+  context_trimmed: { ...T, dropped: req('int'), pct: req('int') },
   turn_complete: { ...T, status: req('string', 16) },
   error: { ...T, code: opt('string', 32), kind: opt('string', 64), message: req('string', 2000) },
   memories: { ...T, rows: req('array', 1000) },

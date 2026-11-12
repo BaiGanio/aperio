@@ -38,6 +38,7 @@ const SERVER_SAMPLES = Object.freeze({
   stream_end: { type: 'stream_end', turnId: 't-1', text: 'Hi', toolCalls: [], aborted: false },
   recall_injected: { type: 'recall_injected', turnId: 't-1', rows: [{ id: 'a1', title: 'tea', score: 0.8 }], tokens: 12, ms: 3 },
   recall_skipped: { type: 'recall_skipped', turnId: 't-1', reason: 'no_match' },
+  context_trimmed: { type: 'context_trimmed', turnId: 't-1', dropped: 6, pct: 91 },
   turn_complete: { type: 'turn_complete', turnId: 't-1', status: 'completed' },
   error: { type: 'error', turnId: 't-1', code: 'bad_json', message: 'frame is not valid JSON' },
   memories: { type: 'memories', rows: [{ id: 'a1', content: 'The user likes tea.' }] },

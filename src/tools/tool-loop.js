@@ -1,9 +1,13 @@
 // src/tools/tool-loop.js - one turn: ask the model, run the tools it calls
 // in-process, feed the results back, until it answers (spec S2.7 rev 3 §2.3).
 //
-// History is appended in place and never rewritten, so every request extends
-// the previous one (KV reuse, L-M22). A tool error is a result the model sees
-// (ok: false), never a thrown turn (AP5).
+// History is appended in place, so every request extends the previous one (KV
+// reuse, L-M22). With a budget (spec S2.13): each tool result is capped once,
+// when stored, and before each model call the oldest whole turns are cut out of
+// the stored history (rarely, in big steps). A tool error is a result the model
+// sees (ok: false), never a thrown turn (AP5).
+
+import { BudgetError, capToolResult, fitHistory } from '../context/turn-budget.js';
 
 /**
  * The one ctx every tool gets. Fragile zone: its 4 keys are frozen by
@@ -19,12 +23,17 @@ export const MAX_TOOL_ROUNDS = 4;
 /**
  * @param {{ provider: { streamChat: Function }, system: string, history: object[],
  *   tools: readonly { name: string, run: Function }[], ctx: object,
- *   emit: (e: object) => void, log: { error: Function } }} args
+ *   emit: (e: object) => void, log: { error: Function, info?: Function },
+ *   budget?: { usable: number, toolResultMax: number, trimAtPct: number, trimToPct: number } }} args
  * @returns {Promise<object>} the provider result of the last request
  */
-export async function runToolLoop({ provider, system, history, tools, ctx, emit, log }) {
+export async function runToolLoop({ provider, system, history, tools, ctx, emit, log, budget }) {
   const byName = new Map(tools.map((t) => [t.name, t]));
   for (let round = 0; ; round++) {
+    if (budget) {
+      const full = fit(history, budget, emit, log);
+      if (full) return full;
+    }
     const r = await provider.streamChat({ system, messages: [...history], emit });
     if (!r.toolCalls.length || r.error || r.aborted || round >= MAX_TOOL_ROUNDS) {
       history.push({ role: 'assistant', content: r.text });
@@ -39,8 +48,29 @@ export async function runToolLoop({ provider, system, history, tools, ctx, emit,
       emit({ type: 'tool_start', id: c.id, name: c.name, arguments: c.args });
       const result = await runOne(byName.get(c.name), c, ctx, log);
       emit({ type: 'tool_result', id: c.id, name: c.name, ok: result.ok !== false });
-      history.push({ role: 'tool', tool_call_id: c.id, content: JSON.stringify(result) });
+      const content = JSON.stringify(result);
+      history.push({ role: 'tool', tool_call_id: c.id, content: budget ? capToolResult(content, budget.toolResultMax) : content });
     }
+  }
+}
+
+/**
+ * Cut the stored history in place (the cut is real: spec §2 item 7). Returns a
+ * failed result when the current turn alone does not fit, else null.
+ */
+function fit(history, budget, emit, log) {
+  try {
+    const r = fitHistory(history, budget);
+    if (!r.trimmed) return null;
+    history.splice(0, r.dropped);
+    emit({ type: 'context_trimmed', dropped: r.dropped, pct: r.pct });
+    log.info?.(`[budget] trimmed ${r.dropped} messages at ${r.pct}% of ${budget.usable} tokens`);
+    return null;
+  } catch (err) {
+    if (!(err instanceof BudgetError)) throw err;
+    log.error(`[budget] ${err.code}: ${err.message}`);
+    emit({ type: 'error', code: err.code, message: err.message });
+    return { text: '', toolCalls: [], error: { kind: err.code, message: err.message }, aborted: false };
   }
 }
 
