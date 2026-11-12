@@ -16,11 +16,12 @@
     "guard:size": "node scripts/guard-file-size.mjs",
     "guard:names": "node scripts/guard-duplicate-basenames.mjs",
     "guards": "npm run guard:size && npm run guard:names",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "gen:env": "node scripts/gen-env-example.mjs",
     "gen:env:check": "node scripts/gen-env-example.mjs --check",
     "try:search": "node scripts/try-search.mjs",
     "import:v1": "node scripts/import-v1.mjs",
-    "check": "npm run lint && npm run guards && npm run gen:env:check && npm test",
+    "check": "npm run lint && npm run guards && npm run gen:env:check && npm run typecheck && npm test",
     "ledgers": "node trash/plans/aperio-v2/scripts/check-ledgers.mjs",
     "model:fetch": "node scripts/fetch-embedding-model.mjs"
   },
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "c8": "^12.0.0",
-    "eslint": "^10.14.0"
+    "eslint": "^10.14.0",
+    "typescript": "^7.0.2"
   }
 }

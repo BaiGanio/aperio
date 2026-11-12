@@ -9,11 +9,16 @@
 /** @typedef {{ code: string, message: string, type?: string }} FrameError */
 
 export const DEFAULT_MAX_FRAME_BYTES = 256 * 1024;
+/** Server frames carry whole answers and memory lists: bounded, not tight (16 MiB). */
+export const DEFAULT_MAX_SERVER_FRAME_BYTES = 16 * 1024 * 1024;
 
 const TEXT_MAX = 1 << 20; // server text (a whole answer) - bounded, not tight
+/** @param {Kind} kind @param {number} [max] @returns {FieldSpec} */
 const req = (kind, max) => ({ kind, required: true, ...(max ? { max } : {}) });
+/** @param {Kind} kind @param {number} [max] @returns {FieldSpec} */
 const opt = (kind, max) => ({ kind, ...(max ? { max } : {}) });
 const TURN_ID = 128;
+/** @param {Record<string, Record<string, FieldSpec>>} table @returns {Readonly<Record<string, Readonly<Record<string, FieldSpec>>>>} */
 const freezeAll = (table) => Object.freeze(Object.fromEntries(Object.entries(table).map(
   ([type, fields]) => [type, Object.freeze(Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, Object.freeze(v)])))])));
 
@@ -45,7 +50,9 @@ export const SERVER_TYPES = freezeAll({
   memories: { ...T, rows: req('array', 1000) },
 });
 
+/** @param {unknown} v @returns {v is Record<string, unknown>} */
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** @type {Record<Kind, (v: unknown) => boolean>} */
 const KIND_OK = {
   string: (v) => typeof v === 'string', int: Number.isInteger, bool: (v) => typeof v === 'boolean',
   number: (v) => typeof v === 'number' && Number.isFinite(v), object: isPlainObject, array: Array.isArray,
@@ -77,7 +84,7 @@ function checkFields(type, fields, msg) {
   return null;
 }
 
-/** UTF-8 byte length, without encoding when the char count already decides. */
+/** UTF-8 byte length, without encoding when the char count already decides. @param {string} s @param {number} max */
 function byteLength(s, max) {
   if (s.length > max) return s.length;
   if (s.length * 3 <= max) return s.length;
@@ -85,13 +92,13 @@ function byteLength(s, max) {
 }
 
 /**
- * Check one client frame at the socket edge, once. Never throws.
- * @param {string | Uint8Array} raw
- * @param {{ maxBytes?: number }} [opts]  the server passes config WS_MAX_FRAME_BYTES
+ * Decode, size-check and JSON-parse one frame, then check it against `table`. Never throws.
+ * @param {unknown} raw @param {Readonly<Record<string, Readonly<Record<string, FieldSpec>>>>} table @param {number} maxBytes
  * @returns {{ ok: true, msg: Record<string, unknown> } | { ok: false, error: FrameError }}
  */
-export function parseClientFrame(raw, { maxBytes = DEFAULT_MAX_FRAME_BYTES } = {}) {
-  const reject = (code, message, type) => ({ ok: /** @type {const} */ (false), error: type ? { code, message, type } : { code, message } });
+function parseFrame(raw, table, maxBytes) {
+  /** @param {string} code @param {string} message */
+  const reject = (code, message) => ({ ok: /** @type {const} */ (false), error: { code, message } });
   let text;
   if (typeof raw === 'string') {
     if (byteLength(raw, maxBytes) > maxBytes) return reject('too_large', `frame is larger than ${maxBytes} bytes`);
@@ -115,9 +122,9 @@ export function parseClientFrame(raw, { maxBytes = DEFAULT_MAX_FRAME_BYTES } = {
   }
   if (!isPlainObject(data)) return reject('not_object', 'frame must be a JSON object');
   const { type } = data;
-  if (typeof type !== 'string' || !Object.hasOwn(CLIENT_TYPES, type)) return reject('unknown_type', 'unknown message type');
+  if (typeof type !== 'string' || !Object.hasOwn(table, type)) return reject('unknown_type', 'unknown message type');
 
-  const fields = CLIENT_TYPES[type];
+  const fields = table[type];
   const err = checkFields(type, fields, data);
   if (err) return { ok: false, error: err };
   /** @type {Record<string, unknown>} */
@@ -127,16 +134,56 @@ export function parseClientFrame(raw, { maxBytes = DEFAULT_MAX_FRAME_BYTES } = {
 }
 
 /**
+ * Check msg against `table` and serialise it. A bad message is a bug on the
+ * sending side: it throws, it is never sent.
+ * @param {unknown} msg @param {Readonly<Record<string, Readonly<Record<string, FieldSpec>>>>} table @param {string} side
+ * @returns {string}
+ */
+function encodeFrame(msg, table, side) {
+  const type = isPlainObject(msg) ? /** @type {Record<string, unknown>} */ (msg).type : undefined;
+  if (typeof type !== 'string' || !Object.hasOwn(table, type)) {
+    throw new TypeError(`ws-schema: unknown ${side} frame type ${JSON.stringify(type)}`);
+  }
+  const err = checkFields(type, table[type], /** @type {Record<string, unknown>} */ (msg));
+  if (err) throw new TypeError(`ws-schema: ${err.message}`);
+  return JSON.stringify(msg);
+}
+
+/**
+ * Check one client frame at the socket edge, once. Never throws.
+ * @param {string | Uint8Array} raw
+ * @param {{ maxBytes?: number }} [opts]  the server passes config WS_MAX_FRAME_BYTES
+ * @returns {{ ok: true, msg: Record<string, unknown> } | { ok: false, error: FrameError }}
+ */
+export function parseClientFrame(raw, { maxBytes = DEFAULT_MAX_FRAME_BYTES } = {}) {
+  return parseFrame(raw, CLIENT_TYPES, maxBytes);
+}
+
+/**
+ * Check one server frame in the browser, once (spec S3.0 §4.1). Never throws;
+ * same error codes as parseClientFrame.
+ * @param {unknown} raw
+ * @param {{ maxBytes?: number }} [opts]
+ * @returns {{ ok: true, msg: Record<string, unknown> } | { ok: false, error: FrameError }}
+ */
+export function parseServerFrame(raw, { maxBytes = DEFAULT_MAX_SERVER_FRAME_BYTES } = {}) {
+  return parseFrame(raw, SERVER_TYPES, maxBytes);
+}
+
+/**
+ * Build one client frame (spec S3.0 §4.1). A bad message is a client bug: it throws, never sends.
+ * @param {Record<string, unknown>} msg
+ * @returns {string}
+ */
+export function encodeClientFrame(msg) {
+  return encodeFrame(msg, CLIENT_TYPES, 'client');
+}
+
+/**
  * Build one server frame. A bad message is a server bug: it throws, never sends.
  * @param {Record<string, unknown>} msg
  * @returns {string}
  */
 export function encodeServerFrame(msg) {
-  const type = isPlainObject(msg) ? msg.type : undefined;
-  if (typeof type !== 'string' || !Object.hasOwn(SERVER_TYPES, type)) {
-    throw new TypeError(`ws-schema: unknown server frame type ${JSON.stringify(type)}`);
-  }
-  const err = checkFields(type, SERVER_TYPES[type], msg);
-  if (err) throw new TypeError(`ws-schema: ${err.message}`);
-  return JSON.stringify(msg);
+  return encodeFrame(msg, SERVER_TYPES, 'server');
 }

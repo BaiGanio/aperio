@@ -71,6 +71,8 @@ inherits the problem, and where it is answered.
 | L-C26 | FTS5 with tokens joined by an implicit AND almost never matches a normal sentence: v1 found 0 of 12 sentence queries and 10 of 24 in all. Joined with OR and ranked by bm25 (title weight 4), the same store finds 22 of 24. | S2.3 joins with OR; the hit rate is a test, and switching back to AND turns it red. | — | `specs/s2.3-store.md` §1 and §5 (measured 2026-11-11) |
 | L-C27 | `sqlite-vec` with `distance_metric=cosine` measured 4× slower than the default L2 (11.7 ms vs 2.8 ms, 10 000 rows × 1024 dims). | The store saves unit-length vectors and searches with L2: same order, L2 speed. | — | `specs/s2.3-store.md` §5 (measured 2026-11-11) |
 | L-C28 | An `await` between `spawn()` and `child.on('error')` lets a fast spawn error fire with no listener and crash the process. It only shows under CPU load. Attach child listeners in the same tick as `spawn()`. | S2.5 launcher fixed at S2.6. | — | spec S2.6 §5 |
+| L-C29 | In an ESLint flat config, `languageOptions.globals` **merge** across blocks (rules do not, L-C25). A `public/**` block that only adds browser globals still lets `process` and `Buffer` lint clean in browser code. | The `public/**` block sets the Node-only globals to `'off'`; a planted `process.env` in `public/` fails `no-undef`. | AP1 | v2 S3.0 (2026-11-13) |
+| L-C30 | A custom element in the HTML is upgraded when `customElements.define()` runs. A property set on it before that is overwritten if the constructor assigns the same field. | `AppShell` keeps a pre-set `store` (`this.store = preset ?? null`); `main.js` sets `el.store`, then defines. | — | v2 S3.0 (2026-11-13) |
 
 ## M — Model lessons (small local models)
 

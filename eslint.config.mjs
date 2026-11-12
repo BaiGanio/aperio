@@ -86,6 +86,26 @@ const AP8_SELECTORS = [
   },
 ];
 
+/** AP8 in the browser: every client frame is built by encodeClientFrame (spec S3.0 §2.7). */
+const AP8_CLIENT_SELECTORS = [
+  {
+    selector: "CallExpression[callee.property.name='send']:not([arguments.0.type='CallExpression'][arguments.0.callee.name='encodeClientFrame'])",
+    message: 'AP8: a socket send must take encodeClientFrame(...) from the shared ws-schema.js.',
+  },
+];
+
+/** Browser globals for public/ (S3.0). Written out, like NODE_GLOBALS (L-C07). */
+const BROWSER_GLOBALS = Object.fromEntries(
+  [
+    'AbortController', 'AbortSignal', 'CustomEvent', 'Event', 'EventTarget', 'HTMLElement', 'TextDecoder',
+    'TextEncoder', 'URL', 'URLSearchParams', 'WebSocket', 'addEventListener', 'clearInterval', 'clearTimeout',
+    'console', 'customElements', 'document', 'location', 'queueMicrotask', 'removeEventListener',
+    'requestAnimationFrame', 'setInterval', 'setTimeout', 'structuredClone', 'window',
+  ].map((name) => [name, 'readonly']),
+);
+// Flat config merges globals: switch the Node-only ones off for public/.
+for (const name of ['Buffer', 'process', 'setImmediate']) BROWSER_GLOBALS[name] = 'off';
+
 const aperio = {
   rules: {
     'no-unmarked-empty-handler': noUnmarkedEmptyHandler,
@@ -137,6 +157,19 @@ export default [
     rules: {
       'aperio/no-unmarked-empty-handler': 'error',
       'aperio/no-unbounded-module-cache': 'error',
+    },
+  },
+
+  // The browser code: browser globals, not Node ones. AP5, AP6 and AP8 apply
+  // (S3.0 §2.7). L-C25: this is the only no-restricted-syntax block for public/.
+  {
+    name: 'aperio/public-browser',
+    files: ['**/public/**/*.js'],
+    languageOptions: { globals: BROWSER_GLOBALS },
+    rules: {
+      'aperio/no-unmarked-empty-handler': 'error',
+      'aperio/no-unbounded-module-cache': 'error',
+      'no-restricted-syntax': ['error', ...AP8_CLIENT_SELECTORS],
     },
   },
 
