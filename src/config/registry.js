@@ -32,6 +32,8 @@ export const REGISTRY = Object.freeze([
     help: 'Comma-separated absolute folders the file tools may read and write. Empty = none.' },
   { key: 'LLAMACPP_VENDOR_DIR', tier: 0, type: 'path', default: 'vendor/llamacpp',
     help: 'Folder that holds the llama-server binary.' },
+  { key: 'WS_MAX_FRAME_BYTES', tier: 0, type: 'int', default: '262144',
+    help: 'Largest WebSocket message the server accepts, in bytes (256 KiB). A bigger one gets a too_large error. Env only: a security limit. Spec S2.11.' },
 
   // --- Tier 1: Settings DB may set these ------------------------------------
   { key: 'LLAMACPP_MODEL', tier: 1, type: 'text', default: 'unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL',
