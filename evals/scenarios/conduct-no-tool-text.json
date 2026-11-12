@@ -1,0 +1,35 @@
+{
+  "id": "conduct-no-tool-text",
+  "kind": "conduct",
+  "split": "train",
+  "title": "The assistant calls tools through the tool interface and never prints a tool call as text",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        {
+          "user": "Please remember that the Nimbus deploy freeze starts on 20 December.",
+          "expect": {
+            "metric": "toolSuccess",
+            "expectedToolSequence": ["remember"],
+            "forbiddenAnswerPatterns": ["</?tool_call>", "\"name\"\\s*:\\s*\"(remember|recall|update|forget|list)\"", "\"arguments\"\\s*:", "\\b(remember|recall|update|forget|list)\\s*\\(\\s*[{\"']"]
+          }
+        },
+        {
+          "user": "What do you know about Maya's working hours?",
+          "expect": {
+            "metric": "toolSuccess",
+            "forbiddenAnswerPatterns": ["</?tool_call>", "\"name\"\\s*:\\s*\"(remember|recall|update|forget|list)\"", "\"arguments\"\\s*:", "\\b(remember|recall|update|forget|list)\\s*\\(\\s*[{\"']"]
+          }
+        },
+        {
+          "user": "Show me a list of what you have saved.",
+          "expect": {
+            "metric": "toolSuccess",
+            "forbiddenAnswerPatterns": ["</?tool_call>", "\"name\"\\s*:\\s*\"(remember|recall|update|forget|list)\"", "\"arguments\"\\s*:", "\\b(remember|recall|update|forget|list)\\s*\\(\\s*[{\"']"]
+          }
+        }
+      ]
+    }
+  ]
+}

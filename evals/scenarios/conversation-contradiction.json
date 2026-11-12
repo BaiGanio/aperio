@@ -1,0 +1,22 @@
+{
+  "id": "conversation-contradiction",
+  "kind": "contradiction",
+  "split": "train",
+  "title": "When the user contradicts a memory, the assistant names the old fact and does not change it unasked",
+  "sessions": [
+    {
+      "id": "a",
+      "turns": [
+        { "user": "Hi! I am doing the coffee run for the team again.", "expect": {} },
+        {
+          "user": "Maya only drinks green tea these days, so I will get her one.",
+          "expect": {
+            "metric": "toolSuccess",
+            "requiredAnswerTerms": ["flat white"],
+            "forbiddenSuccessfulTools": ["update", "forget"]
+          }
+        }
+      ]
+    }
+  ]
+}

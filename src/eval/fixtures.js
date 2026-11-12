@@ -57,6 +57,16 @@ export function seedRows(fixture) {
 }
 
 /**
+ * A scenario's own rows (`seedMemories`, spec S2.10 §5): seeded only into that
+ * scenario's store, never into the global seed. Dates resolve from the same asOf.
+ * @param {{seedMemories?: object[]}} scenario
+ * @param {string} asOf
+ */
+export function scenarioSeedRows(scenario, asOf) {
+  return scenario.seedMemories?.length ? seedRows({ asOf, memories: scenario.seedMemories }) : [];
+}
+
+/**
  * The worked trim arithmetic for a trim / tail-slice scenario (settles #358).
  * Every padded turn costs `padTokensPerTurn` (the filler size under the v2
  * token counter, asserted when the mock adapter lands). Trimming drops the

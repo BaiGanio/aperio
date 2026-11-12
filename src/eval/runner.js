@@ -9,7 +9,7 @@
 
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { assertSession, assertTargetAdapter } from './adapter-contract.js';
-import { seedRows } from './fixtures.js';
+import { scenarioSeedRows, seedRows } from './fixtures.js';
 import { hitRateAtK, latencyStats, scoreToolTurn, summarize, toolSuccess, usedWithoutHint } from './metrics.js';
 import { withRunSandbox } from './sandbox.js';
 
@@ -142,7 +142,7 @@ export async function runModel({ adapter, fixtures, settings, model }) {
     const runTurns = { train: { uwh: [], tool: [] }, holdout: { uwh: [], tool: [] } };
     for (const scenario of fixtures.scenarios) {
       await withTarget(adapter, settings, model, async (session) => {
-        await session.seedMemories(rows);
+        await session.seedMemories([...rows, ...scenarioSeedRows(scenario, fixtures.memories.asOf)]);
         await runScenario(session, scenario, settings, acc, runTurns, counters);
       });
     }

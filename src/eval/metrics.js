@@ -60,6 +60,8 @@ function argumentsMatch(actual, expected) {
   });
 }
 
+const replyTexts = (events) => events.filter((e) => e?.type === 'stream_end' && typeof e.text === 'string').map((e) => e.text);
+
 function finalAnswer(events) {
   return events.filter((e) => e?.type === 'stream_end' && typeof e.text === 'string' && e.text.trim()).at(-1)?.text ?? '';
 }
@@ -67,7 +69,7 @@ function finalAnswer(events) {
 /**
  * @param {{kind?: string, expectedToolSequence?: string[], requiredAnswerTerms?: string[],
  *   argumentAssertions?: {tool: string, arguments: object}[], forbiddenSuccessfulTools?: string[],
- *   requireAllToolsSuccessful?: boolean}} caseDef
+ *   forbiddenAnswerPatterns?: string[], requireAllToolsSuccessful?: boolean}} caseDef
  * @param {object[]} events  one turn's event slice
  */
 export function scoreToolTurn(caseDef, events) {
@@ -82,6 +84,11 @@ export function scoreToolTurn(caseDef, events) {
     ? forbiddenSuccesses.length === 0
     : orderedSubsequence(actualToolSequence, caseDef.expectedToolSequence ?? []);
   const answerTermsPassed = hasAllTerms(answer, caseDef.requiredAnswerTerms ?? []);
+  // S2.10: a forbidden tool fails any kind of turn; a forbidden pattern is
+  // checked in every reply text of the turn (case-insensitive regex).
+  const forbiddenToolsPassed = forbiddenSuccesses.length === 0;
+  const patterns = (caseDef.forbiddenAnswerPatterns ?? []).map((p) => new RegExp(p, 'i'));
+  const answerPatternsPassed = !replyTexts(events).some((text) => patterns.some((re) => re.test(text)));
   const requireOk = caseDef.requireAllToolsSuccessful !== false;
   const toolsSuccessful = !requireOk || results.every((e) => e.ok !== false);
   const completed = events.some((e) => e?.type === 'turn_complete' && e.status === 'completed');
@@ -91,7 +98,8 @@ export function scoreToolTurn(caseDef, events) {
     return { tool: a.tool, expected: a.arguments, observed, passed: match !== undefined && argumentsMatch(observed, a.arguments) };
   });
   const argumentAssertionsPassed = argumentAssertions.every((a) => a.passed);
-  const passed = completed && toolSequencePassed && argumentAssertionsPassed && answerTermsPassed && toolsSuccessful;
+  const passed = completed && toolSequencePassed && forbiddenToolsPassed && argumentAssertionsPassed
+    && answerTermsPassed && answerPatternsPassed && toolsSuccessful;
   return {
     status: passed ? 'pass' : 'fail',
     actualToolSequence,
@@ -99,6 +107,7 @@ export function scoreToolTurn(caseDef, events) {
     argumentAssertions,
     argumentAssertionsPassed,
     answerTermsPassed,
+    answerPatternsPassed,
     toolsSuccessful,
     completed,
     guardrailMode: isGuardrail ? (starts.length === 0 ? 'model_refusal' : 'application_guardrail') : null,

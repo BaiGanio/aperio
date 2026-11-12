@@ -11,6 +11,7 @@ import { openStore } from '../../src/store/open-store.js';
 import { stablePrefix } from '../../src/context/assemble-turn.js';
 import { createV2LiveAdapter, TEST_SYSTEM } from '../../src/eval/v2-live-adapter.js';
 import { RECALL_HEADER } from '../../src/context/recall-block.js';
+import { buildSystem } from '../../src/context/system-prompt.js';
 import { assertSession, assertTargetAdapter } from '../../src/eval/adapter-contract.js';
 import { sliceTurnEvents } from '../../src/eval/runner.js';
 
@@ -49,12 +50,13 @@ function wire(script = (n) => say(`answer ${n}`)) {
   return { fetch, calls };
 }
 
-function makeAdapter({ script, memoryTools = true, autoRecall = true, embedder = fakeEmbedder, log = quiet(), onStore } = {}) {
+function makeAdapter({ script, memoryTools = true, autoRecall = true, system, embedder = fakeEmbedder, log = quiet(), onStore } = {}) {
   const w = wire(script);
   const adapter = createV2LiveAdapter({
     config: CONFIG,
     memoryTools,
     autoRecall,
+    ...(system === undefined ? {} : { system }),
     deps: {
       openStore: async (opts) => {
         const store = await openStore({ ...opts, path: ':memory:', log: quiet() });
@@ -190,9 +192,9 @@ describe('v2-live adapter: the model calls a tool, code runs it', () => {
 });
 
 describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
-  async function threeTurns() {
+  async function threeTurns(system) {
     const script = (n) => (n === 1 ? call('remember', { content: 'Maya drinks an oat-milk flat white coffee.' }) : n === 3 ? call('recall', { query: 'Maya coffee' }, 'call_2') : say(`answer ${n}`));
-    const { adapter, wire: w } = makeAdapter({ script });
+    const { adapter, wire: w } = makeAdapter({ script, system });
     const s = await start(adapter);
     const results = [];
     for (const text of ['Remember that Maya drinks an oat-milk flat white coffee.', 'What coffee should I get Maya?', 'Thanks, that is all.']) results.push(await s.turn(text));
@@ -214,6 +216,16 @@ describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
     assert.match(turn2, /\(id [0-9a-f-]{36}\) /, 'each row carries its id (rev 4)');
     assert.equal(results[2].assembled.userTurn, 'Thanks, that is all.', 'a row is injected once per session');
     assert.ok(calls.some((c) => c.body.messages.some((m) => m.role === 'user' && m.content === turn2)), 'the wire carries exactly the assembled turn');
+  });
+
+  test('T2.10: with buildSystem() the system message is that prompt, byte-identical on every request', async () => {
+    const system = buildSystem();
+    const { results, calls } = await threeTurns(system);
+    assert.equal(new Set(results.map((r) => stablePrefix(r.assembled))).size, 1);
+    assert.equal(new Set(results.map((r) => r.prefixHash)).size, 1);
+    assert.deepEqual([...new Set(calls.map((c) => c.body.messages[0].content))], [system]);
+    assert.equal(new Set(calls.map((c) => JSON.stringify(c.body.tools))).size, 1, 'the tool bytes never change');
+    assert.deepEqual(calls[0].body.tools.map((t) => t.function.name), ['remember', 'recall', 'update', 'forget', 'list']);
   });
 
   test('recall_injected event: rows (id, title, score), tokens, ms; none on a turn with no block', async () => {

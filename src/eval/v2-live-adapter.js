@@ -22,7 +22,7 @@ import { makeToolCtx, runToolLoop } from '../tools/tool-loop.js';
 import { buildRecallBlock, createRecallSession } from '../context/recall-block.js';
 import { assembleUserTurn } from '../context/assemble-turn.js';
 
-/** The fixed test system (the real system prompt is a later step). */
+/** The fixed test system: the eval baseline. It equals buildSystem([]) (src/context/system-prompt.js, S2.10). */
 export const TEST_SYSTEM = [
   'You are Aperio, a small local assistant that remembers.',
   'Answer briefly and honestly, in plain words.',
