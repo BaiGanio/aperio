@@ -25,3 +25,5 @@ instead of committed: 600 padding lines and a deliberate duplicate basename woul
 noise in the tree, and the AP7/AP9 scripts scan the repo, so they would flag themselves.
 
 AP8 (the shared WebSocket schema) is guarded in `src/server/` from step S2.14: every `.send(` there must take `encodeServerFrame(...)`.
+| AP8 (browser, S3.0) a socket `.send(` not built by `encodeClientFrame` (`public/`) | `ap8/bad-raw-send.js` | `ap8/good-encoded-client-send.js` |
+| `public/` knows the browser globals (S3.0 §2.7) | — | `browser/good-browser-globals.js` |
