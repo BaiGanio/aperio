@@ -3,7 +3,7 @@
 // For every anti-pattern guard AP1-AP7 and AP9 this suite plants one violating
 // file, proves the guard fails and names the AP id, then proves an allowed
 // shape still passes. A guard that has never been seen to fail is not a guard
-// (lesson L-C02). AP8 - the WebSocket schema contract - arrives in step S2.11.
+// (lesson L-C02). AP8 - a socket send in src/server/ not built by encodeServerFrame - from S2.14.
 //
 // Every planted file lives in a throwaway directory outside the repo tree, so
 // a run leaves no stray state behind (lesson L-P02).
@@ -82,6 +82,9 @@ const RED = [
   { id: 'AP5', fixture: 'ap5/bad-empty-handlers.js', target: 'src/agent/risky-call.js' },
   { id: 'AP6', fixture: 'ap6/bad-unbounded-cache.js', target: 'src/agent/memo-cache.js' },
   { id: 'AP0', fixture: 'disable/bad-bare-disable.js', target: 'src/agent/bare-disable.js' },
+  { id: 'AP8', fixture: 'ap8/bad-raw-send.js', target: 'src/server/raw-send.js' },
+  // L-C25: the src/server block must still carry AP4 (one no-restricted-syntax block per file).
+  { id: 'AP4', fixture: 'ap4/bad-sync-fs.js', target: 'src/server/prompt-loader.js' },
 ];
 
 /** @type {{name: string, fixture: string, target: string}[]} */
@@ -93,6 +96,7 @@ const GREEN = [
   { name: 'AP5: a marked cleanup handler is allowed', fixture: 'ap5/good-marked-cleanup.js', target: 'src/agent/risky-call-safe.js' },
   { name: 'AP6: a frozen lookup table is not a cache', fixture: 'ap6/good-frozen-table.js', target: 'src/agent/tool-name-table.js' },
   { name: 'AP0: a disable naming its AP id and reason is allowed', fixture: 'disable/good-explained-disable.js', target: 'src/agent/explained-disable.js' },
+  { name: 'AP8: a frame built by encodeServerFrame is allowed', fixture: 'ap8/good-encoded-send.js', target: 'src/server/encoded-send.js' },
 ];
 
 for (const { id, fixture, target } of RED) {

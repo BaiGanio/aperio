@@ -35,6 +35,7 @@ weakened to pass. Any scope change is written down in the commit.
 | S2.11 | T2.11 WS schema | AP8: known types accepted, unknown/malformed rejected |
 | S2.12 | T2.12 v1 → v2 import | no lost rows, v1 DB untouched |
 | S2.13 | T2.13 budget function | 100 % full turn runs, `context_trimmed` count, no orphaned tool result, prefix unchanged |
+| S2.14 | T2.14 server + socket edge | byte-identical turn runner, bad frame / busy / stop, close frees the session, port freed |
 | S3.0 | T3.0 UI skeleton | store, socket service, tsc check, no build |
 | S3.1–S3.7 | T3.x UI parts | preview approved + Playwright + structure checks |
 | S4.1 | T4.1 daily use | 2 weeks, no open blocker |
@@ -163,6 +164,11 @@ weakened to pass. Any scope change is written down in the commit.
 - **Edge cases:** a tool call and its result are dropped together (never an orphaned result); one message bigger than the whole budget; an empty history; the tail-slice branch runs only when nothing was token-trimmed (A1 item 3).
 - **Carry:** v1 `tests/unit/context/trim.test.js` at the tag, cut to scope; the `trim-under-pressure` and `tail-slice-only` eval scenarios.
 
+### T2.14 — server + socket edge + session
+- **Assertions:** the turn runner's requests are byte-identical to the S2.13 adapter (golden, 3 turns: a tool call and a trim); `GET /` and `/shared/ws-schema.js` → 200 + CSP header; a bad frame → one `error` frame and the socket stays usable; a chat → exactly one `turn_complete`; `stop` → `aborted`; a second chat while busy (same or other socket) → `busy`; close mid-turn → the runner sees `signal.aborted` and `sessionCount()` is 0; `close()` frees the port; a failed boot closes what opened; AP8 lint guard fails a raw `.send(`.
+- **Edge cases:** origin none / other / malformed / mixed case; path traversal; a frame over `WS_MAX_FRAME_BYTES` → close 1009; client 5 of 4 → 503; a socket that never pongs is reaped.
+- **Carry:** v1 `tests/integration/server/ws.test.js` (origin + ping sweep), `tests/integration/server/shutdown.test.js` (close order), cut to scope.
+
 ## Phase 3
 
 ### T3.0 — UI skeleton
@@ -198,7 +204,7 @@ weakened to pass. Any scope change is written down in the commit.
 ## Test execution order
 
 T0.1 → T0.2 → (T0.3, T0.4 in parallel) → T0.5 → T0.6 → T1.1 → T1.2 → T1.3 →
-**T2.1 (harness) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 → T2.13 →
+**T2.1 (harness) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 → T2.13 → T2.14 →
 T3.0 → T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
 
 ## Required setup
