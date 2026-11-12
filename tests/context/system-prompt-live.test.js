@@ -5,6 +5,8 @@
 //
 //   APERIO_LIVE=1 node --test --test-name-pattern=gemma tests/context/system-prompt-live.test.js
 //   APERIO_EVAL_CONFIGS=baseline,all  → run only these configs (default: all 5)
+//   APERIO_EVAL_RUNS=1                → runs per scenario (default 5)
+// baseline and all run all 13 scenarios; each all − X runs only the 3 block scenarios.
 // Port 18434, temp dir per run, every server stopped (the port is checked free).
 // Reports pass count per scenario, train / holdout totals, mean and spread
 // over runs, mean and max turn latency, surprise forget, prompt_tokens per config.
@@ -25,7 +27,7 @@ import { createV2LiveAdapter } from '../../src/eval/v2-live-adapter.js';
 import { BLOCK_NAMES, buildSystem } from '../../src/context/system-prompt.js';
 
 const PORT = 18434;
-const N = 5;
+const N = Number(process.env.APERIO_EVAL_RUNS ?? 5); // the developer may run fewer; N < 5 is noise (L-M11)
 const MODELS = ['unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL', 'protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M'];
 const OLD = [
   'uwh-cross-session-standup', 'uwh-cross-session-pager',
@@ -40,6 +42,8 @@ const ALL_CONFIGS = {
   all: buildSystem(),
   ...Object.fromEntries(BLOCK_NAMES.map((b) => [`all-${b}`, buildSystem(BLOCK_NAMES.filter((x) => x !== b))])),
 };
+/** Spec §3 (option 1, developer 2026-11-12): all − X runs only the 3 block scenarios. */
+const scenariosFor = (config) => (config === 'baseline' || config === 'all' ? SCENARIOS : NEW);
 const pick = process.env.APERIO_EVAL_CONFIGS?.split(',').map((s) => s.trim()).filter(Boolean);
 const CONFIGS = pick ? Object.fromEntries(pick.map((k) => [k, ALL_CONFIGS[k] ?? assert.fail(`unknown config ${k}`)])) : ALL_CONFIGS;
 
@@ -107,9 +111,9 @@ for (const model of MODELS) {
   describe(`live system prompt ${model}`, () => {
     test('each block on / off: pass count per scenario, N = 5 (reported)', gate(model), async (t) => {
       const fx = await loadEvalFixtures(fileURLToPath(new URL('../../evals/', import.meta.url)));
-      const scenarios = SCENARIOS.map((id) => fx.scenarios.find((x) => x.id === id) ?? assert.fail(id));
       const report = {};
       for (const [config, system] of Object.entries(CONFIGS)) {
+        const scenarios = scenariosFor(config).map((id) => fx.scenarios.find((x) => x.id === id) ?? assert.fail(id));
         const tokens = await promptTokens(model, system);
         const perScenario = {};
         const perRun = Array.from({ length: N }, () => ({ train: 0, holdout: 0 }));
@@ -126,7 +130,7 @@ for (const model of MODELS) {
           }
           t.diagnostic(JSON.stringify({ model, config, id: sc.id, pass: perScenario[sc.id].pass, n: N, calls: perScenario[sc.id].calls }));
         }
-        const count = (split) => scenarios.filter((s) => s.split === split).length;
+        const count = (split) => Math.max(1, scenarios.filter((s) => s.split === split).length);
         const lat = latencyStats(durations, []);
         report[config] = {
           promptTokens: tokens,

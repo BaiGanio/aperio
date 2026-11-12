@@ -14,6 +14,7 @@ import { scoreToolTurn } from '../../src/eval/metrics.js';
 import { runModel } from '../../src/eval/runner.js';
 import { resolveEvalSettings } from '../../src/eval/settings.js';
 import { makeFakeAdapter } from './fake-adapter.js';
+import { MEMORY_TYPES } from '../../src/store/memory-store.js';
 
 const fx = await loadEvalFixtures(fileURLToPath(new URL('../../evals/', import.meta.url)));
 const byId = (id) => fx.scenarios.find((s) => s.id === id);
@@ -72,6 +73,12 @@ describe('the 3 block scenarios (spec S2.10 §2)', () => {
       assert.ok(!userText(s).includes(term), `"${term}" is not a hint`);
     }
     assert.deepEqual(t.expect.forbiddenSuccessfulTools, ['update', 'forget']);
+  });
+
+  test('every scenario seed row has a type the store accepts (the live run crashed on "event")', () => {
+    for (const s of fx.scenarios) {
+      for (const row of s.seedMemories ?? []) assert.ok(MEMORY_TYPES.includes(row.type), `${s.id}: "${row.title}" type ${row.type}`);
+    }
   });
 
   test('a scenario with no seedMemories adds no rows', () => {

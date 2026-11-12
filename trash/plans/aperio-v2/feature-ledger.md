@@ -132,10 +132,10 @@ Every skill is measured on and off at **S2.10**.
 
 | Skill | v2 status | Note | Ported in |
 |---|---|---|---|
-| `memory-protocol` | **core** | Cut down. The one rule depends on it. | — (S2.10) |
-| `working-with-files` | **core** | Cut down. Pairs with the S2.9 file gate. | — (S2.10, only if a file tool exists; S2.9 §4.2) |
-| `agent-conduct` | **core** | Cut down. | — (S2.10) |
-| `conversation-lifecycle` | **core** | Cut down. | — (S2.10) |
+| `memory-protocol` | **core** | Cut down. The one rule depends on it. | `4d8a88f5` (S2.10 block `memory`) |
+| `working-with-files` | **core** | Cut down. Pairs with the S2.9 file gate. | — (not ported in S2.10: no file tool; waits for S2.9 §4.2) |
+| `agent-conduct` | **core** | Cut down. | `4d8a88f5` (S2.10 block `conduct`) |
+| `conversation-lifecycle` | **core** | Cut down. Suggestions block dropped (S2.10 §4.2). | `4d8a88f5` (S2.10 block `conversation`) |
 | `codegraph` | **later** | With Code Graph. | — |
 | `docgraph` | **later** | With Doc Graph. | — |
 | `document-intelligence` | **later** | With Doc intelligence. | — |
