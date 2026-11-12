@@ -24,17 +24,18 @@ export const MAX_TOOL_ROUNDS = 4;
  * @param {{ provider: { streamChat: Function }, system: string, history: object[],
  *   tools: readonly { name: string, run: Function }[], ctx: object,
  *   emit: (e: object) => void, log: { error: Function, info?: Function },
- *   budget?: { usable: number, toolResultMax: number, trimAtPct: number, trimToPct: number } }} args
+ *   budget?: { usable: number, toolResultMax: number, trimAtPct: number, trimToPct: number },
+ *   signal?: AbortSignal }} args  signal: stop / socket close, passed to every model call (S2.14)
  * @returns {Promise<object>} the provider result of the last request
  */
-export async function runToolLoop({ provider, system, history, tools, ctx, emit, log, budget }) {
+export async function runToolLoop({ provider, system, history, tools, ctx, emit, log, budget, signal }) {
   const byName = new Map(tools.map((t) => [t.name, t]));
   for (let round = 0; ; round++) {
     if (budget) {
       const full = fit(history, budget, emit, log);
       if (full) return full;
     }
-    const r = await provider.streamChat({ system, messages: [...history], emit });
+    const r = await provider.streamChat({ system, messages: [...history], emit, signal });
     if (!r.toolCalls.length || r.error || r.aborted || round >= MAX_TOOL_ROUNDS) {
       history.push({ role: 'assistant', content: r.text });
       return r;

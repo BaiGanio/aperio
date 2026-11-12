@@ -6,6 +6,7 @@ Things to look at later. Delete an entry when it is fixed or becomes an issue.
 
 - **2026-11-12 — flaky timing test.** `tests/store/memory-search.test.js`, "10 000 rows: hybrid top-5
   search max <= 50 ms over 120 runs". Failed once in `npm test` (during S2.10), passed on the next 2 runs.
+  Failed again 2026-11-13 in `npm run check` (S2.14): max 50.18 ms; green alone and on the re-run.
   A max-latency bar on a shared machine. Check: is the 50 ms bar too tight, or is there a real slow outlier?
 
 ## Context / provider
@@ -15,3 +16,11 @@ Things to look at later. Delete an entry when it is fixed or becomes an issue.
   n_ctx; the budget only protects the prompt side. Fix idea: send `max_tokens = CONTEXT_OUTPUT_RESERVE` on every
   request (a body field, not prefix bytes, so KV reuse is untouched). Needs a small spec change (S2.5 / S2.13)
   and a test that the field is on the wire.
+
+## Dependencies / ledgers
+
+- **2026-11-13 — `express` is a dependency but nothing in v2 imports it.** S2.14 serves files with plain
+  `node:http` (spec §4.2: no helmet, one header). "Delete before you add": drop `express` from `package.json`?
+  It is outside the S2.14 spec, so it was not removed.
+- **2026-11-13 — stale "hash pending" in the feature ledger.** The Agent & Reasoning row says S2.13 turn budget
+  "hash pending", but S2.13 is committed (`9c939b49`). The S2.14 cells also say "hash pending" until commit.

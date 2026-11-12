@@ -37,10 +37,14 @@ test('ctx snapshot: exactly { config, embedder, log, store }, frozen', () => {
   assert.ok(Object.isFrozen(ctx));
 });
 
-test('the v2-live adapter builds ctx only through makeToolCtx', async () => {
-  const src = await readFile(root('src/eval/v2-live-adapter.js'), 'utf8');
-  assert.match(src, /makeToolCtx\(/);
-  assert.doesNotMatch(src, /const ctx = \{/);
+// S2.14: the per-turn code (and its ctx) moved from the eval adapter to the turn runner, which both call.
+test('the turn runner builds ctx only through makeToolCtx; the adapter builds none', async () => {
+  const runner = await readFile(root('src/chat/turn-runner.js'), 'utf8');
+  assert.match(runner, /makeToolCtx\(/);
+  assert.doesNotMatch(runner, /const ctx = \{/);
+  const adapter = await readFile(root('src/eval/v2-live-adapter.js'), 'utf8');
+  assert.doesNotMatch(adapter, /const ctx = \{/);
+  assert.match(adapter, /createTurnRunner\(/);
 });
 
 test('no MCP: no @modelcontextprotocol dependency, no child_process in src/tools/', async () => {

@@ -1,8 +1,8 @@
 // Aperio v2 lint configuration.
 //
 // Anti-pattern guards AP1-AP6 live here. AP7 (file size) and AP9 (duplicate
-// basenames) are scripts under scripts/. AP8 (the WebSocket schema contract)
-// arrives in step S2.11.
+// basenames) are scripts under scripts/. AP8 (the WebSocket schema contract):
+// in src/server/, every `.send(` takes `encodeServerFrame(...)` (S2.14).
 //
 // Every `files` / `ignores` glob starts with `**/` on purpose. The guard test
 // (T1.3) copies fixtures into a throwaway project directory and runs this same
@@ -75,6 +75,14 @@ const AP4_SELECTORS = [
   {
     selector: 'CallExpression[callee.property.name=/Sync$/]',
     message: 'AP4: a sync call blocks every socket. Use the async form, or move it to src/boot/.',
+  },
+];
+
+/** AP8 - a socket frame built by hand skips the shared schema (src/shared/ws-schema.js). */
+const AP8_SELECTORS = [
+  {
+    selector: "CallExpression[callee.property.name='send']:not([arguments.0.type='CallExpression'][arguments.0.callee.name='encodeServerFrame'])",
+    message: 'AP8: a socket send must take encodeServerFrame(...) from src/shared/ws-schema.js.',
   },
 ];
 
@@ -159,9 +167,17 @@ export default [
   {
     name: 'aperio/ap2-ap4',
     files: ['**/src/**/*.js'],
-    ignores: ['**/src/providers/**/*.js', '**/src/boot/**/*.js'],
+    ignores: ['**/src/providers/**/*.js', '**/src/boot/**/*.js', '**/src/server/**/*.js'],
     rules: {
       'no-restricted-syntax': ['error', ...AP2_SELECTORS, ...AP4_SELECTORS],
+    },
+  },
+  // AP8 - the socket edge. L-C25: AP2 + AP4 ride in this same block, or they would be lost here.
+  {
+    name: 'aperio/ap2-ap4-ap8-server',
+    files: ['**/src/server/**/*.js'],
+    rules: {
+      'no-restricted-syntax': ['error', ...AP2_SELECTORS, ...AP4_SELECTORS, ...AP8_SELECTORS],
     },
   },
   {

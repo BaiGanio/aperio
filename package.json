@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "node scripts/start-app.mjs",
     "test": "node --test",
     "test:coverage": "c8 --reporter=text --reporter=lcov node --test",
     "lint": "eslint .",
@@ -27,7 +28,8 @@
     "@huggingface/transformers": "4.3.1",
     "better-sqlite3": "^13.0.3",
     "express": "^5.3.0",
-    "sqlite-vec": "^0.1.9"
+    "sqlite-vec": "^0.1.9",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
