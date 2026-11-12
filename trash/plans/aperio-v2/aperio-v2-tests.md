@@ -34,6 +34,7 @@ weakened to pass. Any scope change is written down in the commit.
 | S2.10 | T2.10 skills | on/off eval delta |
 | S2.11 | T2.11 WS schema | AP8: known types accepted, unknown/malformed rejected |
 | S2.12 | T2.12 v1 → v2 import | no lost rows, v1 DB untouched |
+| S2.13 | T2.13 budget function | 100 % full turn runs, `context_trimmed` count, no orphaned tool result, prefix unchanged |
 | S3.0 | T3.0 UI skeleton | store, socket service, tsc check, no build |
 | S3.1–S3.7 | T3.x UI parts | preview approved + Playwright + structure checks |
 | S4.1 | T4.1 daily use | 2 weeks, no open blocker |
@@ -157,6 +158,11 @@ weakened to pass. Any scope change is written down in the commit.
 - **Assertions:** v1 row count == v2 row count (minus documented skips, each with a reason); title/content/tags/dates equal on a random sample of 50; recall finds 10 known old facts; the v1 file's sha256 is the same before and after.
 - **Edge cases:** an empty DB; rows with NULL fields; Cyrillic text; very long content; a re-run is idempotent (no duplicates).
 
+### T2.13 — budget function
+- **Assertions:** at 100 % of n_ctx the turn still runs; `context_trimmed` fires with the expected `dropped` count and percentage; history goes oldest first; recall and tool results shrink within their caps; tools + system stay byte-identical after a trim.
+- **Edge cases:** a tool call and its result are dropped together (never an orphaned result); one message bigger than the whole budget; an empty history; the tail-slice branch runs only when nothing was token-trimmed (A1 item 3).
+- **Carry:** v1 `tests/unit/context/trim.test.js` at the tag, cut to scope; the `trim-under-pressure` and `tail-slice-only` eval scenarios.
+
 ## Phase 3
 
 ### T3.0 — UI skeleton
@@ -192,7 +198,7 @@ weakened to pass. Any scope change is written down in the commit.
 ## Test execution order
 
 T0.1 → T0.2 → (T0.3, T0.4 in parallel) → T0.5 → T0.6 → T1.1 → T1.2 → T1.3 →
-**T2.1 (harness) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 →
+**T2.1 (harness) before any other T2** → T2.2 → T2.3 → T2.4 → T2.5 → (T2.6, T2.7, T2.8, T2.9 in any order) → T2.10 → T2.11 → T2.12 → T2.13 →
 T3.0 → T3.x → T4.1 → T4.2 → T4.3 → T5 (repeating).
 
 ## Required setup

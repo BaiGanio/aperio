@@ -1,6 +1,6 @@
 # Aperio v2 — fresh core, nothing forgotten
 
-Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma and Ornith usedWithoutHint on 15/15 vs off 0/15 (Ornith run 2026-11-12). **S2.7 rev 3 (model decides) built 2026-11-11**: code capture and code auto-recall removed; the model calls `remember` / `recall`, run in-process. **S2.8 built 2026-11-12** (`update`, `forget`, `list`; gemma: update 5/5, forget 3/5, list 5/5, surprise forget 0, seeded 8/15; Ornith pending). Next: **S2.9** gated files.
+Status: **active, 2026-11-11** — **Phase 0 complete. Phase 1 complete (S1.1–S1.3).** **Phase 2: S2.1 done (`41cbe329`), S2.2 done (`07414f3f`).** **S2.3 done (`953ab831`).** **S2.4 embeddings done (`319bf512`)**: hybrid 24/24, coffee rank 1. **S2.5 provider + launcher done (`231a9c6b`)**: KV reuse turn 2+ 97.7–98.2 %, tool call 5/5 on both models. **S2.6 auto-recall done (`0810db84`, KV bar split `da4170d7`)**: inject hit 16/16 train · 8/8 holdout, off-topic 1/12, gemma and Ornith usedWithoutHint on 15/15 vs off 0/15 (Ornith run 2026-11-12). **S2.7 rev 3 (model decides) built 2026-11-11**: code capture and code auto-recall removed; the model calls `remember` / `recall`, run in-process. **S2.8 built 2026-11-12** (`update`, `forget`, `list`; gemma: update 5/5, forget 3/5, list 5/5, surprise forget 0, seeded 8/15; Ornith pending). **S2.7 rev 4 (both) 2026-11-12:** code recall back next to the 5 tools; gemma 50/50, surprise forget 0; Ornith pending. Next: **S2.9** gated files.
 
 > **This copy, on branch `v2`, is the live plan from S1.1 onward.** The copy on `master` is frozen
 > at "Phase 0 complete" — it records only what was done on `master`. Record every Phase 1–4 result
@@ -519,6 +519,16 @@ It never writes to the v1 DB.
 *Works when:* a copy of your real v1 DB imports with 0 lost rows, the counts match, a sample recall
 finds old memories, and the v1 file's checksum is unchanged. → **T2.12**
 
+**S2.13 Budget function (TR14).** One function decides, per turn, how many tokens go to history,
+the recall block and tool results, inside the n_ctx the server reports (default 32K). Today nothing
+trims: a long chat makes llama-server return an error. The stable prefix (tools + system) is never
+trimmed; the oldest history goes first; a tool result never survives without its tool call. Port the
+v1 trim tests (`tests/unit/context/trim.test.js` at the tag). Read **Appendix A1** items 1–3 first.
+Added 2026-11-12 (developer): no step owned it. It comes before S3.0, so the chat UI never meets a
+full window.
+*Works when:* a test at 100 % full trims and the turn still runs; `context_trimmed` fires with the
+right `dropped` count; no orphaned tool result; the stable prefix stays byte-identical after a trim. → **T2.13**
+
 ### Phase 3 — New small UI (copy parts in)
 
 Each part is **previewed as standalone HTML → you approve → then it is integrated**.
@@ -697,7 +707,7 @@ Most of these come from things that really happened in v1. Each one says what to
 | TR11 | **Model randomness.** One run of a 4–9B model proves nothing. | Run each eval case N times (start with 5), with a fixed seed where possible. Report the mean and the spread. |
 | TR12 | **p95 hides freezes** (a v1 lesson). | Always report the max turn latency and event-loop lag, not only p95. |
 | TR13 | **Model quirks** (gemma empty completions, inline `<think>` leaks, tool JSON in odd shapes). | Port the v1 llama.cpp tests first (Test Reuse Map). Each quirk is a named test case. |
-| TR14 | **The context window fills silently.** History + recall + tool results go over the budget, and the model gets confused, not an error. | One budget function decides history, recall and tool-result sizes per turn. Test it at 100% full. |
+| TR14 | **The context window fills silently.** History + recall + tool results go over the budget, and the model gets confused, not an error. | One budget function decides history, recall and tool-result sizes per turn. Test it at 100% full. Step **S2.13** (added 2026-11-12). |
 
 ### Code traps
 
