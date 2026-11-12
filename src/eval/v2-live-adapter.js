@@ -21,8 +21,9 @@ import { MEMORY_TOOLS } from '../tools/memory-tools.js';
 import { makeToolCtx, runToolLoop } from '../tools/tool-loop.js';
 import { buildRecallBlock, createRecallSession } from '../context/recall-block.js';
 import { assembleUserTurn } from '../context/assemble-turn.js';
+import { buildSystem } from '../context/system-prompt.js';
 
-/** The fixed test system: the eval baseline. It equals buildSystem([]) (src/context/system-prompt.js, S2.10). */
+/** The old fixed test system: the eval `baseline` config. It equals buildSystem([]). The default is buildSystem() (S2.10, developer 2026-11-12). */
 export const TEST_SYSTEM = [
   'You are Aperio, a small local assistant that remembers.',
   'Answer briefly and honestly, in plain words.',
@@ -40,7 +41,7 @@ const FALLBACK_DIMS = 1024;
  *   deps?: { openStore?: Function, createEmbedder?: Function, startLlama?: Function,
  *            fetch?: typeof fetch, dims?: number, log?: { error: Function, warn: Function, info: Function } } }} opts
  */
-export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = true, system = TEST_SYSTEM, deps = {} }) {
+export function createV2LiveAdapter({ config, memoryTools = true, autoRecall = true, system = buildSystem(), deps = {} }) {
   const tools = memoryTools ? MEMORY_TOOLS : [];
   const log = deps.log ?? console;
   const open = deps.openStore ?? openStore;

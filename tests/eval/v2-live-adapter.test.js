@@ -247,6 +247,12 @@ describe('v2-live adapter: the stable prefix (A1 item 4, L-M22)', () => {
     }
   });
 
+  test('S2.10: the default system is buildSystem() (developer 2026-11-12)', async () => {
+    const { results, calls } = await threeTurns();
+    assert.equal(results[0].assembled.system, buildSystem());
+    assert.equal(calls[0].body.messages[0].content, buildSystem());
+  });
+
   test('TEST_SYSTEM tells the model to find an id before update / forget (S2.8 §2.6)', () => {
     assert.match(TEST_SYSTEM, /To change or forget a memory, find its id with recall or list first\./);
   });
