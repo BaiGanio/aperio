@@ -94,7 +94,7 @@
     "vmtest:windows": "bash vms/win/run.sh"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.308",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.322",
     "@anthropic-ai/sdk": "^1.1.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/transformers": "^4.2.0",
@@ -110,7 +110,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
-    "fast-xml-parser": "^5.11.0",
+    "fast-xml-parser": "^5.12.0",
     "gpt-tokenizer": "^4.1.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
@@ -125,7 +125,7 @@
     "pg": "^8.23.0",
     "pptxgenjs": "^4.0.1",
     "prismjs": "1.30.0",
-    "sanitize-html": "^2.17.7",
+    "sanitize-html": "^2.18.2",
     "sharp": "^0.35.5",
     "sqlite-vec": "^0.1.9",
     "tree-sitter-wasms": "^0.1.13",
